@@ -95,6 +95,7 @@
       case "started":
         return card(ev, "info", "Run started", (c) => {
           meta(c, ev.repo, "base " + String(ev.base || "").slice(0, 10), "head " + String(ev.head || "").slice(0, 10), "up to " + ev.max_iterations + " iterations");
+          if (ev.case_note) c.appendChild(el("p", "tl-text", String(ev.case_note)));
           c.appendChild(fold("Issue text", ev.issue));
         });
       case "proof_test":
@@ -202,7 +203,10 @@
       if (!res.ok) throw new Error("none");
       recorded = (await res.json()).events;
       loaded = true;
-      note.textContent = "A real run on a constructed demo (a room-booking module), not an upstream issue. The agent's fix passes its own tests but still merges back-to-back bookings.";
+      const started = recorded.find((ev) => ev.type === "started");
+      note.textContent = started && started.case_note
+        ? String(started.case_note)
+        : "A real run on a constructed demo (a room-booking module), not an upstream issue. The agent's fix passes its own tests but still merges back-to-back bookings.";
       showAll();
     } catch (_) {
       note.textContent = "No recorded fix loop run is installed on this server.";
