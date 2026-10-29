@@ -32,6 +32,9 @@ class ApiError(Exception):
         return {"error": {"code": self.code, "message": self.message, **self.extra}}
 
 
+# Nebius Token Factory answers HTTP 402 (credit_balance_exhausted) when the account is out of credits.
+CREDITS_REASON = "Live runs are paused: model credits exhausted. Showing saved receipts."
+
 _RULES = [
     ("Enter a public GitHub pull request URL", "bad_url", 400),
     ("does not close an issue in its repository", "no_closing_issue", 422),
@@ -46,6 +49,9 @@ _RULES = [
     ("rate limit or access policy", "github_rate_limited", 503),
     ("Could not reach the GitHub API", "github_unreachable", 502),
     ("NEBIUS_API_KEY is not configured", "live_disabled", 503),
+    ("HTTP 402", "credits_exhausted", 503),
+    ("credit_balance_exhausted", "credits_exhausted", 503),
+    ("credits exhausted", "credits_exhausted", 503),
     ("Nebius model request failed", "model_error", 502),
     ("no function in text", "model_bad_output", 502),
     ("oversized response", "github_error", 502),
@@ -63,6 +69,7 @@ _HUMAN = {
     "github_rate_limited": "GitHub rate-limited this server. Try again in a few minutes, or open a cached receipt.",
     "github_unreachable": "Could not reach the GitHub API. Try again shortly.",
     "live_disabled": "Live proof runs are not configured on this server. Cached receipts are still available.",
+    "credits_exhausted": CREDITS_REASON,
     "model_error": "The Nemotron model request on Nebius Token Factory failed. Nothing was proven; try again shortly.",
     "model_bad_output": "The model did not return a usable test function, so nothing was proven. Try again.",
     "github_error": "GitHub returned an unusable response.",
@@ -120,6 +127,7 @@ class Config:
         self.loop = os.environ.get("LATCH_LOOP", "1") != "0"
         self.loop_timeout = _env_int("LATCH_LOOP_TIMEOUT", 240)
         self.submit_rate = _env_int("LATCH_SUBMIT_RATE_PER_MIN", 20)
+        self.credit_pause_s = _env_int("LATCH_CREDIT_PAUSE_S", 600)  # live mode stays off this long after a 402
         for key, value in overrides.items():
             if not hasattr(self, key):
                 raise TypeError(f"unknown option: {key}")
@@ -235,6 +243,7 @@ class Service:
         self.jobs = collections.OrderedDict()
         self.queue = collections.deque()
         self.running = None
+        self.credits_paused_until = 0.0
         self.qcond = threading.Condition()
         if start_worker:
             threading.Thread(target=self._worker, daemon=True, name="latch-worker").start()
@@ -245,9 +254,18 @@ class Service:
             return {"enabled": False, "reason": "Live runs are switched off on this server (LATCH_LIVE=0). Cached receipts still work."}
         if not self.key_present():
             return {"enabled": False, "reason": "Live runs are not configured on this server. Cached receipts still work."}
+        if self.credits_paused():
+            return {"enabled": False, "reason": CREDITS_REASON}
         if self.cap.remaining() <= 0:
             return {"enabled": False, "reason": "The daily limit of live runs has been reached. Cached receipts still work; live runs reset at 00:00 UTC."}
         return {"enabled": True, "reason": None}
+
+    def credits_paused(self):
+        return self.clock() < self.credits_paused_until
+
+    def pause_for_credits(self):
+        """After an HTTP 402 serve saved receipts for a while instead of failing every judge's click."""
+        self.credits_paused_until = self.clock() + max(0, self.config.credit_pause_s)
 
     def sandbox_status(self):
         """What isolation this process really has, for the startup log. Never raises."""
@@ -268,6 +286,7 @@ class Service:
         return {
             "live": live["enabled"],
             "live_reason": live["reason"],
+            "live_paused_s": max(0, int(self.credits_paused_until - self.clock())) if self.credits_paused() else 0,
             "rate_limit": self.config.rate_limit,
             "rate_window_s": self.config.rate_window,
             "daily_remaining": self.cap.remaining() if self.config.live else 0,
@@ -451,6 +470,8 @@ class Service:
                 job = self.queue.popleft()
                 self.running = job
             try:
+                if self.credits_paused():  # queued before the 402 landed: do not spend another failing call
+                    raise ApiError("credits_exhausted", 503, CREDITS_REASON)
                 (self._execute_loop if job.kind == "loop" else self._execute)(job)
             except Exception as error:  # never let the worker die
                 self._fail(job, error)
@@ -460,6 +481,8 @@ class Service:
 
     def _fail(self, job, error):
         problem = classify(error)
+        if problem.code == "credits_exhausted":
+            self.pause_for_credits()
         job.error = problem
         job.emit("error", problem.payload()["error"])
         job.finish("error")
@@ -557,6 +580,9 @@ class Service:
             job.emit("done", {"verdict": final["type"]})
             return job.finish("done")
         message = (final or {}).get("reason") or "The fix loop stopped without a verdict."
+        problem = classify(RuntimeError(message))
+        if problem.code == "credits_exhausted":
+            return self._fail(job, problem)
         code = "model_error" if "Nebius" in message or "API" in message else "loop_failed"
         self._fail(job, ApiError(code, 502, f"The fix loop stopped without a verdict: {message}"[:400]))
 
