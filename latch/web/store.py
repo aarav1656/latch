@@ -1,0 +1,156 @@
+"""On-disk receipt cache for the hosted app (stdlib only).
+
+Receipts are stored as envelopes: {"receipt": <prove.py receipt>, "meta": {...}}.
+They are keyed by repo + base SHA + head SHA, with a per-PR pointer to the
+newest run for permalinks. Built-in seeds (the recorded Click run) are served
+when nothing newer is on disk.
+"""
+
+import hashlib
+import json
+import os
+import tempfile
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
+
+CLICK_PR_URL = "https://github.com/pallets/click/pull/3299"
+CLICK_ENRICHMENT = {
+    "pull_request_url": CLICK_PR_URL,
+    "pull_request_title": "Fix speculative empty string check",
+    "issue_url": "https://github.com/pallets/click/issues/3298",
+    "issue_title": "semver.Version as default causing an error",
+    "base_branch": "stable",
+    "head_branch": "fix-default-eq-check",
+}
+
+
+def utc_iso(timestamp=None):
+    moment = datetime.fromtimestamp(timestamp, timezone.utc) if timestamp is not None else datetime.now(timezone.utc)
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _digest(value):
+    return hashlib.sha256(value.lower().encode()).hexdigest()[:40]
+
+
+def receipt_key(repo_full_name, base, head):
+    return _digest(f"{repo_full_name}@{base}@{head}")
+
+
+def pr_key(repo_full_name, number):
+    return _digest(f"{repo_full_name}#{int(number)}")
+
+
+def explain(receipt):
+    """Human reason a receipt is not proven (None when it is)."""
+    if receipt.get("proven") is True:
+        return None
+    base = receipt.get("base_result") or {}
+    head = receipt.get("head_result") or {}
+    if base.get("returncode") == 0:
+        return "The generated test passed on the buggy base commit, so it does not reproduce the reported issue."
+    if isinstance(base.get("returncode"), int) and base["returncode"] < 0:
+        return "The test process was killed by the sandbox on the base commit (resource or time limit)."
+    if not receipt.get("base_failure_is_expected"):
+        return (
+            "The generated test failed on the base commit, but not with an assertion or the issue's "
+            "unexpected-operation failure (for example an import error or crash), so it is not evidence of the reported bug."
+        )
+    if head.get("returncode") != 0:
+        return "The generated test still fails on the pull request head, so the patch does not satisfy the issue's expected behavior."
+    return "The generated test did not show the issue failing on base and passing on head."
+
+
+def make_envelope(receipt, source, started=None, finished=None, extra=None):
+    meta = {
+        "source": source,
+        "verdict": "proven" if receipt.get("proven") is True else "not_proven",
+        "why_not_proven": explain(receipt),
+        "created_at": utc_iso(started),
+        "finished_at": utc_iso(finished) if finished is not None else None,
+        "duration_s": round(finished - started, 1) if started is not None and finished is not None else None,
+    }
+    if extra:
+        meta.update(extra)
+    return {"receipt": receipt, "meta": meta}
+
+
+class Store:
+    def __init__(self, root, seed_receipt_path=None):
+        self.root = Path(root)
+        (self.root / "receipts").mkdir(parents=True, exist_ok=True)
+        (self.root / "pr").mkdir(parents=True, exist_ok=True)
+        self.lock = threading.Lock()
+        self.seeds = {}
+        self.seed_prs = {}
+        if seed_receipt_path:
+            self._load_click_seed(Path(seed_receipt_path))
+
+    # -- seeds ---------------------------------------------------------
+    def _load_click_seed(self, path):
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+            mtime = path.stat().st_mtime
+        except (OSError, ValueError):
+            return
+        receipt.update({k: v for k, v in CLICK_ENRICHMENT.items() if k not in receipt})
+        envelope = make_envelope(
+            receipt,
+            "recorded",
+            extra={
+                "created_at": utc_iso(mtime),
+                "recorded_run": "latch/runs/click-3298.json",
+                "note": "Recorded run of the same pipeline. Press Run live to reproduce it.",
+                "enriched_fields": sorted(CLICK_ENRICHMENT),
+                "repo": "pallets/click",
+                "number": 3299,
+            },
+        )
+        self.seeds[receipt_key("pallets/click", receipt["base"], receipt["head"])] = envelope
+        self.seed_prs[pr_key("pallets/click", 3299)] = envelope
+
+    @property
+    def example(self):
+        return next(iter(self.seed_prs.values()), None)
+
+    # -- disk ------------------------------------------------------------
+    def _read(self, path):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def _write(self, path, payload):
+        fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2)
+                handle.write("\n")
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+
+    def get(self, repo_full_name, base, head):
+        key = receipt_key(repo_full_name, base, head)
+        found = self._read(self.root / "receipts" / f"{key}.json")
+        return found or self.seeds.get(key)
+
+    def get_pr(self, repo_full_name, number):
+        key = pr_key(repo_full_name, number)
+        pointer = self._read(self.root / "pr" / f"{key}.json")
+        if pointer:
+            found = self._read(self.root / "receipts" / f"{pointer['key']}.json")
+            if found:
+                return found
+        return self.seed_prs.get(key)
+
+    def put(self, repo_full_name, number, envelope):
+        receipt = envelope["receipt"]
+        key = receipt_key(repo_full_name, receipt["base"], receipt["head"])
+        envelope["meta"].update({"repo": repo_full_name, "number": int(number)})
+        with self.lock:
+            self._write(self.root / "receipts" / f"{key}.json", envelope)
+            self._write(self.root / "pr" / f"{pr_key(repo_full_name, number)}.json", {"key": key, "updated": utc_iso()})
+        return key
