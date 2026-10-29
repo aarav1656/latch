@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .sandbox import SandboxConfig, SandboxError, SandboxRunner, SandboxTimeout
+from .sandbox import SandboxConfig, SandboxError, net_namespace_available, SandboxRunner, SandboxTimeout
 from .store import make_envelope, utc_iso
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -249,6 +249,20 @@ class Service:
             return {"enabled": False, "reason": "The daily limit of live runs has been reached. Cached receipts still work; live runs reset at 00:00 UTC."}
         return {"enabled": True, "reason": None}
 
+    def sandbox_status(self):
+        """What isolation this process really has, for the startup log. Never raises."""
+        want = self.sandbox_config.net_isolation == "auto"
+        have = net_namespace_available() if want else False
+        description = "stripped env, rlimits, process-group kill" + (", network namespace for the test phase" if have else "")
+        warning = None
+        if want and not have:
+            warning = (
+                "network namespace isolation is unavailable here (unshare --net --map-root-user failed; "
+                "the container runtime blocks user namespaces). Falling back to env stripping, rlimits and a "
+                "process-group kill; PR test code can reach the network. Set LATCH_SANDBOX_NET=off to silence this."
+            )
+        return {"network_isolated": have, "description": description, "warning": warning}
+
     def public_config(self):
         live = self.live_state()
         return {
@@ -312,7 +326,8 @@ class Service:
             problem = classify(error)
             fallback = self.store.get_pr(f"{owner}/{name}", number) if problem.code in ("github_rate_limited", "github_unreachable") else None
             if fallback:
-                return self._cached_response(fallback, "GitHub could not be reached, so this is the latest saved receipt.")
+                why = "GitHub rate-limited this server" if problem.code == "github_rate_limited" else "GitHub could not be reached"
+                return self._cached_response(fallback, f"{why}, so this is the latest saved receipt.")
             raise problem
         cached = self.store.get(info["repo"], info["base"], info["head"])
         if cached and not force:
