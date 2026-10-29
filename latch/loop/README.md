@@ -41,9 +41,15 @@ python3 -m latch.loop demo \
 ```
 
 stdout is JSONL events, stderr a short human trace, exit status `0` gate_open, `1` gave_up, `2` error
-(fail closed), `64` bad arguments. Measured wall time of the second command: 28.6 s and 38.5 s
-(two runs, includes every API call and all pytest runs). Saved real run: `latch/runs/loop-demo.json`
-and `latch/runs/loop-demo-events.jsonl`.
+(fail closed), `64` bad arguments. Measured wall time of the second command, 6 consecutive runs from a clean `git archive` of commit `5603db2`
+in `/tmp` (includes every API call and all pytest runs, `--prepare` excluded): 19.7, 14.9, 15.8, 17.2, 25.3 and
+14.7 s, i.e. 14.7 to 25.3 s; all 6 ended `gate_open` after one fix iteration. This is Token Factory latency on
+one day and varies (an earlier pre-fix run took 38.5 s), so treat it as a range, not a guarantee. Saved run:
+`latch/runs/loop-demo.json` and `latch/runs/loop-demo-events.jsonl` (run 3 of the 6).
+
+Pytest runs use `COLUMNS=200`, `-rf --tb=short`, and the proof test's failure is classified from its failure section,
+so long generated test names no longer break the base-red check. Model-written code runs under `setrlimit`
+(CPU 240 s, file size 256 MB, no core dumps; address space and process count on Linux only) plus a 300 s timeout.
 
 Your own repo:
 
