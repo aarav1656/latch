@@ -110,9 +110,15 @@ What it does **not** do (hooks still needed in `prove.py` for stronger isolation
   right behind a proxy that appends the peer address; if the host passes client headers through
   unchanged, set `LATCH_TRUST_PROXY=0`.
 * The Fix loop runs model-written code under a stripped environment but without rlimits.
-* `unshare --net` availability on Nebius Serverless is unknown; when it is missing the test phase
-  runs with network access and the app says nothing different, so check `/api/config` and the
-  startup log if that matters to you.
+* `unshare --net --map-root-user` is **blocked inside a default Docker container** (Docker's seccomp
+  profile denies `unshare`/`clone` with `CLONE_NEWUSER`). Tested on Colima: it fails as uid 10001 and as
+  root. It works only with `--security-opt seccomp=unconfined` or `--cap-add SYS_ADMIN`, and never under
+  QEMU amd64 emulation (`Invalid argument`). Nebius Serverless AI endpoint settings (image, ports, env,
+  secrets, auth, platform) do not expose seccomp, capabilities or privileged mode, so expect no network
+  namespace there. The server does not crash: at startup it logs `WARNING: network namespace isolation is
+  unavailable here ...` and runs with the stripped env, rlimits and process-group kill; PR test code can
+  then reach the network (it holds no secret: the env is stripped and the server process is non-dumpable).
+  Set `LATCH_SANDBOX_NET=off` to silence the warning.
 * A stronger design needs `prove.py` to accept a per-phase runner (setup and test separately) and a
   read-only snapshot, so a VM-backed runner can replace `SandboxRunner` unchanged.
 
@@ -145,6 +151,17 @@ Build the image yourself, from the repo root:
 docker buildx build --platform linux/amd64 -f latch/web/Dockerfile -t latch-web .
 docker run --rm -p 8080:8080 -e NEBIUS_API_KEY -e GITHUB_TOKEN latch-web
 ```
+
+Tested locally (Colima, amd64 under emulation, image about 415 MB on disk, 103 MB compressed): `/healthz`,
+the cached first screen, a fail-closed daily cap, the per-IP limit (429 with `Retry-After`), bad URL,
+not found, and "no linked issue" errors, and the sandboxed proof of the Click PR. Startup under emulation
+takes about 15 s; a live Click run took about 90 s there (native amd64 is much faster).
+
+Without `GITHUB_TOKEN`, GitHub allows 60 API calls per hour per egress IP, shared by every visitor and
+every restart. When it is exhausted the app falls back to the saved receipt ("GitHub rate-limited this
+server") and refuses new PRs. Set `GITHUB_TOKEN` on any public deployment.
+
+Offline image: `docker save latch-web -o latch-web-amd64.tar`, then `docker load -i latch-web-amd64.tar`.
 
 Disk note: keep Docker/Colima data and image tarballs on the external drive
 (`/mnt/data/nvdia/latch/`), not the internal disk. exFAT: no repos or venvs there.
