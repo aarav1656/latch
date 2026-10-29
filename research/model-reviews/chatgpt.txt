@@ -1,0 +1,15 @@
+Require **mutation-sensitive, input-derived test validation**:
+
+1. Parse the returned function’s AST and extract its actual inputs and logic.
+2. Generate test inputs independently of the model’s output.
+3. Include the boundary case `score == limit`.
+4. Assert the intended `>=` semantics: equality must admit.
+5. Run the generated test against the flipped implementation.
+6. Require that run to fail.
+7. Restore the original implementation.
+8. Run the identical test against the restored implementation.
+9. Require that run to pass.
+10. Verify the test’s failure is caused by the flipped comparison, not an unrelated error.
+11. Reject constant-only assertions and tests that never invoke the target function with the boundary case.
+12. Count success only when the same test demonstrably kills the mutation and passes on restoration.
+ASK:0

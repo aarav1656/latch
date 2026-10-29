@@ -1,0 +1,4 @@
+[qwen38] starting proxy on :8787
+
+[proxy error] upstream 429: Alibaba risk control tripped (request too large or too frequent). Lower QWEN_PROXY_CHAR_LIMIT or slow down. If it persists, open chat.qwen.ai in the browser profile and clear the captcha.
+QWEN:0
