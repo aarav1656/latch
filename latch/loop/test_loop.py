@@ -1,13 +1,15 @@
 """Offline tests: the model is a stub, git and pytest are real.
 
-Run from the repo root:  python3 -m unittest latch.loop.test_loop -v
+Run from the repo root:  python3 -m unittest latch.loop.test_loop -v   or   python -m pytest latch
 """
 
 import io
 import json
 import os
 import re
+import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -16,6 +18,31 @@ from pathlib import Path
 from latch.loop import ALLOWED_MODELS, DEFAULT_MODEL, LoopError, run_loop
 from latch.loop import core
 from latch.loop.cli import main as cli_main
+
+_SHIM = tempfile.TemporaryDirectory(prefix="latch-test-shim-")
+_SAVED_ENV = {}
+
+
+def setUpModule():
+    """Hermetic tooling: `python3` on PATH is the interpreter running the tests (it has pytest), whatever the
+    container or venv looks like, and the demo repo cache lives in a temp dir, not in ~/.cache."""
+    shim = Path(_SHIM.name) / "python3"
+    shim.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} \"$@\"\n")
+    shim.chmod(0o755)
+    for name in ("PATH", "LATCH_LOOP_CACHE"):
+        _SAVED_ENV[name] = os.environ.get(name)
+    os.environ["PATH"] = _SHIM.name + os.pathsep + os.environ.get("PATH", "")
+    os.environ["LATCH_LOOP_CACHE"] = str(Path(_SHIM.name) / "cache")
+
+
+def tearDownModule():
+    for name, value in _SAVED_ENV.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+    _SHIM.cleanup()
+
 
 DEMO = Path(__file__).resolve().parent / "demo"
 ISSUE = (DEMO / "issue.txt").read_text()
@@ -238,6 +265,79 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(self.types(), ["started", "error"])
         self.assertIn("HTTP 429", self.events[-1]["reason"])
         self.assertEqual(json.loads(Path(self.events[-1]["receipt_path"]).read_text())["verdict"], "error")
+
+    def test_vacuous_proof_test_is_retried_once_then_used(self):
+        class Vacuous(Stub):
+            first = True
+
+            def __call__(self, key, user, model=None, system=None, max_tokens=None, prose=False):
+                if self.first and "Write one self-contained" in (system or ""):
+                    self.first = False
+                    self.calls.append({"model": model, "user": user, "key": key})
+                    return 200, "def test_vacuous():\n    ...\n", "cmpl-vac"
+                return super().__call__(key, user, model=model, system=system, max_tokens=max_tokens, prose=prose)
+
+        stub = Vacuous(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        receipt = self.run_it(stub)
+        self.assertEqual(receipt["verdict"], "gate_open")
+        attempts = receipt["proof_test_attempts"]
+        self.assertEqual([a["valid"] for a in attempts], [False, True])
+        self.assertEqual(attempts[0]["completion_id"], "cmpl-vac")
+        self.assertIn("placeholder", attempts[0]["rejection"])
+        self.assertIn("REJECTED", stub.calls[1]["user"])
+        self.assertEqual(receipt["proof_test"]["completion_id"], attempts[1]["completion_id"])
+        self.assertEqual(self.types().count("proof_test_attempt"), 1)  # only the rejection is an extra event
+
+    def test_vacuous_twice_gives_up_without_patching(self):
+        stub = Stub(test="def test_nothing():\n    pass\n", fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        receipt = self.run_it(stub)
+        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertIn("vacuous twice", receipt["reason"])
+        self.assertEqual(len(receipt["proof_test_attempts"]), 2)
+        self.assertEqual(receipt["iterations"], [])
+        self.assertEqual(len(stub.calls), 2)  # two generations, no triage, no patch
+        self.assertIsNone(receipt["initial"])
+
+    def test_provided_vacuous_proof_test_is_rejected(self):
+        stub = Stub()
+        receipt = self.run_it(stub, proof_test="def test_x():\n    ...\n")
+        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(stub.calls, [])
+
+    def test_transient_model_errors_are_retried_and_logged_in_the_receipt(self):
+        from unittest import mock
+        real = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        calls = {"n": 0}
+
+        def fake_call_model(key, user, model=None, system=None, max_tokens=None, prose=False, on_retry=None, **kw):
+            calls["n"] += 1
+            if calls["n"] == 2:  # the triage call: the connection drops once, then the retry succeeds
+                on_retry({"attempt": 1, "attempts": 3, "status": None,
+                          "error": "RemoteDisconnected: Remote end closed connection", "will_retry": True, "delay": 1.5})
+            return real(key, user, model=model, system=system, max_tokens=max_tokens, prose=prose)
+
+        with mock.patch.object(core, "call_model", fake_call_model), mock.patch.object(core, "load_key", lambda: "k"):
+            receipt = run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append,
+                               receipt_path=str(Path(self._tmp.name) / "r.json"))
+        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["model_retries"][0]["error"], "RemoteDisconnected: Remote end closed connection")
+        self.assertIn("model_retry", self.types())
+
+    def test_exhausted_retries_fail_closed_with_an_error(self):
+        from unittest import mock
+
+        def always_down(key, user, model=None, system=None, max_tokens=None, prose=False, on_retry=None, **kw):
+            for n in (1, 2, 3):
+                on_retry({"attempt": n, "attempts": 3, "status": None, "error": "ConnectionResetError: x",
+                          "will_retry": n < 3, "delay": 1.0})
+            return None, None, None
+
+        with mock.patch.object(core, "call_model", always_down), mock.patch.object(core, "load_key", lambda: "k"):
+            with self.assertRaises(LoopError):
+                run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append,
+                         receipt_path=str(Path(self._tmp.name) / "r.json"))
+        self.assertEqual(self.types().count("model_retry"), 3)
+        self.assertEqual(self.events[-1]["type"], "error")
 
     def test_missing_key_is_an_error(self):
         saved = core.load_key
