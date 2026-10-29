@@ -1,12 +1,16 @@
+import http.client
+import io
 import json
 import subprocess
+import urllib.error
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from latch.prove import archive, expected_base_failure, limit_resources, proven, prove, run_test
+from latch.prove import (ModelRequestError, archive, expected_base_failure, generate_proof_test, limit_resources,
+                         proven, prove, run_test, validate_proof_test)
 
 
 class ProofClassifierTests(unittest.TestCase):
@@ -158,6 +162,138 @@ class ProveRunnerTests(unittest.TestCase):
         self.assertNotIn("test_runner", result)
         self.assertEqual(default_run.call_count, 2)
         self.assertTrue(all(call.kwargs == {"isolate": False} for call in default_run.call_args_list))
+
+
+class ValidatorTests(unittest.TestCase):
+    def check(self, source):
+        return validate_proof_test(source)
+
+    def test_real_tests_pass(self):
+        self.assertIsNone(self.check("def test_a():\n    from m import f\n    assert f(1) == 2\n"))
+        self.assertIsNone(self.check("def test_a():\n    import pytest\n    with pytest.raises(KeyError):\n        {}['x']\n"))
+        self.assertIsNone(self.check(
+            "def test_a():\n    import pytest\n    try:\n        f()\n    except Exception as e:\n"
+            "        pytest.fail('Latch expected the issue operation to succeed: %r' % e)\n"))
+        self.assertIsNone(self.check("def test_a():\n    raise AssertionError('bad')\n"))
+        self.assertIsNone(self.check('def test_a():\n    """doc"""\n    from pytest import raises\n    with raises(ValueError):\n        int("x")\n'))
+
+    def test_placeholder_bodies_are_rejected(self):
+        for body in ("    ...\n", "    pass\n", "    ...\n    pass\n", '    """only a docstring"""\n',
+                     '    """doc"""\n    ...\n'):
+            reason = self.check("def test_a():\n" + body)
+            self.assertIsNotNone(reason, body)
+            self.assertRegex(reason, "empty|placeholder")
+
+    def test_tests_that_cannot_fail_are_rejected(self):
+        self.assertIn("no real check", self.check("def test_a():\n    from m import f\n    f(1)\n"))
+        self.assertIn("no real check", self.check("def test_a():\n    assert True\n"))
+        self.assertIn("no real check", self.check("def test_a():\n    assert 1\n"))
+        self.assertIn("no real check", self.check("def test_a():\n    x = 1\n    print(x)\n"))
+
+    def test_unparseable_or_missing_function_is_rejected(self):
+        self.assertIn("not valid Python", self.check("def test_a(:\n    assert 1 == 1\n"))
+        self.assertIn("no top-level test_", self.check("def helper():\n    assert 1 == 2\n"))
+
+
+class GenerationRetryTests(unittest.TestCase):
+    GOOD = "def test_x():\n    assert 1 + 1 == 3\n"
+
+    def scripted(self, *replies):
+        calls = []
+        queue = list(replies)
+
+        def ask(key, user, model=None, system=None, max_tokens=None):
+            calls.append(user)
+            content = queue.pop(0)
+            return (200, content, f"cmpl-{len(calls)}") if content is not None else (503, None, None)
+
+        return ask, calls
+
+    def test_vacuous_then_valid_retries_once_with_the_reason(self):
+        ask, calls = self.scripted("def test_x():\n    ...\n", self.GOOD)
+        function, attempts = generate_proof_test(ask, "k", "PROMPT", "S", "m", 100)
+        self.assertEqual(function.strip(), self.GOOD.strip())
+        self.assertEqual([a["valid"] for a in attempts], [False, True])
+        self.assertEqual([a["completion_id"] for a in attempts], ["cmpl-1", "cmpl-2"])
+        self.assertIn("placeholder", attempts[0]["rejection"])
+        self.assertEqual(calls[0], "PROMPT")
+        self.assertIn("REJECTED", calls[1])
+        self.assertIn("placeholder", calls[1])
+
+    def test_vacuous_twice_fails_closed_after_exactly_two_calls(self):
+        ask, calls = self.scripted("def test_x():\n    pass\n", "def test_x():\n    assert True\n", self.GOOD)
+        function, attempts = generate_proof_test(ask, "k", "P", "S", "m", 100)
+        self.assertIsNone(function)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual([a["valid"] for a in attempts], [False, False])
+
+    def test_model_failure_raises(self):
+        ask, _ = self.scripted(None)
+        with self.assertRaises(ModelRequestError) as caught:
+            generate_proof_test(ask, "k", "P", "S", "m", 100)
+        self.assertEqual(caught.exception.status, 503)
+
+    def test_prove_records_both_attempts_and_fails_closed_without_running_tests(self):
+        replies = iter([(200, "def test_x():\n    ...\n", "c1"), (200, "def test_x():\n    pass\n", "c2")])
+        with tempfile.TemporaryDirectory() as temp:
+            repo = ProveRunnerTests().make_repo(temp)
+            receipt = Path(temp) / "r.json"
+            with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
+                "latch.prove.call_model", side_effect=lambda *a, **k: next(replies)
+            ), mock.patch("latch.prove.run_test", side_effect=AssertionError("nothing may run")):
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt)
+            saved = json.loads(receipt.read_text())
+        self.assertFalse(result["proven"])
+        self.assertEqual(len(saved["test_attempts"]), 2)
+        self.assertIn("rejected as vacuous twice", saved["why_not_proven"])
+        self.assertIsNone(saved["base_result"])
+
+
+class CallModelRetryTests(unittest.TestCase):
+    def reply(self, text="hi"):
+        body = json.dumps({"id": "cmpl-ok", "choices": [{"message": {"content": text}}]}).encode()
+        response = mock.MagicMock()
+        response.status = 200
+        response.read.return_value = body
+        response.__enter__.return_value = response
+        return response
+
+    def call(self, effects, **kw):
+        from latch import run
+        sleeps, retries = [], []
+        with mock.patch("latch.run.urllib.request.urlopen", side_effect=effects) as opened:
+            out = run.call_model("k", "u", on_retry=retries.append, sleep=sleeps.append, jitter=lambda: 0.5, **kw)
+        return out, sleeps, retries, opened
+
+    def test_remote_disconnected_then_ok_retries_with_backoff(self):
+        out, sleeps, retries, opened = self.call([
+            http.client.RemoteDisconnected("Remote end closed connection without response"),
+            ConnectionResetError("reset"),
+            self.reply(),
+        ])
+        self.assertEqual(out, (200, "hi", "cmpl-ok"))
+        self.assertEqual(sleeps, [1.5, 2.5])  # 1*2^0 + jitter, 1*2^1 + jitter
+        self.assertEqual([r["will_retry"] for r in retries], [True, True])
+        self.assertIn("RemoteDisconnected", retries[0]["error"])
+        self.assertEqual(opened.call_args.kwargs["timeout"], 180)
+
+    def test_status_429_and_5xx_are_retried_and_fail_closed_after_three_attempts(self):
+        def http_error(code):
+            return urllib.error.HTTPError("u", code, "x", {}, io.BytesIO(b""))
+        out, sleeps, retries, opened = self.call([http_error(429), http_error(502), http_error(503)])
+        self.assertEqual(out, (503, None, None))
+        self.assertEqual(opened.call_count, 3)
+        self.assertEqual(len(sleeps), 2)
+        self.assertEqual([r["will_retry"] for r in retries], [True, True, False])
+
+    def test_timeout_is_transient_but_400_is_not(self):
+        out, _, retries, opened = self.call([TimeoutError("timed out"), self.reply("x")], timeout=7)
+        self.assertEqual(out[0], 200)
+        self.assertEqual(len(retries), 1)
+        self.assertEqual(opened.call_args.kwargs["timeout"], 7)
+        out, sleeps, retries, opened = self.call([urllib.error.HTTPError("u", 400, "bad", {}, io.BytesIO(b""))])
+        self.assertEqual(out, (400, None, None))
+        self.assertEqual((sleeps, opened.call_count), ([], 1))
 
 
 if __name__ == "__main__":

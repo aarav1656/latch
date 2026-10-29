@@ -1,6 +1,8 @@
+import http.client
 import importlib.util
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -83,7 +85,27 @@ def message_text(message, prose=False):
     return f"{reasoning}\n{content}".strip()
 
 
-def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=False):
+RETRY_ATTEMPTS = 3
+RETRY_BASE_DELAY = 1.0
+CALL_TIMEOUT = 180
+
+
+def _transient_status(status):
+    return status is None or status == 429 or status >= 500
+
+
+def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=False,
+               attempts=RETRY_ATTEMPTS, timeout=CALL_TIMEOUT, on_retry=None,
+               sleep=None, jitter=None):
+    """One chat completion with retry. Returns (status, content, completion_id); (status, None, None) on failure.
+
+    Transient failures (connection reset or dropped by the server, timeouts, URLError, HTTP 429 and 5xx)
+    are retried up to `attempts` times in total with exponential backoff (base 1 s, doubling) plus up to
+    1 s of jitter; every call has a per-attempt `timeout`. Other HTTP errors are not retried. When the
+    attempts run out the failure is returned, never raised, so callers fail closed.
+    on_retry(info) is called after every failed attempt with
+    {attempt, attempts, status, error, will_retry, delay} so callers can log each retry.
+    """
     body = json.dumps(
         {
             "model": model,
@@ -96,29 +118,36 @@ def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=Fal
         }
     ).encode()
     status = None
-    for attempt in range(2):
+    for attempt in range(1, max(1, attempts) + 1):
         req = urllib.request.Request(
             URL,
             data=body,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         )
+        error = None
         try:
-            with urllib.request.urlopen(req, timeout=180) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 status = resp.status
                 payload = json.loads(resp.read())
                 message = payload["choices"][0]["message"]
                 content = message_text(message, prose=prose)
                 return status, content, payload.get("id")
         except urllib.error.HTTPError as e:
-            status = e.code
-            if status in (429, 503) and attempt == 0:
-                time.sleep(3)
-                continue
+            status, error = e.code, f"HTTP {e.code}"
+        except (OSError, http.client.HTTPException) as e:
+            # URLError, socket timeouts, ConnectionResetError, RemoteDisconnected (http.client), ...
+            status, error = None, f"{type(e).__name__}: {e}"[:300]
+        except (ValueError, KeyError, IndexError, TypeError) as e:
+            # truncated or malformed body (e.g. the connection died mid-response)
+            status, error = None, f"bad response: {type(e).__name__}: {e}"[:300]
+        will_retry = _transient_status(status) and attempt < attempts
+        delay = RETRY_BASE_DELAY * 2 ** (attempt - 1) + (jitter or random.random)() if will_retry else 0
+        if on_retry:
+            on_retry({"attempt": attempt, "attempts": attempts, "status": status, "error": error,
+                      "will_retry": will_retry, "delay": round(delay, 2)})
+        if not will_retry:
             return status, None, None
-        except TimeoutError:
-            return None, None, None
-        except urllib.error.URLError:
-            return None, None, None
+        (sleep or time.sleep)(delay)
     return status, None, None
 
 

@@ -1,4 +1,5 @@
 import argparse
+import ast
 import json
 import os
 import re
@@ -7,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 from .run import MODEL, call_model, load_key
@@ -39,6 +41,104 @@ def expected_base_failure(base_result, test_name):
     if any(re.match(r"E\s+(AssertionError\b|assert\b)", line) for line in errors):
         return "assertion"
     return None
+
+
+_FAIL_CALLS = {"raises", "fail", "warns"}
+
+
+def _is_failure_call(node):
+    """pytest.raises(...) / pytest.fail(...) / pytest.warns(...), also when imported by name."""
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return func.attr in _FAIL_CALLS and isinstance(func.value, ast.Name) and func.value.id == "pytest"
+    return isinstance(func, ast.Name) and func.id in _FAIL_CALLS
+
+
+def _constant_truthy(node):
+    return isinstance(node, ast.Constant) and bool(node.value)
+
+
+def validate_proof_test(source):
+    """Static check of a generated proof test. Returns None when it can judge a fix, else the rejection reason.
+
+    A test passes this check only if it has a real body and can actually fail on the issue: at least one
+    `assert` that is not a constant truth (`assert True`), a `pytest.raises` / `pytest.warns` block, a
+    `pytest.fail(...)` call (the explicit unexpected-operation failure), or `raise AssertionError`.
+    An empty body, `...` or `pass` only, is rejected: it passes on any code, so it proves nothing.
+    """
+    try:
+        tree = ast.parse(textwrap.dedent(source))
+    except SyntaxError as error:
+        return f"the test is not valid Python ({error.msg}, line {error.lineno})"
+    functions = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                 and n.name.startswith("test_")]
+    if not functions:
+        return "no top-level test_ function"
+    function = functions[0]
+    body = list(function.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
+            and isinstance(body[0].value.value, str):
+        body = body[1:]  # docstring
+    if not body:
+        return "the test body is empty"
+    if all(isinstance(n, ast.Pass) or (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)
+                                      and n.value.value is Ellipsis) for n in body):
+        return "the test body is only `...` or `pass`, a placeholder that passes on any code"
+    for node in ast.walk(function):
+        if isinstance(node, ast.Assert) and not _constant_truthy(node.test):
+            return None
+        if _is_failure_call(node):
+            return None
+        if isinstance(node, ast.Raise) and node.exc is not None:
+            target = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+            if isinstance(target, ast.Name) and target.id == "AssertionError":
+                return None
+    return ("the test has no real check: it needs an `assert` on the observable result (not `assert True`), "
+            "a `pytest.raises` block, or a `pytest.fail` call, so it cannot fail on the bug")
+
+
+class ModelRequestError(RuntimeError):
+    def __init__(self, what, status, attempts):
+        super().__init__(f"{what} request failed: HTTP {status}")
+        self.status, self.attempts = status, attempts
+
+
+def _stricter(prompt, reason, previous):
+    return (
+        f"{prompt}\n\nYOUR PREVIOUS ANSWER WAS REJECTED BEFORE IT WAS RUN: {reason}.\n"
+        f"Previous answer:\n{previous[:3000]}\n\n"
+        "Write a different test now. Its body must perform the issue's operation and contain at least one real "
+        "`assert` on the observable result (never `assert True`, `...` or `pass`), or `with pytest.raises(...)`, "
+        "or a `pytest.fail(...)` call in the branch that catches the operation's exception. No placeholders, no prose."
+    )
+
+
+def generate_proof_test(ask, key, prompt, system, model, max_tokens, what="Nebius test-generation"):
+    """Ask the model for a proof test; reject vacuous ones; retry once with a stricter prompt.
+
+    `ask` has the latch.run.call_model signature. Returns (function_source_or_None, attempts). Every attempt is
+    recorded as {attempt, completion_id, valid, rejection, source}; the function is None when both attempts were
+    rejected (the caller fails closed). Raises ModelRequestError when the model call itself fails.
+    """
+    attempts = []
+    user = prompt
+    for number in (1, 2):
+        status, content, completion_id = ask(key, user, model=model, system=system, max_tokens=max_tokens)
+        if status != 200 or not content:
+            raise ModelRequestError(what, status, attempts)
+        try:
+            function = extract_test_function(content)
+            reason = validate_proof_test(function)
+        except ValueError:
+            function, reason = None, "the reply contained no test_ function"
+        attempts.append({"attempt": number, "completion_id": completion_id, "valid": reason is None,
+                         "rejection": reason, "source": (function or content)[:4000]})
+        if reason is None:
+            return function, attempts
+        user = _stricter(prompt, reason, function or content)
+    return None, attempts
 
 
 # Every pytest run of proof tests / suites uses the same env so output does not depend on the terminal.
@@ -191,21 +291,40 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         "fixed head revision. Do not expect the bug as correct behavior or test the diff mechanically.\n\n"
         f"Issue report:\n{issue.strip()}\n\nPython diff:\n{diff.stdout}"
     )
-    status, content, completion_id = call_model(
-        key,
-        prompt,
-        model=MODEL,
-        system=(
-            "Write one self-contained Python pytest function named test_... that asserts the "
-            "issue's expected behavior, using actual issue-named library types rather than "
-            "stand-ins. If the operation raises, catch it and call pytest.fail with a message "
-            "starting exactly 'Latch expected the issue operation to succeed:'. It must fail "
-            "on the bug and pass on the fix. Put imports inside it. Output no prose."
-        ),
+    retries = []
+    system = (
+        "Write one self-contained Python pytest function named test_... that asserts the "
+        "issue's expected behavior, using actual issue-named library types rather than "
+        "stand-ins. If the operation raises, catch it and call pytest.fail with a message "
+        "starting exactly 'Latch expected the issue operation to succeed:'. It must fail "
+        "on the bug and pass on the fix. Put imports inside it. Output no prose."
     )
-    if status != 200 or not content:
-        raise RuntimeError(f"Nebius model request failed: HTTP {status}")
-    function = extract_test_function(content)
+
+    def ask(*args, **kwargs):
+        return call_model(*args, on_retry=retries.append, **kwargs)
+
+    try:
+        function, test_attempts = generate_proof_test(ask, key, prompt, system, MODEL, 2048)
+    except ModelRequestError as error:
+        raise RuntimeError(f"Nebius model request failed: HTTP {error.status}") from None
+    if function is None:
+        # Fail closed: both generations were vacuous, so nothing was run and nothing is proven.
+        result = {
+            "repo": repo.name, "base": base_commit, "head": head_commit, "issue": issue.strip(),
+            "test_command": shlex.split(test_command), "model": MODEL,
+            "completion_id": test_attempts[-1]["completion_id"], "test": None,
+            "base_result": None, "head_result": None, "test_name": None,
+            "base_failure_type": None, "base_failure_is_expected": False, "proven": False,
+            "rejected_test_reason": test_attempts[-1]["rejection"],
+            "why_not_proven": "the generated test was rejected as vacuous twice: " + test_attempts[-1]["rejection"],
+            "test_attempts": test_attempts, "model_retries": retries,
+        }
+        output = Path(receipt)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        step("receipt")
+        return result
+    completion_id = test_attempts[-1]["completion_id"]
     test_name = re.match(r"\s*def\s+(test_\w+)", function).group(1)
 
     command = shlex.split(test_command)
@@ -244,6 +363,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         "base_failure_type": expected_base_failure(base_result, test_name),
         "base_failure_is_expected": expected_base_failure(base_result, test_name) is not None,
         "proven": proven(base_result, head_result, test_name),
+        "test_attempts": test_attempts,
+        "model_retries": retries,
     }
     if runner is not None:
         result["test_runner"] = getattr(runner, "description", "custom runner")

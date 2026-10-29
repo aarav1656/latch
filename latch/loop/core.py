@@ -18,7 +18,8 @@ import uuid
 from pathlib import Path
 
 from ..harness.parse import extract_test_function
-from ..prove import PYTEST_ENV, archive, expected_base_failure, git, limit_resources, proven, run_test
+from ..prove import (PYTEST_ENV, ModelRequestError, archive, expected_base_failure, generate_proof_test, git,
+                     limit_resources, proven, run_test, validate_proof_test)
 from ..run import LIGHTNING, MODEL, call_model, load_key
 
 ULTRA = MODEL
@@ -323,7 +324,11 @@ def run_loop(
             key = load_key()
             if not key:
                 fail("NEBIUS_API_KEY is not configured")
-        ask = model_fn or call_model
+        def on_retry(info):
+            receipt.setdefault("model_retries", []).append({**info, "ts": now()})
+            emit("model_retry", **info)
+
+        ask = model_fn or (lambda *args, **kwargs: call_model(*args, on_retry=on_retry, **kwargs))
         repo = Path(repo).resolve()
         if not repo.is_dir():
             fail(f"repo is not a directory: {repo}")
@@ -354,6 +359,11 @@ def run_loop(
             # 1. The proof test: generated once from the issue, then frozen.
             if proof_test:
                 function = extract_test_function(proof_test)
+                reason = validate_proof_test(function)
+                attempts = [{"attempt": 1, "completion_id": None, "valid": reason is None, "rejection": reason,
+                             "source": function[:4000]}]
+                if reason:
+                    function = None
                 generated = {"generated_by": "provided", "completion_id": None}
             else:
                 prompt = (
@@ -364,14 +374,24 @@ def run_loop(
                     "revision and pass on a correct fix. Do not test the diff mechanically.\n\n"
                     f"Issue report:\n{receipt['issue']}\n\nSubmitted diff (base -> head):\n{clip(agent_diff)[0]}"
                 )
-                status, content, cid = ask(key, prompt, model=test_model, system=TEST_SYSTEM, max_tokens=8192)
-                if status != 200 or not content:
-                    fail(f"Nebius test-generation request failed: HTTP {status}")
                 try:
-                    function = extract_test_function(content)
-                except ValueError:
+                    function, attempts = generate_proof_test(
+                        ask, key, prompt, TEST_SYSTEM, test_model, 8192)
+                except ModelRequestError as error:
+                    receipt["proof_test_attempts"] = error.attempts
+                    fail(f"Nebius test-generation request failed: HTTP {error.status}")
+                generated = {"generated_by": test_model, "completion_id": attempts[-1]["completion_id"]}
+            receipt["proof_test_attempts"] = attempts
+            for item in attempts:
+                if not item["valid"]:  # the normal event sequence is unchanged; only rejections add an event
+                    emit("proof_test_attempt", **{k: item[k] for k in ("attempt", "completion_id", "valid", "rejection")})
+            if function is None:
+                last = attempts[-1]
+                if last["rejection"] == "the reply contained no test_ function":
                     return finish("gave_up", "model returned no test function; nothing to prove with")
-                generated = {"generated_by": test_model, "completion_id": cid}
+                return finish("gave_up", f"the proof test was rejected as vacuous"
+                                         f"{' twice' if len(attempts) > 1 else ''}: {last['rejection']}; "
+                                         "nothing to judge the fix with")
             name_match = re.match(r"\s*def\s+(test_\w+)", function)
             if not name_match:
                 fail("proof test has no test_ function")
