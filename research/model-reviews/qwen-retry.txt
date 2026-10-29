@@ -1,0 +1,3 @@
+[qwen38] starting proxy on :8787
+[API Error: Model stream ended without a finish reason.]
+EXIT:1

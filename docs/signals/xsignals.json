@@ -1,0 +1,19 @@
+{
+  "host": "Nebius x NVIDIA Global AI Hackathon",
+  "since": "2026-08-26",
+  "groups": {
+    "team": ["nebiusai", "NVIDIAAI"],
+    "judges": []
+  },
+  "replies": [],
+  "searches": [
+    "agent run tests before commit",
+    "agent forgot to run the tests"
+  ],
+  "tracks": [
+    "Coding and Agentic Engineering",
+    "Best Apps and Agents",
+    "Personal AI",
+    "Physical AI"
+  ]
+}

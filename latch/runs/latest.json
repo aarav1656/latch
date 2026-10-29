@@ -1,0 +1,17 @@
+{
+  "weak_green": true,
+  "mutant_still_green": true,
+  "kill_failed": true,
+  "restored_passed": true,
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "lightning_model": "nvidia/Nemotron-3_5-Lightning",
+  "assertion": "def test_ten_seats_annual_discount(self):\n    self.assertTrue(discount_applies(10, True))\n    self.assertEqual(annual_price_cents(10), 10 * 800)",
+  "lightning": "The test `test_ten_seats_ran` still passes despite the changed line being wrong, because it uses a tautological `assertIs(applied, applied)` that doesn't actually verify the discount logic.",
+  "http_status": 200,
+  "reason": null,
+  "step": "kill",
+  "lightning_status": 200,
+  "completion_id": "chatcmpl-87fee6d9c6662143",
+  "restored_src": "def discount_applies(seats: int, annual: bool) -> bool:\n    if not annual:\n        return False\n    return seats >= 10\n\n\ndef annual_price_cents(seats: int) -> int:\n    each = 800 if discount_applies(seats, True) else 1000\n    return seats * each\n",
+  "flipped_src": "def discount_applies(seats: int, annual: bool) -> bool:\n    if not annual:\n        return False\n    return seats > 10\n\n\ndef annual_price_cents(seats: int) -> int:\n    each = 800 if discount_applies(seats, True) else 1000\n    return seats * each\n"
+}
