@@ -3,6 +3,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -63,7 +64,7 @@ def archive(repo, ref, target):
     )
 
 
-def run_test(snapshot, command):
+def run_test(snapshot, command, isolate=False):
     home = snapshot / ".latch-home"
     home.mkdir()
     env = {
@@ -73,14 +74,33 @@ def run_test(snapshot, command):
     }
     env["HOME"] = str(home)
     env["PYTHONPATH"] = os.pathsep.join([str(snapshot), str(snapshot / "src")])
-    result = subprocess.run(
-        [*command, "latch_issue_test.py"],
-        cwd=snapshot,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    if isolate:
+        mini = shutil.which("mini")
+        if not mini:
+            raise RuntimeError("mini safe-in is required to run pull request code")
+        setup = [
+            "python3 -m venv .latch-venv",
+            ".latch-venv/bin/pip install pytest semver",
+            "if [ -f requirements.txt ]; then .latch-venv/bin/pip install -r requirements.txt; fi",
+            "if [ -f requirements-dev.txt ]; then .latch-venv/bin/pip install -r requirements-dev.txt; fi",
+            "if [ -f pyproject.toml ] || [ -f setup.py ]; then .latch-venv/bin/pip install -e .; fi",
+            f".latch-venv/bin/{shlex.join(command)} latch_issue_test.py",
+        ]
+        result = subprocess.run(
+            [mini, "safe-in", str(snapshot), " && ".join(setup)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    else:
+        result = subprocess.run(
+            [*command, "latch_issue_test.py"],
+            cwd=snapshot,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
     return {
         "returncode": result.returncode,
         "stdout": result.stdout[-12000:],
@@ -88,7 +108,11 @@ def run_test(snapshot, command):
     }
 
 
-def prove(repo, base, head, issue, test_command, receipt):
+def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False):
+    def step(name):
+        if on_step:
+            on_step(name)
+
     repo = Path(repo).resolve()
     if not repo.is_dir() or not issue.strip():
         raise ValueError("repo must be a directory and issue text must be non-empty")
@@ -120,6 +144,7 @@ def prove(repo, base, head, issue, test_command, receipt):
     key = load_key()
     if not key:
         raise RuntimeError("NEBIUS_API_KEY is not configured")
+    step("model")
     prompt = (
         "Create exactly one self-contained pytest test function named test_... and no prose. "
         "Put every import inside the test function. Use the issue report as the "
@@ -161,8 +186,10 @@ def prove(repo, base, head, issue, test_command, receipt):
         test_source = f"import pytest\n\n{function.rstrip()}\n"
         for snapshot in (base_dir, head_dir):
             (snapshot / "latch_issue_test.py").write_text(test_source, encoding="utf-8")
-        base_result = run_test(base_dir, command)
-        head_result = run_test(head_dir, command)
+        step("base-test")
+        base_result = run_test(base_dir, command, isolate=isolate_tests)
+        step("head-test")
+        head_result = run_test(head_dir, command, isolate=isolate_tests)
 
     result = {
         "repo": repo.name,
@@ -183,6 +210,7 @@ def prove(repo, base, head, issue, test_command, receipt):
     output = Path(receipt)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    step("receipt")
     return result
 
 
