@@ -128,19 +128,26 @@ What it does **not** do (hooks still needed in `prove.py` for stronger isolation
 `nebius profile create` yourself first.
 
 ```bash
-NEBIUS_PROJECT_ID=project-... NEBIUS_REGION=eu-north1 NEBIUS_SUBNET_ID=vpcsubnet-... \
-NEBIUS_API_KEY=... GITHUB_TOKEN=... DRY_RUN=1 latch/web/deploy.sh   # print the mutating steps
-latch/web/deploy.sh                    # registry (if missing) -> docker login -> buildx amd64 push -> endpoint -> HTTPS URL
+NEBIUS_PROJECT_ID=project-... NEBIUS_SUBNET_ID=vpcsubnet-... DRY_RUN=1 latch/web/deploy.sh   # print every mutating step, secrets as ***
+latch/web/deploy.sh                    # registry (if missing) -> docker login -> buildx amd64 push -> secret -> endpoint -> HTTPS URL
 latch/web/deploy.sh build              # build and push only
 latch/web/deploy.sh vercel             # cached-receipts-only fallback (untested)
 ```
 
-It uses `nebius ai endpoint create ... --platform cpu-d3 --preset 4vcpu-16gb --public
---container-port 8080 --auth none` so judges reach the URL with no token (`--auth none`
-is also the default). Prefer `SECRET_SELECTOR=<MysteryBox secret>` over `NEBIUS_API_KEY`, which
-stores the key in the endpoint spec. Per the Nebius docs the managed HTTPS URL comes from
-`status.public_endpoints`; the script prints it. A public endpoint spends your key: keep
-`LATCH_MAX_LIVE_RUNS_PER_DAY` low.
+Secrets are read at deploy time and never printed, written to a file or baked into the image:
+`NEBIUS_API_KEY` from the environment, else the `export NEBIUS_API_KEY=...` line of `~/.zshrc`
+(parsed, not sourced); `GITHUB_TOKEN` from the environment, else `~/.config/github/account.json`
+(`GITHUB_ACCOUNT_FILE`) at `{"<GITHUB_TOKEN_ACCOUNT>": {"token": ...}}` (default account `aarav`).
+Both go into one MysteryBox secret (`SECRET_NAME`, default `latch-web-env`) and reach the endpoint
+as `--env-secret KEY=<secret id>`, so neither value appears in the endpoint spec. (The JSON payload
+is one CLI argument, briefly visible to `ps` for your user on the deploy machine.)
+
+It uses `nebius ai endpoint create ... --platform cpu-d3 --preset 4vcpu-16gb --disk-size 50Gi
+--container-port 8080 --auth none`, so judges reach the managed HTTPS URL with no token
+(`--auth none` is also the default; `ENDPOINT_AUTH=token` makes it private). `--public` (a
+public IP) is not needed for that URL and is off unless `PUBLIC_IP=1`. Per the Nebius docs the
+URL comes from `status.public_endpoints`; the script prints it. A public endpoint spends your
+key: keep `LATCH_MAX_LIVE_RUNS_PER_DAY` low.
 
 The container is persistent only if `/data` is mounted; without a volume the receipts cache
 resets on restart (the recorded Click receipt is re-seeded on boot).

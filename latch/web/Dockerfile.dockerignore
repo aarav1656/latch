@@ -14,3 +14,11 @@ latch/web/.data
 latch/web/deploy.sh
 **/__pycache__
 **/*.pyc
+# belt and braces: the whitelist above admits all of latch/web/**, so keep stray secrets out of it
+**/.env
+**/.env.*
+**/account.json
+**/*.pem
+**/*.key
+**/*token*
+**/.config
