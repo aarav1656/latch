@@ -1,0 +1,624 @@
+"""Tests for the hosted app. Stdlib unittest; the proof pipeline is mocked.
+
+Run from the repo root:  python3 -m unittest latch.web.test_app -v
+"""
+
+import http.client
+import json
+import os
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from unittest import mock
+
+from latch.web import app as web
+from latch.web.sandbox import SandboxConfig, SandboxRunner, SandboxTimeout
+from latch.web.service import ApiError, Config, classify
+from latch.web.store import receipt_key
+
+CLICK = "https://github.com/pallets/click/pull/3299"
+CLICK_BASE = "04ef3a6f473deb2499721a8d11f92a7d2c0912f2"
+CLICK_HEAD = "d340b0c1202284a1b9d0ca892549208527d586ce"
+FAIL = "FAILED latch_issue_test.py::test_x - AssertionError\n"
+
+
+def receipt(base, head, proven=True, base_rc=1, head_rc=0, expected=True):
+    return {
+        "repo": "acme/widgets", "base": base, "head": head, "issue": "double(2) returns 5",
+        "test_command": "python3 -m pytest -q", "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+        "completion_id": "chatcmpl-test", "test": "def test_x():\n    assert 1\n", "test_name": "test_x",
+        "base_result": {"returncode": base_rc, "stdout": FAIL, "stderr": ""},
+        "head_result": {"returncode": head_rc, "stdout": "1 passed", "stderr": ""},
+        "base_failure_type": "assertion", "base_failure_is_expected": expected, "proven": proven,
+        "pull_request_url": "https://github.com/acme/widgets/pull/7", "pull_request_title": "Fix double",
+        "issue_url": "https://github.com/acme/widgets/issues/6", "issue_title": "double is off by one",
+    }
+
+
+class FakeRunner:
+    description = "fake runner"
+    notes = []
+
+
+class Harness:
+    """A real server on an ephemeral port with a mocked pipeline."""
+
+    def __init__(self, test, live=True, key=True, run_pr=None, resolve=None, loop_argv=None, **config):
+        self.tmp = tempfile.TemporaryDirectory()
+        test.addCleanup(self.tmp.cleanup)
+        self.calls = []
+        self.prs = {CLICK: ("pallets/click", 3299, CLICK_BASE, CLICK_HEAD)}
+        self.pr_count = 0
+
+        def default_resolve(url):
+            if url in self.prs:
+                repo, number, base, head = self.prs[url]
+                return {"repo": repo, "number": number, "base": base, "head": head, "title": "t"}
+            raise ValueError("The GitHub pull request or linked issue was not found")
+
+        def default_run(url, path, command, on_step=None, runner=None):
+            self.calls.append(url)
+            repo, number, base, head = self.prs[url]
+            for step in ("fetching", "fetching-commits", "generating-test", "model", "base-test", "head-test", "receipt"):
+                on_step(step)
+            return receipt(base, head)
+
+        config.setdefault("rate_limit", 100)
+        config.setdefault("submit_rate", 1000)
+        self.service = web.build_service(
+            self.tmp.name,
+            config=Config(live=live, **config),
+            run_pr=run_pr or default_run,
+            resolve=resolve or default_resolve,
+            key_present=lambda: key,
+            runner_factory=lambda progress: FakeRunner(),
+            loop_argv=loop_argv,
+        )
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), web.make_handler(self.service, trust_proxy=True))
+        self.server.daemon_threads = True
+        threading.Thread(target=lambda: self.server.serve_forever(poll_interval=0.02), daemon=True).start()
+        test.addCleanup(self.close)
+        self.port = self.server.server_address[1]
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def add_pr(self, number, head=None, repo="acme/widgets"):
+        head = head or f"{number:040x}"
+        url = f"https://github.com/{repo}/pull/{number}"
+        self.prs[url] = (repo, number, "b" * 40, head)
+        return url
+
+    def request(self, method, path, body=None, headers=None, raw=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=15)
+        payload = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
+        conn.request(method, path, body=payload, headers=headers or {})
+        response = conn.getresponse()
+        data = response.read()
+        conn.close()
+        return response.status, dict(response.getheaders()), data
+
+    def post(self, url, ip=None, **extra):
+        headers = {"Content-Type": "application/json"}
+        if ip:
+            headers["X-Forwarded-For"] = ip
+        status, hdrs, data = self.request("POST", "/api/proof", {"pull_request_url": url, **extra}, headers)
+        return status, hdrs, json.loads(data)
+
+    def get_json(self, path):
+        status, _, data = self.request("GET", path)
+        return status, json.loads(data)
+
+    def events(self, job_id):
+        return self.events_for("proof", job_id)
+
+    def events_for(self, kind, job_id):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=15)
+        conn.request("GET", f"/api/{kind}/{job_id}/events")
+        response = conn.getresponse()
+        assert response.status == 200
+        assert response.getheader("Content-Type").startswith("text/event-stream")
+        out, event = [], {}
+        while True:
+            line = response.readline()
+            if not line:
+                break
+            line = line.decode().rstrip("\n")
+            if line.startswith("event: "):
+                event["event"] = line[7:]
+            elif line.startswith("data: "):
+                event["data"] = json.loads(line[6:])
+            elif line == "" and event:
+                out.append(event)
+                event = {}
+        conn.close()
+        return out
+
+    def run_live(self, url, **kw):
+        status, _, body = self.post(url, **kw)
+        self.assertion = (status, body)
+        return status, body
+
+
+class CacheTests(unittest.TestCase):
+    def test_recorded_click_receipt_is_served_instantly_without_a_live_run(self):
+        h = Harness(self)
+        status, _, body = h.post(CLICK)
+        self.assertEqual(status, 200)
+        self.assertTrue(body["cached"])
+        self.assertTrue(body["receipt"]["proven"])
+        self.assertEqual(body["meta"]["source"], "recorded")
+        self.assertEqual(body["permalink"], "/r/pallets/click/3299")
+        self.assertEqual(h.calls, [])
+
+    def test_first_screen_embeds_the_click_receipt_with_no_fetch(self):
+        h = Harness(self, live=False)
+        status, headers, page = h.request("GET", "/")
+        text = page.decode()
+        self.assertEqual(status, 200)
+        self.assertIn("Space+Grotesk", text)
+        self.assertNotIn("Inter", text.replace("Interne", ""))
+        boot = json.loads(text.split('id="boot" type="application/json">')[1].split("</script>")[0])
+        self.assertTrue(boot["example"]["receipt"]["proven"])
+        self.assertFalse(boot["config"]["live"])
+        self.assertIn("script-src 'self'", headers["Content-Security-Policy"])
+
+    def test_example_endpoint_and_permalink(self):
+        h = Harness(self)
+        status, body = h.get_json("/api/example")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["receipt"]["completion_id"], "chatcmpl-99d6e5a92020c804")
+        status, _, page = h.request("GET", "/r/pallets/click/3299")
+        self.assertEqual(status, 200)
+        self.assertIn(b"chatcmpl-99d6e5a92020c804", page)
+        status, _, page = h.request("GET", "/r/pallets/click/99999")
+        self.assertEqual(status, 404)
+        self.assertIn(b"No saved receipt", page)
+
+    def test_live_result_is_cached_and_repeats_are_instant(self):
+        h = Harness(self)
+        url = h.add_pr(7)
+        status, _, queued = h.post(url)
+        self.assertEqual(status, 202)
+        events = h.events(queued["job_id"])
+        names = [e["event"] for e in events]
+        self.assertEqual(names[0], "queued")
+        self.assertEqual(names[-1], "result")
+        steps = [e["data"]["step"] for e in events if e["event"] == "step"]
+        self.assertEqual(steps[:1], ["fetching"])
+        self.assertIn("model", steps)
+        self.assertEqual(steps[-3:], ["base-test", "head-test", "receipt"])
+        self.assertTrue(events[-1]["data"]["receipt"]["proven"])
+        self.assertEqual(events[-1]["data"]["meta"]["source"], "live")
+
+        status, _, again = h.post(url)
+        self.assertEqual((status, again["cached"]), (200, True))
+        self.assertEqual(h.calls, [url])  # no second run
+        status, saved = h.get_json("/r/acme/widgets/7".replace("/r/", "/api/receipt/"))
+        self.assertEqual(status, 200)
+        self.assertEqual(saved["receipt"]["head"], f"{7:040x}")
+        status, _, page = h.request("GET", "/r/acme/widgets/7")
+        self.assertEqual(status, 200)
+        self.assertIn(b"chatcmpl-test", page)
+
+    def test_job_status_json_after_completion(self):
+        h = Harness(self)
+        url = h.add_pr(8)
+        _, _, queued = h.post(url)
+        h.events(queued["job_id"])
+        status, job = h.get_json(f"/api/proof/{queued['job_id']}")
+        self.assertEqual((status, job["status"]), (200, "done"))
+        self.assertTrue(job["receipt"]["proven"])
+        status, _ = h.get_json("/api/proof/" + "0" * 32)
+        self.assertEqual(status, 404)
+
+    def test_cache_survives_restart_and_is_keyed_by_commits(self):
+        h = Harness(self)
+        url = h.add_pr(9)
+        _, _, queued = h.post(url)
+        h.events(queued["job_id"])
+        stored = Path(h.tmp.name) / "receipts" / f"{receipt_key('acme/widgets', 'b' * 40, f'{9:040x}')}.json"
+        self.assertTrue(stored.exists())
+        # a new head sha is a different key, so it is not served from cache
+        h.prs[url] = ("acme/widgets", 9, "b" * 40, "c" * 40)
+        status, _, body = h.post(url)
+        self.assertEqual(status, 202)
+        h.events(body["job_id"])
+
+
+class LimitTests(unittest.TestCase):
+    def test_per_ip_rate_limit_blocks_the_next_live_run_but_not_cached_ones(self):
+        h = Harness(self, rate_limit=1)
+        first, second = h.add_pr(1), h.add_pr(2)
+        status, _, body = h.post(first, ip="9.9.9.9")
+        self.assertEqual(status, 202)
+        h.events(body["job_id"])
+        status, headers, body = h.post(second, ip="9.9.9.9")
+        self.assertEqual(status, 429)
+        self.assertEqual(body["error"]["code"], "rate_limited")
+        self.assertIn("Retry-After", headers)
+        status, _, cached = h.post(first, ip="9.9.9.9")
+        self.assertEqual((status, cached["cached"]), (200, True))
+        status, _, other = h.post(second, ip="8.8.8.8")  # different visitor
+        self.assertEqual(status, 202)
+        h.events(other["job_id"])
+
+    def test_daily_cap_falls_back_to_cached_receipts_with_a_message(self):
+        h = Harness(self, daily_cap=1)
+        first, second = h.add_pr(1), h.add_pr(2)
+        _, _, body = h.post(first)
+        h.events(body["job_id"])
+        status, _, body = h.post(second)
+        self.assertEqual(status, 503)
+        self.assertIn("daily limit", body["error"]["message"])
+        status, _, cached = h.post(first)
+        self.assertEqual(status, 200)
+        status, _, forced = h.post(first, live=True)  # forcing a rerun is also capped, but cached receipt returned with the reason
+        self.assertEqual(status, 200)
+        self.assertIn("daily limit", forced["note"])
+        _, cfg = h.get_json("/api/config")
+        self.assertFalse(cfg["live"])
+
+    def test_live_switch_off_keeps_cached_receipts_usable(self):
+        h = Harness(self, live=False)
+        status, _, body = h.post(CLICK)
+        self.assertEqual((status, body["cached"]), (200, True))
+        status, _, body = h.post(CLICK, live=True)
+        self.assertEqual(status, 200)
+        self.assertIn("LATCH_LIVE=0", body["note"])
+        status, _, body = h.post(h.add_pr(3))
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"]["code"], "live_disabled")
+
+    def test_missing_key_disables_live_runs(self):
+        h = Harness(self, key=False)
+        status, _, body = h.post(h.add_pr(3))
+        self.assertEqual((status, body["error"]["code"]), (503, "live_disabled"))
+
+    def test_queue_limit_returns_503_with_a_reason(self):
+        gate = threading.Event()
+
+        def slow(url, path, command, on_step=None, runner=None):
+            on_step("fetching")
+            gate.wait(10)
+            return receipt("b" * 40, "a" * 40)
+
+        h = Harness(self, run_pr=slow, queue_max=1)
+        self.addCleanup(gate.set)
+        statuses = []
+        for number in (1, 2, 3):
+            statuses.append(h.post(h.add_pr(number, head=f"{number}" * 40))[0])
+            if number == 1:
+                deadline = time.time() + 5
+                while h.service.running is None and time.time() < deadline:
+                    time.sleep(0.01)
+        self.assertEqual(statuses, [202, 202, 503])
+        _, _, body = h.post(h.add_pr(4, head="4" * 40))
+        self.assertEqual(body["error"]["code"], "queue_full")
+        gate.set()
+
+    def test_identical_in_flight_request_is_deduplicated(self):
+        gate = threading.Event()
+
+        def slow(url, path, command, on_step=None, runner=None):
+            gate.wait(10)
+            return receipt("b" * 40, "a" * 40)
+
+        h = Harness(self, run_pr=slow)
+        self.addCleanup(gate.set)
+        url = h.add_pr(5)
+        _, _, first = h.post(url)
+        _, _, second = h.post(url)
+        self.assertEqual(first["job_id"], second["job_id"])
+        gate.set()
+
+
+class FailClosedTests(unittest.TestCase):
+    def assert_resolve_error(self, message, code, status):
+        def resolve(url):
+            raise ValueError(message)
+
+        h = Harness(self, resolve=resolve)
+        got, _, body = h.post("https://github.com/acme/widgets/pull/1")
+        self.assertEqual((got, body["error"]["code"]), (status, code))
+        self.assertTrue(body["error"]["message"])
+
+    def test_bad_urls_are_rejected(self):
+        h = Harness(self)
+        for bad in ("", "not a url", "https://example.com/a/b/pull/1", "https://github.com/a/b/issues/1", "http://github.com/a/b/pull/1"):
+            status, _, body = h.post(bad)
+            self.assertEqual((status, body["error"]["code"]), (400, "bad_url"), bad)
+        status, _, body = h.post(None)
+        self.assertEqual(status, 400)
+
+    def test_resolution_failures_have_human_reasons(self):
+        self.assert_resolve_error("The GitHub pull request or linked issue was not found", "not_found", 404)
+        self.assert_resolve_error("This pull request does not close an issue in its repository", "no_closing_issue", 422)
+        self.assert_resolve_error("The pull request closes more than one issue; Latch needs one issue as its oracle", "multiple_issues", 422)
+        self.assert_resolve_error("The pull request closes an issue in another repository", "cross_repo_issue", 422)
+        self.assert_resolve_error("GitHub rate limit or access policy blocked this request", "github_rate_limited", 503)
+
+    def run_failure(self, error):
+        def failing(url, path, command, on_step=None, runner=None):
+            on_step("fetching")
+            raise error
+
+        h = Harness(self, run_pr=failing)
+        _, _, queued = h.post(h.add_pr(1))
+        events = h.events(queued["job_id"])
+        self.assertEqual(events[-1]["event"], "error")
+        status, job = h.get_json(f"/api/proof/{queued['job_id']}")
+        self.assertEqual(job["status"], "error")
+        # nothing is cached for failures
+        status, _, again = h.post(h.add_pr(1))
+        self.assertEqual(status, 202)
+        return events[-1]["data"]
+
+    def test_run_failures_are_reported_not_cached(self):
+        cases = [
+            (ValueError("the selected revisions have no changed Python files"), "no_python_changes"),
+            (ValueError("Python diff exceeds the 40,000 character model input limit"), "diff_too_large"),
+            (ValueError("The linked issue is too long for one proof run"), "issue_too_long"),
+            (RuntimeError("Nebius model request failed: HTTP 429"), "model_error"),
+            (RuntimeError("NEBIUS_API_KEY is not configured"), "live_disabled"),
+            (ValueError("no function in text"), "model_bad_output"),
+            (SandboxTimeout("test", 120), "timeout"),
+            (RuntimeError("something odd"), "internal_error"),
+        ]
+        for error, code in cases:
+            with self.subTest(code=code):
+                self.assertEqual(self.run_failure(error)["code"], code)
+
+    def test_not_proven_receipts_explain_why(self):
+        for kwargs, fragment in (
+            (dict(proven=False, base_rc=0, head_rc=0), "passed on the buggy base"),
+            (dict(proven=False, base_rc=1, head_rc=1), "still fails on the pull request head"),
+            (dict(proven=False, base_rc=2, head_rc=0, expected=False), "not with an assertion"),
+            (dict(proven=False, base_rc=-15, head_rc=-15, expected=False), "killed by the sandbox"),
+        ):
+            def run(url, path, command, on_step=None, runner=None, kwargs=kwargs):
+                return receipt("b" * 40, "a" * 40, **kwargs)
+
+            h = Harness(self, run_pr=run)
+            _, _, queued = h.post(h.add_pr(1))
+            result = h.events(queued["job_id"])[-1]
+            self.assertEqual(result["event"], "result")
+            meta = result["data"]["meta"]
+            self.assertEqual(meta["verdict"], "not_proven")
+            self.assertIn(fragment, meta["why_not_proven"])
+
+    def test_bad_requests(self):
+        h = Harness(self)
+        status, _, _ = h.request("POST", "/api/proof", raw=b"{nope", headers={"Content-Length": "5"})
+        self.assertEqual(status, 400)
+        status, _, _ = h.request("POST", "/api/proof", raw=b"x" * 5000, headers={"Content-Length": "5000"})
+        self.assertEqual(status, 413)
+        self.assertEqual(h.request("POST", "/api/nope", raw=b"{}")[0], 404)
+        self.assertEqual(h.request("GET", "/static/../app.py")[0], 404)
+        self.assertEqual(h.request("GET", "/static/%2e%2e/app.py")[0], 404)
+        self.assertEqual(h.request("GET", "/r/..%2f../etc/1")[0], 404)
+
+    def test_health_and_static_assets(self):
+        h = Harness(self)
+        self.assertEqual(h.get_json("/healthz")[1]["ok"], True)
+        status, headers, css = h.request("GET", "/static/app.css")
+        self.assertEqual(status, 200)
+        self.assertTrue(headers["Content-Type"].startswith("text/css"))
+        self.assertNotIn(b"Inter", css.replace(b"Interface", b""))
+        self.assertIn(b"oklch(58% 0.20 256)", css)
+
+    def test_boot_json_cannot_break_out_of_its_script_tag(self):
+        text = web.boot_json({"x": "</script><script>alert(1)</script>"})
+        self.assertNotIn("<", text)
+        self.assertEqual(json.loads(text)["x"], "</script><script>alert(1)</script>")
+
+    def test_classify_passes_api_errors_through(self):
+        error = ApiError("x", 418, "tea")
+        self.assertIs(classify(error), error)
+
+
+class SandboxTests(unittest.TestCase):
+    def runner(self, **options):
+        options.setdefault("install", "none")
+        options.setdefault("net_isolation", "off")
+        options.setdefault("test_timeout", 5)
+        return SandboxRunner(SandboxConfig(**options))
+
+    def run_snippet(self, snippet, **options):
+        with tempfile.TemporaryDirectory() as temp:
+            snapshot = Path(temp)
+            (snapshot / "latch_issue_test.py").write_text("")
+            return self.runner(**options)(snapshot, ["python3", "-c", snippet])
+
+    def test_child_environment_has_no_secrets(self):
+        env = {"NEBIUS_API_KEY": "sk-secret", "GITHUB_TOKEN": "ghp-secret", "AWS_SECRET_ACCESS_KEY": "x"}
+        with mock.patch.dict(os.environ, env):
+            result = self.run_snippet("import os; print(sorted(os.environ)); print(os.environ['HOME'])")
+        self.assertEqual(result["returncode"], 0, result)
+        for name in env:
+            self.assertNotIn(name, result["stdout"])
+        self.assertNotIn("sk-secret", result["stdout"] + result["stderr"])
+        self.assertIn(".latch-home", result["stdout"])
+
+    def test_hard_timeout_kills_the_process_group(self):
+        marker = tempfile.mktemp()
+        snippet = (
+            "import os,subprocess,sys,time\n"
+            f"subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])\n"
+            f"open({marker!r},'w').write(str(os.getpid()))\n"
+            "time.sleep(30)\n"
+        )
+        started = time.time()
+        with self.assertRaises(SandboxTimeout) as caught:
+            self.run_snippet(snippet, test_timeout=1)
+        self.assertLess(time.time() - started, 8)
+        self.assertEqual(caught.exception.phase, "test")
+        time.sleep(0.2)
+        pid = int(Path(marker).read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+        os.unlink(marker)
+
+    def test_pr_conftest_and_pytest_config_cannot_change_the_outcome(self):
+        try:
+            import pytest  # noqa: F401
+        except ImportError:
+            self.skipTest("pytest not installed")
+        with tempfile.TemporaryDirectory() as temp:
+            snapshot = Path(temp)
+            (snapshot / "latch_issue_test.py").write_text("def test_it():\n    assert 1 + 1 == 2\n")
+            (snapshot / "conftest.py").write_text("raise RuntimeError('hostile conftest')\n")
+            (snapshot / "pytest.ini").write_text("[pytest]\naddopts = --collect-only\n")
+            result = self.runner(test_timeout=60)(snapshot, ["python3", "-m", "pytest", "-q"])
+        self.assertEqual(result["returncode"], 0, result)
+        self.assertIn("1 passed", result["stdout"])
+
+    def test_public_error_detail_hides_server_paths(self):
+        from latch.web.service import redact
+
+        text = redact("fatal: could not read /tmp/latch-pr-ab12/repo/.git/config and /Users/me/x.py")
+        self.assertNotIn("latch-pr-ab12", text)
+        self.assertNotIn("/Users", text)
+        self.assertIn("<path>", text)
+
+    def test_file_size_limit_is_enforced(self):
+        result = self.run_snippet(
+            "open('big.bin','wb').write(b'x'*(5*1024*1024))", test_fsize_mb=1
+        )
+        self.assertNotEqual(result["returncode"], 0)
+
+    def test_output_is_truncated_to_the_tail(self):
+        result = self.run_snippet("print('a'*50000); print('END')")
+        self.assertLessEqual(len(result["stdout"]), 12000)
+        self.assertTrue(result["stdout"].strip().endswith("END"))
+
+    def test_child_cannot_read_server_environ_when_non_dumpable(self):
+        # prctl(PR_SET_DUMPABLE, 0) is what app.main() applies to the server process
+        from latch.web.sandbox import drop_dumpable
+
+        if not Path("/proc/self/environ").exists():
+            self.skipTest("no /proc")
+        self.assertTrue(drop_dumpable())
+        snippet = f"import sys\ntry:\n open('/proc/{os.getpid()}/environ').read(); print('READABLE')\nexcept OSError: print('DENIED')"
+        result = self.run_snippet(snippet)
+        self.assertIn(result["stdout"].strip(), ("DENIED", "READABLE"))
+        if os.geteuid() != 0:
+            self.assertEqual(result["stdout"].strip(), "DENIED")
+
+
+LOOP_STUB = r"""
+import json, sys, time
+mode = sys.argv[1] if len(sys.argv) > 1 else "ok"
+def emit(**e):
+    e.setdefault("ts", "2026-10-29T10:00:00Z"); e.setdefault("run_id", "r1")
+    print(json.dumps(e), flush=True)
+emit(type="started", issue="x", max_iterations=1)
+emit(type="gate_shut", reason="proof test fails on the agent's fix", base_red=True, head_suite_green=True, head_proof_green=False, pytest_output="F")
+if mode == "hang":
+    time.sleep(60)
+if mode == "crash":
+    emit(type="error", reason="Nebius API returned 500"); sys.exit(2)
+if mode == "silent":
+    sys.exit(3)
+emit(type="iteration_result", iteration=1, verdict="gate_open", diff="--- a\n+++ b", pytest_output=".")
+emit(type="gate_open", reason="ok", receipt={"verdict": "gate_open"})
+"""
+
+
+def loop_stub(mode="ok"):
+    return [sys.executable, "-c", LOOP_STUB, mode]
+
+
+class LoopTests(unittest.TestCase):
+    def test_recorded_example_is_served_without_live_access(self):
+        h = Harness(self, live=False, loop_argv=None)
+        status, body = h.get_json("/api/loop/example")
+        self.assertEqual(status, 200)
+        types = [e["type"] for e in body["events"]]
+        self.assertEqual(types[0], "started")
+        self.assertEqual(types[-1], "gate_open")
+        self.assertIn("gate_shut", types)
+        self.assertIn("patch_applied", types)
+        self.assertFalse(h.get_json("/api/config")[1]["loop"]["live"])
+
+    def test_live_loop_streams_events_over_sse_and_counts_against_the_cap(self):
+        h = Harness(self, loop_argv=loop_stub("ok"), daily_cap=5)
+        self.assertTrue(h.get_json("/api/config")[1]["loop"]["live"])
+        status, _, data = h.request("POST", "/api/loop", {})
+        body = json.loads(data)
+        self.assertEqual(status, 202)
+        events = h.events_for("loop", body["job_id"])
+        names = [e["event"] for e in events]
+        self.assertIn("loop", names)
+        self.assertEqual(names[-1], "done")
+        loop_types = [e["data"]["type"] for e in events if e["event"] == "loop"]
+        self.assertEqual(loop_types, ["started", "gate_shut", "iteration_result", "gate_open"])
+        self.assertEqual(h.get_json("/api/config")[1]["daily_remaining"], 4)
+        status, job = h.get_json(f"/api/loop/{body['job_id']}")
+        self.assertEqual(job["status"], "done")
+        self.assertEqual(job["verdict"], "gate_open")
+        self.assertEqual(len(job["events"]), 4)
+
+    def test_live_loop_is_refused_when_live_is_off(self):
+        h = Harness(self, live=False, loop_argv=loop_stub())
+        status, _, data = h.request("POST", "/api/loop", {})
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(data)["error"]["code"], "live_disabled")
+
+    def test_live_loop_shares_the_per_ip_rate_limit(self):
+        h = Harness(self, loop_argv=loop_stub(), rate_limit=1)
+        ip = {"X-Forwarded-For": "9.9.9.9"}
+        status, _, data = h.request("POST", "/api/loop", {}, ip)
+        self.assertEqual(status, 202)
+        h.events_for("loop", json.loads(data)["job_id"])
+        status, _, data = h.request("POST", "/api/loop", {}, ip)
+        self.assertEqual(status, 429)
+        self.assertEqual(json.loads(data)["error"]["code"], "rate_limited")
+
+    def test_loop_error_event_fails_closed_with_a_reason(self):
+        h = Harness(self, loop_argv=loop_stub("crash"))
+        _, _, data = h.request("POST", "/api/loop", {})
+        events = h.events_for("loop", json.loads(data)["job_id"])
+        self.assertEqual(events[-1]["event"], "error")
+        self.assertEqual(events[-1]["data"]["code"], "model_error")
+
+    def test_loop_without_a_verdict_is_an_error(self):
+        h = Harness(self, loop_argv=loop_stub("silent"))
+        _, _, data = h.request("POST", "/api/loop", {})
+        events = h.events_for("loop", json.loads(data)["job_id"])
+        self.assertEqual(events[-1]["event"], "error")
+        self.assertEqual(events[-1]["data"]["code"], "loop_failed")
+
+    def test_loop_timeout_kills_the_process_group(self):
+        h = Harness(self, loop_argv=loop_stub("hang"), loop_timeout=1)
+        _, _, data = h.request("POST", "/api/loop", {})
+        events = h.events_for("loop", json.loads(data)["job_id"])
+        self.assertEqual(events[-1]["data"]["code"], "timeout")
+
+    def test_loop_unavailable_without_the_package(self):
+        h = Harness(self, loop_argv=None)
+        self.assertFalse(h.get_json("/api/config")[1]["loop"]["available"])
+        status, _, data = h.request("POST", "/api/loop", {})
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(data)["error"]["code"], "loop_unavailable")
+
+    def test_loop_environment_carries_only_the_model_key(self):
+        from latch.web.service import loop_env
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(
+            os.environ, {"NEBIUS_API_KEY": "k", "GITHUB_TOKEN": "g", "AWS_SECRET": "s"}
+        ):
+            env = loop_env(tmp)
+        self.assertEqual(env["NEBIUS_API_KEY"], "k")
+        self.assertNotIn("GITHUB_TOKEN", env)
+        self.assertNotIn("AWS_SECRET", env)
+        self.assertTrue(env["HOME"].startswith(tmp))
+
+
+if __name__ == "__main__":
+    unittest.main()
