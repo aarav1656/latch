@@ -538,6 +538,10 @@ if mode == "hang":
     time.sleep(60)
 if mode == "crash":
     emit(type="error", reason="Nebius API returned 500"); sys.exit(2)
+if mode == "credits":
+    emit(type="error", reason="Nebius test-generation request failed: HTTP 402"); sys.exit(2)
+if mode == "retry":
+    emit(type="model_retry", attempt=1, attempts=3, status=None, error="RemoteDisconnected: closed", will_retry=True, delay=1.0)
 if mode == "silent":
     sys.exit(3)
 emit(type="iteration_result", iteration=1, verdict="gate_open", diff="--- a\n+++ b", pytest_output=".")
@@ -633,6 +637,185 @@ class LoopTests(unittest.TestCase):
         self.assertNotIn("GITHUB_TOKEN", env)
         self.assertNotIn("AWS_SECRET", env)
         self.assertTrue(env["HOME"].startswith(tmp))
+
+CREDITS = "Live runs are paused: model credits exhausted. Showing saved receipts."
+
+
+def run_raising(error):
+    def run(url, path, command, on_step=None, runner=None):
+        raise error
+    return run
+
+
+class ReceiptNoteTests(unittest.TestCase):
+    def test_recorded_reason_wins_and_is_a_sentence(self):
+        from latch.web.store import explain
+
+        r = receipt("b" * 40, "a" * 40, proven=False, base_rc=0, head_rc=0)
+        r["why_not_proven"] = "the generated test was rejected twice: the test body is empty"
+        self.assertEqual(explain(r), "The generated test was rejected twice: the test body is empty.")
+
+    def test_proven_receipts_have_no_reason_even_with_a_stale_one(self):
+        from latch.web.store import explain
+
+        r = receipt("b" * 40, "a" * 40)
+        r["why_not_proven"] = "stale"
+        self.assertIsNone(explain(r))
+
+    def test_fail_closed_receipt_without_runs_never_claims_the_base_failed(self):
+        from latch.web.store import explain
+
+        r = receipt("b" * 40, "a" * 40, proven=False)
+        r.update(base_result=None, head_result=None, test=None)
+        text = explain(r)
+        self.assertIn("never run on the base commit", text)
+        self.assertNotIn("failed on the base", text)
+        r["head_result"] = {"returncode": 0, "stdout": "", "stderr": ""}
+        r["base_result"] = {"returncode": 1, "stdout": "", "stderr": ""}
+        r["head_result"] = None
+        self.assertIn("never run on the pull request head", explain(r))
+
+    def test_test_attempts_note(self):
+        from latch.web.store import attempts_note
+
+        bad = {"attempt": 1, "valid": False, "rejection": "the test body is empty", "source": "def test_x(): ..."}
+        good = {"attempt": 2, "valid": True, "rejection": None}
+        self.assertEqual(attempts_note({"test_attempts": [bad, good]}), "First test rejected: empty body, retried.")
+        self.assertIsNone(attempts_note({"test_attempts": [good]}))
+        self.assertIsNone(attempts_note({}))
+        both = attempts_note({"test_attempts": [bad, {**bad, "attempt": 2, "rejection": "the test has no real check"}]})
+        self.assertIn("retry was rejected too (no real assertion)", both)
+        self.assertEqual(attempts_note({"proof_test_attempts": [bad, good]}), "First test rejected: empty body, retried.")
+
+    def test_model_retries_note(self):
+        from latch.web.store import retries_note
+
+        one = {"attempt": 1, "attempts": 3, "status": None, "error": "RemoteDisconnected: closed", "will_retry": True, "delay": 1.0}
+        two = {"attempt": 2, "attempts": 3, "status": 503, "error": None, "will_retry": True, "delay": 2.0}
+        last = {"attempt": 3, "attempts": 3, "status": 503, "error": None, "will_retry": False, "delay": 0}
+        self.assertEqual(retries_note({"model_retries": [one]}), "The model request was retried once (RemoteDisconnected).")
+        self.assertEqual(retries_note({"model_retries": [one, two, last]}), "The model request was retried 2 times (RemoteDisconnected, HTTP 503).")
+        self.assertIsNone(retries_note({"model_retries": [last]}))
+        self.assertIsNone(retries_note({}))
+
+    def test_envelope_meta_carries_the_notes_and_the_recorded_reason(self):
+        def run(url, path, command, on_step=None, runner=None):
+            r = receipt("b" * 40, "a" * 40, proven=False)
+            r.update(base_result=None, head_result=None, test=None,
+                     why_not_proven="the generated test was rejected twice: the test body is empty",
+                     test_attempts=[{"attempt": 1, "valid": False, "rejection": "the test body is empty", "source": "x"},
+                                    {"attempt": 2, "valid": False, "rejection": "the test body is empty", "source": "y"}],
+                     model_retries=[{"attempt": 1, "attempts": 3, "status": 502, "error": None, "will_retry": True, "delay": 1}])
+            return r
+
+        h = Harness(self, run_pr=run)
+        _, _, queued = h.post(h.add_pr(1))
+        meta = h.events(queued["job_id"])[-1]["data"]["meta"]
+        self.assertEqual(meta["verdict"], "not_proven")
+        self.assertTrue(meta["why_not_proven"].startswith("The generated test was rejected twice"))
+        self.assertIn("First test rejected: empty body", meta["test_attempts_note"])
+        self.assertIn("retried once (HTTP 502)", meta["model_retries_note"])
+
+    def test_clean_receipts_have_no_notes(self):
+        from latch.web.store import make_envelope
+
+        meta = make_envelope(receipt("b" * 40, "a" * 40), "live")["meta"]
+        self.assertIsNone(meta["test_attempts_note"])
+        self.assertIsNone(meta["model_retries_note"])
+
+
+class CreditsTests(unittest.TestCase):
+    def clocked(self, **kw):
+        now = [1_000_000.0]
+        h = Harness(self, **kw)
+        h.service.clock = lambda: now[0]
+        return h, now
+
+    def test_402_maps_to_a_clear_fail_closed_reason(self):
+        for text in ("Nebius model request failed: HTTP 402", "Nebius test-generation request failed: HTTP 402",
+                     "credit_balance_exhausted", "model credits exhausted"):
+            with self.subTest(text=text):
+                problem = classify(RuntimeError(text))
+                self.assertEqual((problem.code, problem.status), ("credits_exhausted", 503))
+                self.assertEqual(problem.payload()["error"]["message"], CREDITS)
+        self.assertEqual(classify(RuntimeError("Nebius model request failed: HTTP 429")).code, "model_error")
+
+    def test_a_402_pauses_live_mode_and_judges_get_cached_receipts(self):
+        h, now = self.clocked(run_pr=run_raising(RuntimeError("Nebius model request failed: HTTP 402")))
+        _, _, queued = h.post(h.add_pr(1))
+        last = h.events(queued["job_id"])[-1]
+        self.assertEqual(last["event"], "error")
+        self.assertEqual(last["data"]["code"], "credits_exhausted")
+        self.assertEqual(last["data"]["message"], CREDITS)
+        _, cfg = h.get_json("/api/config")
+        self.assertFalse(cfg["live"])
+        self.assertEqual(cfg["live_reason"], CREDITS)
+        self.assertGreater(cfg["live_paused_s"], 590)
+        self.assertFalse(h.get_json("/api/config")[1]["loop"]["live"])
+        # the cached Click receipt is still served, with the reason as the note, and no job is queued
+        status, _, body = h.post(CLICK, live=True)
+        self.assertEqual(status, 200)
+        self.assertTrue(body["cached"])
+        self.assertEqual(body["note"], CREDITS)
+        # an uncached PR is refused fast with the same reason
+        status, _, body = h.post(h.add_pr(2))
+        self.assertEqual((status, body["error"]["code"]), (503, "live_disabled"))
+        self.assertEqual(body["error"]["message"], CREDITS)
+        self.assertEqual(h.get_json("/healthz")[1]["live"], False)
+
+    def test_live_mode_comes_back_after_the_pause(self):
+        h, now = self.clocked(run_pr=run_raising(RuntimeError("Nebius model request failed: HTTP 402")), credit_pause_s=600)
+        h.events(h.post(h.add_pr(1))[2]["job_id"])
+        self.assertFalse(h.get_json("/api/config")[1]["live"])
+        now[0] += 599
+        self.assertFalse(h.get_json("/api/config")[1]["live"])
+        now[0] += 2
+        cfg = h.get_json("/api/config")[1]
+        self.assertTrue(cfg["live"])
+        self.assertEqual(cfg["live_paused_s"], 0)
+
+    def test_other_model_errors_do_not_pause_live_mode(self):
+        h, now = self.clocked(run_pr=run_raising(RuntimeError("Nebius model request failed: HTTP 503")))
+        self.assertEqual(h.events(h.post(h.add_pr(1))[2]["job_id"])[-1]["data"]["code"], "model_error")
+        self.assertTrue(h.get_json("/api/config")[1]["live"])
+
+    def test_queued_jobs_fail_fast_once_paused(self):
+        gate, calls = threading.Event(), []
+
+        def run(url, path, command, on_step=None, runner=None):
+            calls.append(url)
+            gate.wait(10)
+            raise RuntimeError("Nebius model request failed: HTTP 402")
+
+        h, now = self.clocked(run_pr=run)
+        first = h.post(h.add_pr(1))[2]["job_id"]
+        deadline = time.time() + 5
+        while not calls and time.time() < deadline:
+            time.sleep(0.01)
+        second = h.post(h.add_pr(2))[2]["job_id"]
+        gate.set()
+        self.assertEqual(h.events(first)[-1]["data"]["code"], "credits_exhausted")
+        self.assertEqual(h.events(second)[-1]["data"]["code"], "credits_exhausted")
+        self.assertEqual(len(calls), 1)
+
+    def test_loop_402_maps_to_credits_and_pauses(self):
+        h = Harness(self, loop_argv=loop_stub("credits"))
+        _, _, data = h.request("POST", "/api/loop", {})
+        events = h.events_for("loop", json.loads(data)["job_id"])
+        self.assertEqual(events[-1]["event"], "error")
+        self.assertEqual(events[-1]["data"]["code"], "credits_exhausted")
+        self.assertEqual(events[-1]["data"]["message"], CREDITS)
+        self.assertFalse(h.get_json("/api/config")[1]["live"])
+        status, _, data = h.request("POST", "/api/loop", {})
+        self.assertEqual((status, json.loads(data)["error"]["message"]), (503, CREDITS))
+
+    def test_loop_model_retry_events_pass_through(self):
+        h = Harness(self, loop_argv=loop_stub("retry"))
+        _, _, data = h.request("POST", "/api/loop", {})
+        events = h.events_for("loop", json.loads(data)["job_id"])
+        types = [e["data"]["type"] for e in events if e["event"] == "loop"]
+        self.assertIn("model_retry", types)
+        self.assertEqual(events[-1]["event"], "done")
 
 
 if __name__ == "__main__":
