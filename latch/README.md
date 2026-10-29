@@ -10,7 +10,7 @@ Latch is the gate on an agent pull request. The shipped tests stay green when th
 python3 latch/serve.py
 ```
 
-Open http://127.0.0.1:4173/ and press Run the gate. The padlock reads Open only when the new test fails with AssertionError on the changed line and passes after that line is restored.
+Open http://127.0.0.1:4173/, paste a public GitHub pull request that closes one issue in the same repository, and select **Prove this fix**. Latch shows the linked issue, exact base and head commits, generated test, both test outcomes, and the JSON proof receipt.
 
 ## What the gate checks
 
