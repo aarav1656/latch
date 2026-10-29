@@ -119,7 +119,7 @@ Python 3.10 or newer, no dependencies. Put `NEBIUS_API_KEY` in the environment, 
 python3 latch/serve.py
 ```
 
-Open http://127.0.0.1:4173/ and press Run the gate.
+Open http://127.0.0.1:4173/, paste a public GitHub pull request that closes one issue in the same repository, and select **Prove this fix**. Latch shows the linked issue, exact base and head commits, generated test, both test outcomes, and the JSON proof receipt.
 
 Tests:
 

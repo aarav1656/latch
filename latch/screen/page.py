@@ -214,8 +214,8 @@ function showReceipt(receipt) {
   const link = document.querySelector("#pr-title"); link.textContent = receipt.pull_request_title || receipt.pull_request_url; link.href = receipt.pull_request_url;
   document.querySelector("#base-sha").textContent = receipt.base;
   document.querySelector("#head-sha").textContent = receipt.head;
-  document.querySelector("#base-result").textContent = receipt.base_result?.returncode === 0 ? "passed" : "failed as expected";
-  document.querySelector("#head-result").textContent = receipt.head_result?.returncode === 0 ? "passed" : "failed";
+  document.querySelector("#base-result").textContent = receipt.base_failure_is_expected ? "failed as expected" : receipt.base_result?.returncode === 0 ? "passed" : `failed without an accepted bug signal (exit ${receipt.base_result?.returncode})`;
+  document.querySelector("#head-result").textContent = receipt.head_result?.returncode === 0 ? "passed" : `failed (exit ${receipt.head_result?.returncode})`;
   document.querySelector("#test-source").textContent = receipt.test || "No test was produced.";
   const open = receipt.proven === true;
   lock.textContent = open ? "Proven" : "Not proven"; lock.className = open ? "open" : "shut";
