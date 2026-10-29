@@ -108,7 +108,9 @@ def run_test(snapshot, command, isolate=False):
     }
 
 
-def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False):
+def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None):
+    # runner(snapshot: Path, command: list[str]) -> {returncode, stdout, stderr}
+    # replaces run_test for each snapshot (used by hosted deployments to sandbox PR code).
     def step(name):
         if on_step:
             on_step(name)
@@ -186,10 +188,13 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         test_source = f"import pytest\n\n{function.rstrip()}\n"
         for snapshot in (base_dir, head_dir):
             (snapshot / "latch_issue_test.py").write_text(test_source, encoding="utf-8")
+        execute = runner if runner is not None else (
+            lambda snapshot, argv: run_test(snapshot, argv, isolate=isolate_tests)
+        )
         step("base-test")
-        base_result = run_test(base_dir, command, isolate=isolate_tests)
+        base_result = execute(base_dir, command)
         step("head-test")
-        head_result = run_test(head_dir, command, isolate=isolate_tests)
+        head_result = execute(head_dir, command)
 
     result = {
         "repo": repo.name,
@@ -207,6 +212,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         "base_failure_is_expected": expected_base_failure(base_result, test_name) is not None,
         "proven": proven(base_result, head_result, test_name),
     }
+    if runner is not None:
+        result["test_runner"] = getattr(runner, "description", "custom runner")
     output = Path(receipt)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
