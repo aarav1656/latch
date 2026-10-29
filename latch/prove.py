@@ -13,26 +13,57 @@ from .run import MODEL, call_model, load_key
 from .harness.parse import extract_test_function
 
 
+_SECTION_END = re.compile(r"(?m)^(?:_{3,} .+ _{3,}|={3,} .+ ={3,})$")
+
+
 def expected_base_failure(base_result, test_name):
+    """Classify why the proof test failed, from the failure section pytest prints for that test.
+
+    The old version required the summary line `FAILED latch_issue_test.py::<name> - <msg>`, but pytest
+    drops ` - <msg>` when a long test name overflows the terminal width (80 columns on a non-tty), so
+    long names were wrongly classified as "not an assertion failure". The failure section
+    (`____ test_name ____` up to the next section header) and its `E   ` lines do not depend on width.
+    A test that errors in setup/collection has no such section (`ERROR at ...` headers), so it is never
+    classified as a behavior failure. Returns "assertion", "unexpected-operation" or None.
+    """
     output = base_result["stdout"] + base_result["stderr"]
     header = re.search(rf"(?m)^_{{2,}}\s+{re.escape(test_name)}\s+_{{2,}}$", output)
-    prefix = f"FAILED latch_issue_test.py::{test_name} - "
-    summary = next(
-        (
-            line
-            for line in output.splitlines()
-            if line.startswith(prefix)
-        ),
-        "",
-    )
-    if not header or not summary:
+    if not header:
         return None
-    failure = output[header.end():output.index(summary)]
-    if "AssertionError" in failure:
-        return "assertion"
-    if "E           Failed: Latch expected the issue operation to succeed:" in failure:
+    rest = output[header.end():]
+    end = _SECTION_END.search(rest)
+    failure = rest[:end.start()] if end else rest
+    errors = [line for line in failure.splitlines() if line.startswith("E ")]
+    if any(re.match(r"E\s+Failed: Latch expected the issue operation to succeed:", line) for line in errors):
         return "unexpected-operation"
+    if any(re.match(r"E\s+(AssertionError\b|assert\b)", line) for line in errors):
+        return "assertion"
     return None
+
+
+# Every pytest run of proof tests / suites uses the same env so output does not depend on the terminal.
+PYTEST_ENV = {"COLUMNS": "200", "PYTEST_ADDOPTS": "-rf --tb=short"}
+
+
+def limit_resources():
+    """preexec_fn for subprocesses that run model-written or PR code: best-effort resource limits.
+
+    CPU seconds and written-file size are limited everywhere; address space and process count only on
+    Linux, where setrlimit enforces them reliably (on macOS RLIMIT_AS is not enforced and RLIMIT_NPROC is
+    per-user, so a low value would break the whole session). Wall-clock timeouts are set by the callers.
+    """
+    import resource
+
+    limits = [(resource.RLIMIT_CPU, 240), (resource.RLIMIT_FSIZE, 256 * 1024 * 1024),
+              (resource.RLIMIT_CORE, 0)]
+    if sys.platform.startswith("linux"):
+        limits += [(resource.RLIMIT_AS, 8 * 1024 ** 3), (resource.RLIMIT_NPROC, 1024)]
+    for which, value in limits:
+        try:
+            _, hard = resource.getrlimit(which)
+            resource.setrlimit(which, (value if hard == resource.RLIM_INFINITY else min(value, hard), hard))
+        except (ValueError, OSError):
+            pass
 
 
 def proven(base_result, head_result, test_name):
@@ -74,6 +105,7 @@ def run_test(snapshot, command, isolate=False):
     }
     env["HOME"] = str(home)
     env["PYTHONPATH"] = os.pathsep.join([str(snapshot), str(snapshot / "src")])
+    env.update(PYTEST_ENV)
     if isolate:
         mini = shutil.which("mini")
         if not mini:
@@ -84,7 +116,7 @@ def run_test(snapshot, command, isolate=False):
             "if [ -f requirements.txt ]; then .latch-venv/bin/pip install -r requirements.txt; fi",
             "if [ -f requirements-dev.txt ]; then .latch-venv/bin/pip install -r requirements-dev.txt; fi",
             "if [ -f pyproject.toml ] || [ -f setup.py ]; then .latch-venv/bin/pip install -e .; fi",
-            f".latch-venv/bin/{shlex.join(command)} latch_issue_test.py",
+            f"COLUMNS=200 PYTEST_ADDOPTS='-rf --tb=short' .latch-venv/bin/{shlex.join(command)} latch_issue_test.py",
         ]
         result = subprocess.run(
             [mini, "safe-in", str(snapshot), " && ".join(setup)],
@@ -100,6 +132,7 @@ def run_test(snapshot, command, isolate=False):
             capture_output=True,
             text=True,
             timeout=300,
+            preexec_fn=limit_resources,
         )
     return {
         "returncode": result.returncode,

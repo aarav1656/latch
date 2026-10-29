@@ -31,7 +31,7 @@ def build_parser():
     run = sub.add_parser("run", help="run the loop on a git repo")
     run.add_argument("--repo", required=True)
     run.add_argument("--base", required=True, help="buggy revision")
-    run.add_argument("--head", required=True, help="the agent's fix revision")
+    run.add_argument("--head", required=True, help="the submitted fix revision")
     issue = run.add_mutually_exclusive_group(required=True)
     issue.add_argument("--issue")
     issue.add_argument("--issue-file")
