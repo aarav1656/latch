@@ -119,6 +119,40 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(self.events[-1]["receipt_path"], receipt["receipt_path"])
         self.assertTrue(self.base != self.head)
 
+    def test_very_long_proof_test_name_is_still_a_base_assertion(self):
+        # Regression: pytest drops " - <msg>" from the FAILED line on long names; the loop must not give up.
+        name = "test_" + "back_to_back_bookings_must_not_be_merged_or_reported_as_conflicts_" * 2
+        long_test = GOOD_TEST.replace(GOOD_TEST.split("def ")[1].split("(")[0], name, 1)
+        receipt = self.run_it(Stub(test=long_test, fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["initial"]["base_proof"]["failure_type"], "assertion")
+
+    def test_case_note_lands_in_receipt_and_started_event(self):
+        note = "Constructed regression case: hand-written partial fix modelled on common agent behaviour, not an upstream bug."
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), case_note=note)
+        self.assertEqual(receipt["case_note"], note)
+        self.assertEqual(self.events[0]["case_note"], note)
+        self.assertEqual(core.DEMO_LABEL, note)
+
+    def test_inspect_final_runs_on_the_final_code_and_never_changes_the_verdict(self):
+        seen = []
+
+        def inspect(directory):
+            seen.append((Path(directory) / "bookings.py").read_text())
+            return {"ok": True}
+
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), inspect_final=inspect)
+        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["inspection"], {"ok": True})
+        self.assertEqual(seen, [FIXED_BOOKINGS])
+
+        def boom(directory):
+            raise RuntimeError("nope")
+
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), inspect_final=boom)
+        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertIn("nope", receipt["inspection"]["error"])
+
     def test_event_envelope(self):
         self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
         self.assertEqual(self.events[0]["type"], "started")

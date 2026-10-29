@@ -1,11 +1,11 @@
 # Latch fix loop
 
-When Latch's gate stays shut (the proof test fails on an agent's "fix"), a Nemotron coding agent
+When Latch's gate stays shut (the proof test fails on a submitted "fix"), a Nemotron coding agent
 on Nebius Token Factory rewrites the code and the harness re-runs. The harness, not the model,
 decides open or shut. Every iteration lands in a JSON receipt.
 
 ```
-issue + base (buggy) + head (agent's fix)
+issue + base (buggy) + head (submitted fix)
   -> Ultra writes ONE proof test from the issue (frozen; the agent can never edit it)
   -> harness: proof test must be RED on base (assertion), repo suite must be GREEN on head
   -> proof test RED on head  => gate SHUT
@@ -27,9 +27,11 @@ test and the patches) and `nvidia/Nemotron-3_5-Lightning` (triage; also allowed 
 
 ## Run the demo
 
-The demo is **constructed** (not a real upstream issue): `latch/loop/demo/` holds a small room-booking
-module, an agent "fix" that patches `overlaps()` and adds one test but leaves `merge_bookings()` merging
-back-to-back bookings, and the issue text. All 5 tests in the head suite are green; the fix is still wrong.
+**Constructed regression case: hand-written partial fix modelled on common agent behaviour, not an upstream bug.**
+(The same sentence is stored as `case_note` in the receipt and the `started` event.) `latch/loop/demo/`
+holds a small room-booking module, a hand-written partial fix that patches `overlaps()` and adds one test but
+leaves `merge_bookings()` merging back-to-back bookings, and the issue text. All 5 tests in the head suite
+are green; the fix is still wrong.
 
 ```sh
 cd /path/to/nvdia
@@ -46,7 +48,7 @@ and `latch/runs/loop-demo-events.jsonl`.
 Your own repo:
 
 ```sh
-python3 -m latch.loop run --repo ~/proj --base <buggy-sha> --head <agent-fix-sha> \
+python3 -m latch.loop run --repo ~/proj --base <buggy-sha> --head <fix-sha> \
   --issue-file issue.txt [--test-command "python3 -m pytest -q"] [--max-iterations 3] \
   [--model nvidia/Nemotron-3-Ultra-550b-a55b] [--proof-test my_test.py] [--no-triage] \
   [--receipt out.json] [--events out.jsonl] [--run-id ID]
@@ -59,7 +61,7 @@ from latch.loop import run_loop, run_demo, LoopError, ALLOWED_MODELS, DEFAULT_MO
 
 receipt = run_loop(
     repo,                       # path to a git repo (never modified)
-    base, head,                 # revisions: buggy base, agent's fix
+    base, head,                 # revisions: buggy base, submitted fix
     issue,                      # issue text (expected behavior)
     test_command="python3 -m pytest -q",
     max_iterations=3,           # 0..10

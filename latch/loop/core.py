@@ -18,7 +18,7 @@ import uuid
 from pathlib import Path
 
 from ..harness.parse import extract_test_function
-from ..prove import archive, expected_base_failure, git, proven, run_test
+from ..prove import PYTEST_ENV, archive, expected_base_failure, git, limit_resources, proven, run_test
 from ..run import LIGHTNING, MODEL, call_model, load_key
 
 ULTRA = MODEL
@@ -103,8 +103,10 @@ def _run_suite(snapshot, command):
     env["HOME"] = str(home)
     env["PYTHONPATH"] = os.pathsep.join([str(snapshot), str(snapshot / "src")])
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env.update(PYTEST_ENV)
     try:
-        r = subprocess.run(command, cwd=snapshot, env=env, capture_output=True, text=True, timeout=300)
+        r = subprocess.run(command, cwd=snapshot, env=env, capture_output=True, text=True, timeout=300,
+                           preexec_fn=limit_resources)
     except (OSError, subprocess.SubprocessError) as error:
         raise LoopError(f"could not run the repo test suite: {error}")
     return {"returncode": r.returncode, "stdout": r.stdout[-12000:], "stderr": r.stderr[-12000:]}
@@ -207,18 +209,25 @@ def run_loop(
     run_id=None,
     test_model=ULTRA,
     source_label=None,
+    case_note=None,
     triage=True,
+    inspect_final=None,
 ):
     """Run the fix loop and return the receipt dict (`receipt["verdict"]` is "gate_open" or "gave_up").
 
     repo/base/head: a git repo and two revisions: `base` is the buggy revision, `head` is the
-        agent's (wrong) fix. The repo is never modified; revisions are archived to temp dirs.
+        submitted (wrong) fix. The repo is never modified; revisions are archived to temp dirs.
     issue: the issue text, the independent statement of expected behavior.
     on_event(dict): called with every event (started, proof_test, gate_shut, iteration_started,
         model_response, patch_applied, iteration_result, gate_open | gave_up | error).
     proof_test: optional pytest function source to use instead of generating one with Ultra.
+    case_note: optional free-text label stored in the receipt and the started event (the demo uses it
+        to say it is a constructed case).
     triage: when True (default), Nemotron Lightning reads the failure first and the loop gives up,
         without patching, if it is an environment/import error or does not reproduce the issue.
+    inspect_final(dir): optional read-only hook called with the final code directory when the gate
+        opens; its return value is stored in receipt["inspection"] (the eval uses it as an oracle).
+        It never influences the verdict.
     model_fn: optional replacement for latch.run.call_model(key, user, model=, system=, max_tokens=)
         returning (status, content, completion_id). Used by the offline tests.
     Raises ValueError for bad arguments (before any event) and LoopError for infra failure
@@ -285,13 +294,25 @@ def run_loop(
         emit(type_ or verdict, reason=reason, receipt=receipt, receipt_path=path)
         return receipt
 
+    def inspect(directory):
+        if inspect_final is None:
+            return
+        try:
+            receipt["inspection"] = inspect_final(directory)
+        except Exception as error:  # the hook is informational and must not change the verdict
+            receipt["inspection"] = {"error": f"{type(error).__name__}: {error}"}
+
     def fail(reason):
         finish("error", reason, "error")
         raise LoopError(reason)
 
+    if case_note:
+        receipt["case_note"] = str(case_note)
     started = {"repo": receipt["repo"], "base": base, "head": head, "issue": receipt["issue"],
                "test_command": command, "model": model, "test_model": test_model,
                "max_iterations": max_iterations}
+    if case_note:
+        started["case_note"] = receipt["case_note"]
     if issue_cut:
         started["truncated"] = True
     emit("started", **started)
@@ -339,9 +360,9 @@ def run_loop(
                     "Create exactly one self-contained pytest test function named test_... and no prose. "
                     "Put every import inside the test function. Use the issue report as the independent "
                     "expected behavior and cover every case the issue names, not only what the diff touches: "
-                    "the diff is an agent's fix that may be incomplete. The test must fail on the buggy base "
+                    "the diff is a submitted fix that may be incomplete. The test must fail on the buggy base "
                     "revision and pass on a correct fix. Do not test the diff mechanically.\n\n"
-                    f"Issue report:\n{receipt['issue']}\n\nAgent's diff (base -> head):\n{clip(agent_diff)[0]}"
+                    f"Issue report:\n{receipt['issue']}\n\nSubmitted diff (base -> head):\n{clip(agent_diff)[0]}"
                 )
                 status, content, cid = ask(key, prompt, model=test_model, system=TEST_SYSTEM, max_tokens=8192)
                 if status != 200 or not content:
@@ -387,8 +408,9 @@ def run_loop(
                                          "(no assertion failure), so it cannot judge the fix")
             if head_ok and suite_green:
                 emit("gate_check", iteration=0, base_red=True, head_suite_green=True)
-                return finish("gate_open", "the agent's fix already passes the proof test; no loop needed")
-            why = ("proof test fails on the agent's fix" if not head_ok else "the repo's own suite fails on the agent's fix")
+                inspect(work)
+                return finish("gate_open", "the submitted fix already passes the proof test; no loop needed")
+            why = ("proof test fails on the submitted fix" if not head_ok else "the repo's own suite fails on the submitted fix")
             emit("gate_shut", iteration=0, reason=why, base_red=True,
                  head_suite_green=suite_green, head_proof_green=head_result["returncode"] == 0,
                  pytest_output=head_result["stdout"] + head_result["stderr"])
@@ -401,13 +423,13 @@ def run_loop(
                 receipt["initial"]["head_failure_type"] = kind
                 if kind is None and head_result["returncode"] != 0:
                     emit("triage", verdict="not_reproduced", model=None,
-                         reason="the proof test fails on the agent's code for a reason other than an assertion (import, collection or runtime error)")
-                    return finish("gave_up", "proof test fails on the agent's code with something other than an "
+                         reason="the proof test fails on the submitted code for a reason other than an assertion (import, collection or runtime error)")
+                    return finish("gave_up", "proof test fails on the submitted code with something other than an "
                                              "assertion (import/collection/environment error); not patching")
             if triage:
                 tri_user = (
                     f"Issue report:\n{receipt['issue']}\n\nRegression test:\n{test_source}\n"
-                    f"pytest output on the agent's code:\n{clip(failing_text, 6000)[0]}\n\n"
+                    f"pytest output on the submitted code:\n{clip(failing_text, 6000)[0]}\n\n"
                     "Does this failure show the issue's reported behavior is still wrong in the code "
                     "(an assertion about behavior), as opposed to an environment, import, syntax or test-harness "
                     "problem? Answer with exactly one first line: REPRODUCES or NOT_REPRODUCES, then one short "
@@ -439,7 +461,7 @@ def run_loop(
                 ) or " none yet"
                 user = (
                     f"Issue report (expected behavior):\n{receipt['issue']}\n\n"
-                    f"The agent's diff (base -> current code):\n{clip(agent_diff)[0]}\n\n"
+                    f"The submitted diff (base -> current code):\n{clip(agent_diff)[0]}\n\n"
                     f"Frozen regression test (do not edit):\n{test_source}\n"
                     f"Failure output on the current code:\n{clip(current_failure, 8000)[0]}\n\n"
                     f"Earlier repair attempts:{attempts}\n\n"
@@ -491,6 +513,7 @@ def run_loop(
                 receipt["iterations"].append(record)
                 emit("iteration_result", **record)
                 if gate:
+                    inspect(work)
                     return finish("gate_open", f"harness watched the proof test go red on base and green after iteration {i}, with the repo suite green")
             return finish("gave_up", f"gate still shut after {max_iterations} iteration(s); the harness never saw the proof test pass with the repo suite green")
     except LoopError:
@@ -532,7 +555,7 @@ def prepare_demo(force=False):
                     shutil.copy(src, repo / src.name)
             g("add", "-A")
             g("-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m",
-              "base: buggy booking helpers" if label == "base" else "agent fix: back-to-back bookings")
+              "base: buggy booking helpers" if label == "base" else "constructed partial fix: back-to-back bookings")
             g("tag", "-f", f"latch-demo-{label}")
     rev = lambda tag: subprocess.run(["git", "-C", str(repo), "rev-parse", f"{tag}^{{commit}}"],
                                      capture_output=True, text=True, check=True).stdout.strip()
@@ -545,11 +568,16 @@ def prepare_demo(force=False):
     return {"repo": str(repo), "base": base, "head": head, "issue": issue, "checks": checks}
 
 
+DEMO_LABEL = ("Constructed regression case: hand-written partial fix modelled on common agent behaviour, "
+              "not an upstream bug.")
+
+
 def run_demo(**kwargs):
-    """Run the bundled constructed demo (latch/loop/demo/): base commit, agent's wrong fix, issue text.
+    """Run the bundled constructed demo (latch/loop/demo/): base commit, hand-written partial fix, issue text.
 
     Uses the repo built by prepare_demo() (building it first if needed). Accepts run_loop's kwargs.
     """
     prep = prepare_demo()
     kwargs.setdefault("source_label", "latch-loop-demo/bookings (constructed)")
+    kwargs.setdefault("case_note", DEMO_LABEL)
     return run_loop(prep["repo"], prep["base"], prep["head"], prep["issue"], **kwargs)
