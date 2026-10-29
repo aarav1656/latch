@@ -1,0 +1,67 @@
+{
+  "run_id": "703d1e0a0ba8",
+  "repo": "latch-loop-demo/bookings (constructed)",
+  "base": "7118182e14162dce30ae88971d4b7da0c0c957e2",
+  "head": "1b774fb6cac181bb8d7a6739f5a81914f99b941c",
+  "issue": "Back-to-back bookings are treated as double-booked\n\nA booking that ends at 10:00 and the next one that starts at 10:00 do not share any time, but the booking helpers treat them as a clash. Example with times in minutes since midnight:\n\n    find_conflicts([(540, 600), (600, 660)])   # returns [((540, 600), (600, 660))], should be []\n    merge_bookings([(540, 600), (600, 660)])   # returns [(540, 660)], should stay [(540, 600), (600, 660)]\n\nBack-to-back bookings must not be reported as conflicts and must not be merged into one block. Bookings that really overlap (for example (540, 600) and (570, 630)) must keep behaving as before.",
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-30a126e4",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe test failure confirms the code still merges back-to-back bookings into a single block, exactly matching the reported bug."
+  },
+  "started_at": "2026-10-29T09:14:01.150Z",
+  "proof_test": {
+    "name": "test_back_to_back_bookings",
+    "source": "import pytest\n\ndef test_back_to_back_bookings():\n    from bookings import overlaps, find_conflicts, merge_bookings\n\n    # Back-to-back bookings: end of first equals start of second\n    b1 = (540, 600)\n    b2 = (600, 660)\n\n    # They must not be considered overlapping\n    assert not overlaps(b1, b2)\n    assert not overlaps(b2, b1)\n\n    # find_conflicts must not report a clash\n    assert find_conflicts([b1, b2]) == []\n\n    # merge_bookings must keep them separate\n    assert merge_bookings([b1, b2]) == [b1, b2]\n\n    # Overlapping bookings must still behave as before\n    o1 = (540, 600)\n    o2 = (570, 630)\n    assert overlaps(o1, o2)\n    assert find_conflicts([o1, o2]) == [(o1, o2)]\n    assert merge_bookings([o1, o2]) == [(540, 630)]\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-a51a03ec434a0a53"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________ test_back_to_back_bookings __________________________\n\n    def test_back_to_back_bookings():\n        from bookings import overlaps, find_conflicts, merge_bookings\n    \n        # Back-to-back bookings: end of first equals start of second\n        b1 = (540, 600)\n        b2 = (600, 660)\n    \n        # They must not be considered overlapping\n>       assert not overlaps(b1, b2)\nE       assert not True\nE        +  where True = <function overlaps at 0x10a6d9e10>((540, 600), (600, 660))\n\nlatch_issue_test.py:11: AssertionError\n=========================== short test summary info ============================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert not True\n1 failed in 0.05s\n~/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________ test_back_to_back_bookings __________________________\n\n    def test_back_to_back_bookings():\n        from bookings import overlaps, find_conflicts, merge_bookings\n    \n        # Back-to-back bookings: end of first equals start of second\n        b1 = (540, 600)\n        b2 = (600, 660)\n    \n        # They must not be considered overlapping\n        assert not overlaps(b1, b2)\n        assert not overlaps(b2, b1)\n    \n        # find_conflicts must not report a clash\n        assert find_conflicts([b1, b2]) == []\n    \n        # merge_bookings must keep them separate\n>       assert merge_bookings([b1, b2]) == [b1, b2]\nE       assert [(540, 660)] == [(540, 600), (600, 660)]\nE         \nE         At index 0 diff: (540, 660) != (540, 600)\nE         Right contains one more item: (600, 660)\nE         Use -v to get more diff\n\nlatch_issue_test.py:18: AssertionError\n=========================== short test summary info ============================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert [(540, 660)] ...\n1 failed in 0.06s\n~/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".....                                                                    [100%]\n5 passed in 0.01s\n~/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-bb7ee7b30563e9c9",
+      "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -20,7 +20,7 @@\n     \"\"\"Collapse clashing bookings into blocks, e.g. for a room utilisation report.\"\"\"\n     merged = []\n     for start, end in sorted(bookings):\n-        if merged and start <= merged[-1][1]:\n+        if merged and start < merged[-1][1]:\n             merged[-1] = (merged[-1][0], max(merged[-1][1], end))\n         else:\n             merged.append((start, end))\n",
+      "changed_files": [
+        "bookings.py"
+      ],
+      "pytest_output": ".                                                                        [100%]\n1 passed in 0.01s\n~/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+      "verdict": "gate_open",
+      "proof_returncode": 0,
+      "suite_returncode": 0
+    }
+  ],
+  "verdict": "gate_open",
+  "reason": "harness watched the proof test go red on base and green after iteration 1, with the repo suite green",
+  "finished_at": "2026-10-29T09:14:28.889Z",
+  "final_iteration": 1
+}
