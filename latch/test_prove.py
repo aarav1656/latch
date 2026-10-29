@@ -1,9 +1,11 @@
+import json
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from latch.prove import archive, expected_base_failure, proven
+from latch.prove import archive, expected_base_failure, proven, prove
 
 
 class ProofClassifierTests(unittest.TestCase):
@@ -64,6 +66,62 @@ class ProofClassifierTests(unittest.TestCase):
             archive(repo, head, snapshot)
             self.assertEqual((snapshot / "app.py").read_text(), "value = 1\n")
             self.assertEqual(subprocess.check_output(["git", "-C", str(repo), "status", "--porcelain"], text=True), "")
+
+
+class ProveRunnerTests(unittest.TestCase):
+    def make_repo(self, root):
+        repo = Path(root) / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        identity = ["git", "-C", str(repo), "-c", "core.hooksPath=/dev/null", "-c", "user.name=Latch", "-c", "user.email=latch@example.test"]
+        (repo / "app.py").write_text("def double(x):\n    return x + x + 1\n")
+        subprocess.run(["git", "-C", str(repo), "add", "app.py"], check=True)
+        subprocess.run([*identity, "commit", "-qm", "bug"], check=True)
+        (repo / "app.py").write_text("def double(x):\n    return x + x\n")
+        subprocess.run(["git", "-C", str(repo), "add", "app.py"], check=True)
+        subprocess.run([*identity, "commit", "-qm", "fix"], check=True)
+        return repo
+
+    def test_custom_runner_replaces_the_default_test_execution(self):
+        generated = "def test_double():\n    from app import double\n    assert double(2) == 4\n"
+        fail = "________ test_double ________\nE       AssertionError\nFAILED latch_issue_test.py::test_double - AssertionError\n"
+        calls = []
+
+        def runner(snapshot, command):
+            calls.append((snapshot.name, list(command), (snapshot / "latch_issue_test.py").exists()))
+            if snapshot.name == "base":
+                return {"returncode": 1, "stdout": fail, "stderr": ""}
+            return {"returncode": 0, "stdout": "1 passed", "stderr": ""}
+
+        runner.description = "unit-test runner"
+        steps = []
+        with tempfile.TemporaryDirectory() as temp:
+            repo = self.make_repo(temp)
+            receipt = Path(temp) / "receipt.json"
+            with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
+                "latch.prove.call_model", return_value=(200, generated, "cmpl-1")
+            ), mock.patch("latch.prove.run_test", side_effect=AssertionError("default runner used")):
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, on_step=steps.append, runner=runner)
+            saved = json.loads(receipt.read_text())
+        self.assertEqual([c[0] for c in calls], ["base", "head"])
+        self.assertTrue(all(c[1] == ["python3", "-m", "pytest", "-q"] and c[2] for c in calls))
+        self.assertTrue(result["proven"])
+        self.assertEqual(saved["test_runner"], "unit-test runner")
+        self.assertEqual(steps, ["model", "base-test", "head-test", "receipt"])
+
+    def test_default_behaviour_is_unchanged_without_a_runner(self):
+        generated = "def test_double():\n    from app import double\n    assert double(2) == 4\n"
+        outcome = {"returncode": 0, "stdout": "", "stderr": ""}
+        with tempfile.TemporaryDirectory() as temp:
+            repo = self.make_repo(temp)
+            receipt = Path(temp) / "receipt.json"
+            with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
+                "latch.prove.call_model", return_value=(200, generated, "cmpl-1")
+            ), mock.patch("latch.prove.run_test", return_value=outcome) as default_run:
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt)
+        self.assertNotIn("test_runner", result)
+        self.assertEqual(default_run.call_count, 2)
+        self.assertTrue(all(call.kwargs == {"isolate": False} for call in default_run.call_args_list))
 
 
 if __name__ == "__main__":

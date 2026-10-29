@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -56,14 +57,15 @@ def linked_issue(body, base_repo):
 
 
 def github_get(path):
-    request = urllib.request.Request(
-        GITHUB_API + path,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "Latch-issue-proof",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Latch-issue-proof",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(GITHUB_API + path, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             payload = response.read(1_000_001)
@@ -91,7 +93,7 @@ def git(repo, *args):
     )
 
 
-def run_pull_request(url, receipt, test_command, on_step=None):
+def run_pull_request(url, receipt, test_command, on_step=None, runner=None):
     owner, name, number = parse_pull_request_url(url)
     if on_step:
         on_step("fetching")
@@ -140,10 +142,12 @@ def run_pull_request(url, receipt, test_command, on_step=None):
             receipt,
             on_step=proof_step,
             isolate_tests=True,
+            runner=runner,
         )
 
     result.update(
         {
+            "repo": base_repo,
             "pull_request_url": url,
             "pull_request_title": pull["title"],
             "issue_url": issue["html_url"],
