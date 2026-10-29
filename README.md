@@ -2,6 +2,8 @@
 
 A green test suite is not proof that an agent's pull request is correct. Latch is the gate that checks.
 
+Track: Coding and Agentic Engineering.
+
 Coding agents now write the code and the tests in the same pull request. The tests pass, the reviewer sees green, and the change merges. The failure is quiet: a test that calls the changed function but cannot fail. Latch finds that test, has NVIDIA Nemotron write one that can fail, and opens only when the harness, not a model, watches the new test go red on the bug and green on the fix.
 
 ## The problem, in the words of people hitting it
@@ -13,7 +15,7 @@ Coding agents now write the code and the tests in the same pull request. The tes
 
 Running the tests is not enough. The tests have to be able to fail.
 
-## What a run does
+## Fixture run
 
 The pull request in `latch/fixture/` changes an annual plan discount. `billing.py` grants it at 10 seats or more. The shipped suite checks a monthly plan, 12 annual seats, and 3 annual seats, and it has a test for exactly 10 seats that asserts the result equals itself.
 
@@ -36,11 +38,41 @@ flowchart LR
 6. The harness restores the line and runs it again. It must pass.
 7. Only then does the padlock read Open.
 
-## Why two models
+## Prove a real issue fix
+
+For a real Python pull request, Latch takes the issue report as the expected behavior, asks Nemotron Ultra for one focused pytest, archives the selected commits into temporary directories, then runs the same test against both snapshots. The receipt keeps the generated test, commit hashes, model completion id, and both test outputs. Latch accepts only when the named test fails on base with an assertion or an explicit unexpected-operation failure and passes on head. It does not check out or edit the supplied repository.
+
+Example with Click issue [#3298](https://github.com/pallets/click/issues/3298) and its fix [#3299](https://github.com/pallets/click/pull/3299):
+
+```sh
+git clone https://github.com/pallets/click.git ~/click
+git -C ~/click fetch origin pull/3299/head:latch-pr-3299
+python3 -m venv ~/click-venv
+. ~/click-venv/bin/activate
+python3 -m pip install pytest semver==3.0.4
+LATCH_REPO=/path/to/nvdia
+PYTHONPATH="$LATCH_REPO" python3 -m latch.prove \
+  --repo ~/click \
+  --base 04ef3a6f473deb2499721a8d11f92a7d2c0912f2 \
+  --head d340b0c1202284a1b9d0ca892549208527d586ce \
+  --issue 'Click help raises ValueError when a semver.Version(1, 0, 0) default has show_default=True. Help should render and show the default.' \
+  --test-command 'python3 -m pytest -q' \
+  --receipt click-3298.json
+```
+
+Set `/path/to/nvdia` to this checkout. The command uses the active Python environment for project dependencies and writes a JSON receipt. Exit status 0 means the issue regression was reproduced on base and the test passed on head; status 1 means the test did not prove that transition.
+
+The receipt contains captured pytest output. Inspect it before sharing if the project prints private values during tests.
+
+## Scope: why two models
 
 Lightning is the fast read: one sentence, naming the weak test, so the engineer knows what the agent got wrong. Ultra does the hard step: reasoning over two near-identical sources to find the inputs where they disagree, then writing an executable test on exactly those inputs. Both calls go to Nebius Token Factory at `https://api.tokenfactory.nebius.com/v1/chat/completions`.
 
-Nano and Super serverless ids are removed from Token Factory on 2026-11-09, before judging. Latch calls only Ultra and Lightning, and refuses to call a model id that is missing from the live catalog.
+The real issue path uses Ultra to write the test against the issue report and patch diff. The issue supplies the expected behavior, so the fast diagnosis step is not needed there.
+
+## What it refuses to guess
+
+A model response alone never opens the gate. Latch does not treat an arbitrary test failure as proof: the named generated test must fail on the base revision with an assertion or an explicit unexpected-operation failure, then pass on the patch. A timeout, import error, missing test, or patch failure leaves the receipt unproven.
 
 ## When the padlock stays shut
 
@@ -77,7 +109,7 @@ def test_ten_seats_annual_discount(self):
 
 Mutation testing is old. [mutmut](https://github.com/boxed/mutmut) (BSD-3-Clause, 1,513 stars) flips operators and reports survivors. [Flawd](https://fixture.dev/flawd) mutation-tested 10 projects and found TypeORM's unit tests killed 72.6% of mutants. Its `flawd handoff` packages each survivor for a coding agent.
 
-Latch starts where those end. It does not report survivors for a person to triage. It closes the loop on the pull request: a fast model explains the hole, a large model writes the fix, and the harness, which no model controls, decides whether the fix is real.
+The fixture gate demonstrates the mutation loop. The real issue path uses a maintainer report as an independent behavior oracle, then checks whether the same generated regression test distinguishes the actual buggy and fixed commits.
 
 ## Run it
 
@@ -92,16 +124,18 @@ Open http://127.0.0.1:4173/ and press Run the gate.
 Tests:
 
 ```
-python3 -m unittest latch.harness.test_parse latch.harness.test_kill_check latch.harness.test_prose latch.screen.test_render
+python3 -m unittest latch.test_prove latch.harness.test_parse latch.harness.test_kill_check latch.harness.test_prose latch.screen.test_render
 ```
 
 ## Layout
 
 - `latch/run.py`: the gate. Runs the suite, moves the line, calls Lightning and Ultra, runs the new test both ways.
+- `latch/prove.py`: the issue-to-regression CLI for real Python repositories and commit pairs.
 - `latch/serve.py`: local server for the screen and the run API.
 - `latch/screen/page.py`: the screen.
 - `latch/harness/`: parser and the AssertionError check, with tests.
 - `latch/fixture/`: the pull request under test and the line flipper.
+- `latch/runs/click-3298.json`: live issue proof receipt from the Click fix.
 - `docs/WIN-CONDITIONS.md`: the pre-code decision.
 - `research/`: everything read and tested along the way. Start at `research/README.md`.
 

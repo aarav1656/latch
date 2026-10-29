@@ -18,6 +18,12 @@ Open http://127.0.0.1:4173/ and press Run the gate. The padlock reads Open only 
 
 The proof is `latch/runs/latest.json`. Ultra `nvidia/Nemotron-3-Ultra-550b-a55b` returned HTTP 200, completion `chatcmpl-87fee6d9c6662143`, and wrote `test_ten_seats_annual_discount`. Lightning `nvidia/Nemotron-3_5-Lightning` named `test_ten_seats_ran`.
 
+## Prove a real issue fix
+
+`python3 -m latch.prove` accepts a local Python repository, the buggy and fixed commit refs, and the issue report. It asks Nemotron Ultra for one regression test, runs it against temporary archives of both commits, and writes a JSON receipt. The source checkout is not modified. See the root README for the Click issue #3298 example and setup command.
+
+The live Click receipt at `latch/runs/click-3298.json` records the generated test against `semver.Version(1, 0, 0)`, an issue-specific failure on base `04ef3a6f473deb2499721a8d11f92a7d2c0912f2`, and a pass on fix `d340b0c1202284a1b9d0ca892549208527d586ce`.
+
 ## License
 
 MIT. See `LICENSE`.
