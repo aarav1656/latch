@@ -4,7 +4,7 @@ Asset we will own: a public Python bug-fix case with a Nemotron-generated regres
 Off-platform buyer: Python maintainer reviewing an AI-generated bug fix
 Single entry: Latch
 Verb the brief names: "agents that write, run, and test code in Token Factory"
-Our product performs that verb: yes. latch/run.py calls Nemotron Lightning and Ultra through Token Factory, writes a model-generated test, and runs it against both code states. The harness owns the verdict.
+Our product performs that verb: yes. The fixture flow in latch/run.py calls Nemotron Lightning and Ultra through Token Factory. The real issue flow in latch/prove.py calls Nemotron Ultra, writes an issue-conditioned test, and runs it against both commit snapshots. The harness owns the verdict.
 Metric plan: one real issue-linked bug-fix repository, one generated test, and a receipt showing the reported failure on the base revision and a pass on the patch, verifiable in under 90 seconds in the demo
 Live by: 2026-10-30 09:00 PDT
 Deviation from research: replace generic mutation repair with issue-anchored base/patch proof after finding direct prior art in Crucible and SWE-Mutation; Berlin Build Week is only a proxy because this event's gallery is unpublished. The local Claude Code stop-hook path was killed after a real CLI 403 prevented runtime verification.

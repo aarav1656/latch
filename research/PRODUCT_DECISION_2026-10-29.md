@@ -82,17 +82,21 @@ Video transcripts were not used. The decision turns on executable code, official
 - **Kill shot:** test intent can be misunderstood; the gate must fail closed for ambiguous issues, base failures that do not match the issue symptom, base tests that pass, or patch failures.
 - **Never build:** generic mutation scores, broad AI review, arbitrary language support, hosted accounts, and lifecycle hooks without a verified runtime.
 
-## Recommendation
+## Build result
 
-Build the narrow Python issue-to-regression-proof CLI and make the existing local screen display its receipt. Keep the two-model calls only if a live comparison shows Lightning's diagnosis changes the test or the result; otherwise one Nemotron model may be enough. The demo must use one real bug-fix repository with a public issue and actual base/patch refs. If that cannot be made to run before the deadline, keep the existing fixture demo and describe the live-repo mode as unverified in the private ledger, not as a shipped capability.
+- The real-system spike confirmed Click issue #3298 with Nemotron 3 Ultra and actual `semver.Version` behavior. The base produced the reported ValueError and the fix passed.
+- `latch/prove.py` now implements the issue, diff, base, head, generated test, dual-snapshot run, and JSON receipt path. It leaves the source checkout untouched.
+- The live CLI proof used Click base `04ef3a6f473deb2499721a8d11f92a7d2c0912f2` and fix `d340b0c1202284a1b9d0ca892549208527d586ce`. Receipt is `latch/runs/click-3298.json`, completion `chatcmpl-99d6e5a92020c804`, with base exit 1, head exit 0, and `proven: true`.
+- The pytest failure classifier accepts only the generated test's own failure summary when it is an AssertionError or the explicit unexpected-operation failure. A mutation that accepted every base failure was killed, then the test suite passed after restore.
+- The existing browser screen remains the billing fixture. It does not accept a PR or render the real-issue receipt. The real issue workflow is currently a CLI and JSON artifact.
+- The repository is local. It has not been pushed to a public forge, deployed to a public URL, or recorded as a demo video.
+- Demand evidence remains qualitative. There is no willingness-to-pay evidence for Latch itself.
 
-## Next work
+## Remaining submission work
 
-1. Spike the issue-to-test mechanism on a real Python bug-fix repository using the live Token Factory model. Include base-fails and patch-passes cases.
-2. Build only the one-repository Python path, use temporary copies, and do not edit the user's checkout.
-3. Run a negative mutation against the proof predicate, restore it, and verify green.
-4. Run the existing demo on a separate port; do not stop the user's server on 4173.
-5. Update the public README only after `backstage scan -v`, then verify every claim against the code.
+1. Decide whether to add a browser flow for entering a repository, issue, and commit refs, or demonstrate the CLI directly.
+2. Provide a public code-hosting URL and working demo URL.
+3. Record and publish the required short demo video and submit through Devpost.
 
 ## Models used in research
 

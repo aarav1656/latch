@@ -57,7 +57,7 @@ Use `nvidia/Nemotron-3-Ultra-550b-a55b` for the patch and `nvidia/Nemotron-3_5-L
 
 ## Second pass, 2026-10-29 11:40 IST
 
-Tools that ran: `dr showhn`, `dr gh`, `dr hncomments 49308665`, `grokweb research --turns 2` (grok-3 on x.com), `freecode` on `/tmp/latch-spike`. `chatgpt doctor` returned HTTP 401. `phunt search` hit a Product Hunt bot check. `dr discover` returned an empty Product Hunt block. `freecode` muse failed twice with `err_3285f525` and `err_5c637bbe`. deepseek passed on attempt 1.
+Tools that ran: `dr showhn`, `dr gh`, `dr hncomments 49308665`, `grokweb research --turns 2` (grok-3 on x.com), `freecode` on an isolated scratch repo. `chatgpt doctor` returned HTTP 401. `phunt search` hit a Product Hunt bot check. `dr discover` returned an empty Product Hunt block. `freecode` muse failed twice with `err_3285f525` and `err_5c637bbe`. deepseek passed on attempt 1.
 
 Show HN already has the category. Flawd, 2026-09-02, 4 points: https://fixture.dev/flawd and https://news.ycombinator.com/item?id=49536607. mutmut is BSD, 1513 stars. Flawd releases: 0 stars, 21 downloads of the macOS binary. https://github.com/fixture-dev/flawd-releases
 
