@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latch · issue-anchored proof for pull requests</title>
+<meta name="description" content="Paste a GitHub pull request. Latch writes a test from the linked issue, shows it failing on the base commit and passing on the head, and gives you a receipt.">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<a class="skip" href="#receipt">Skip to receipt</a>
+<header class="bar">
+  <a class="mark" href="/" aria-label="Latch home">Latch</a>
+  <p class="bar-note">Nemotron on Nebius Token Factory · tests run in a sandbox</p>
+</header>
+
+<main>
+  <section class="intro" aria-labelledby="title">
+    <p class="eyebrow">Issue-anchored proof</p>
+    <h1 id="title">Does this pull request fix the issue it claims to?</h1>
+    <p class="lede">Paste a GitHub pull request that closes an issue. Latch writes a test from the issue text alone, runs it on the base commit and on the head, and keeps the receipt. A fix is <em>proven</em> only when the test fails before and passes after.</p>
+
+    <form id="form" class="form" novalidate>
+      <label for="url" class="label">Pull request URL</label>
+      <div class="row">
+        <input id="url" name="url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://github.com/pallets/click/pull/3299" aria-describedby="hint url-error">
+        <button id="run" type="submit" class="btn primary">Prove it</button>
+      </div>
+      <p id="hint" class="hint">Public Python repositories. The pull request description must say <code>Fixes #123</code>.</p>
+      <p id="url-error" class="field-error" role="alert" hidden></p>
+      <div class="examples">
+        <button type="button" id="example" class="btn ghost">Try Click #3298 / PR #3299</button>
+        <span id="live-note" class="hint" hidden></span>
+      </div>
+    </form>
+  </section>
+
+  <div class="tabs" role="tablist" aria-label="Views">
+    <button type="button" role="tab" id="tab-proof" class="tab" aria-selected="true" aria-controls="panel-proof">Proof receipt</button>
+    <button type="button" role="tab" id="tab-loop" class="tab" aria-selected="false" aria-controls="panel-loop" tabindex="-1">Fix loop <span class="tab-sub">when the gate stays shut</span></button>
+  </div>
+
+  <div id="panel-proof" role="tabpanel" aria-labelledby="tab-proof">
+  <section id="progress" class="progress" aria-labelledby="progress-title" hidden>
+    <h2 id="progress-title" class="section-title">Running live</h2>
+    <ol id="stepper" class="stepper"></ol>
+    <p id="detail" class="detail" role="status" aria-live="polite"></p>
+  </section>
+
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <div id="error" class="error-card" role="alert" hidden></div>
+
+  <section id="receipt" class="receipt" aria-live="polite" tabindex="-1"></section>
+  </div>
+
+  <section id="panel-loop" class="loop" role="tabpanel" aria-labelledby="tab-loop" hidden>
+    <h2 class="section-title">What happens when the gate stays shut</h2>
+    <p class="lede">If the proof test still fails on an agent's fix, a Nemotron coding agent rewrites the code and the harness runs everything again. The model never decides: the gate opens only when the frozen proof test is green and the repository's own suite stays green.</p>
+    <div class="loop-bar">
+      <span id="loop-gate" class="gate-pill" data-state="idle">Gate: waiting</span>
+      <span id="loop-tag" class="tag">Recorded run</span>
+      <span class="spacer"></span>
+      <button type="button" id="loop-replay" class="btn ghost small">Replay</button>
+      <button type="button" id="loop-all" class="btn ghost small">Show all</button>
+      <button type="button" id="loop-live" class="btn primary small" hidden>Run live</button>
+    </div>
+    <p id="loop-note" class="hint loop-note"></p>
+    <div id="loop-error" class="error-card" role="alert" hidden></div>
+    <ol id="loop-timeline" class="timeline" aria-live="polite"></ol>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Latch proves that a patch changes behavior the issue asked for. It does not review code quality. Receipts are plain JSON: <a href="/api/example">example</a>.</p>
+</footer>
+
+<script id="boot" type="application/json">__LATCH_BOOT__</script>
+<script src="/static/app.js"></script>
+<script src="/static/loop.js"></script>
+</body>
+</html>
