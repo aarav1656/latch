@@ -1,0 +1,16 @@
+# Build context is the repository root:  docker build -f latch/web/Dockerfile .
+**
+!latch/*.py
+!latch/harness/*.py
+!latch/loop/**
+!latch/web/**
+!latch/runs/click-3298.json
+!latch/runs/loop-demo-events.jsonl
+latch/test_*.py
+latch/harness/test_*.py
+latch/loop/test_*.py
+latch/web/test_*.py
+latch/web/.data
+latch/web/deploy.sh
+**/__pycache__
+**/*.pyc
