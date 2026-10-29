@@ -478,6 +478,21 @@ class SandboxTests(unittest.TestCase):
         self.assertEqual(result["returncode"], 0, result)
         self.assertIn("1 passed", result["stdout"])
 
+    def test_sandbox_env_sets_wide_columns_and_status_warns_without_netns(self):
+        runner = self.runner()
+        with tempfile.TemporaryDirectory() as temp:
+            env = runner._env(Path(temp), Path(temp))
+        self.assertEqual(env["COLUMNS"], "200")
+        from latch.web import service as service_module
+
+        with mock.patch.object(service_module, "net_namespace_available", return_value=False):
+            holder = mock.Mock(sandbox_config=SandboxConfig(net_isolation="auto"))
+            status = service_module.Service.sandbox_status(holder)
+            self.assertFalse(status["network_isolated"])
+            self.assertIn("unavailable", status["warning"])
+            holder = mock.Mock(sandbox_config=SandboxConfig(net_isolation="off"))
+            self.assertIsNone(service_module.Service.sandbox_status(holder)["warning"])
+
     def test_public_error_detail_hides_server_paths(self):
         from latch.web.service import redact
 

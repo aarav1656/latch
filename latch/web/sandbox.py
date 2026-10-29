@@ -207,6 +207,7 @@ class SandboxRunner:
             "PYTHONPATH": os.pathsep.join([str(snapshot), str(snapshot / "src")]),
             "GIT_TERMINAL_PROMPT": "0",
             "CI": "1",
+            "COLUMNS": "200",  # pytest truncates "FAILED ... - msg" at the terminal width when not a tty
         }
         if setup:
             env.update(
@@ -319,7 +320,10 @@ class SandboxRunner:
             config = home / "latch-pytest.ini"
             config.write_text("[pytest]\n")
             at = argv.index("pytest") + 1
-            argv[at:at] = ["--noconftest", "-p", "no:cacheprovider", "-c", str(config), "--rootdir", str(snapshot)]
+            argv[at:at] = [
+                "--noconftest", "-p", "no:cacheprovider", "-c", str(config), "--rootdir", str(snapshot),
+                "-rf", "--tb=short",  # same output shape as prove.run_test, which classifies the base failure from it
+            ]
             env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
         if self.network_isolated:
             argv = ["unshare", "--net", "--map-root-user", "--", *argv]
