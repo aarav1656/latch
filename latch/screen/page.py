@@ -4,6 +4,7 @@ PAGE_HTML = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Latch</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Hallmark · macrostructure: Workbench · tone: technical · anchor hue: cobalt
@@ -130,10 +131,21 @@ ol { margin: 0; padding-left: 1.1rem; color: var(--color-body); }
 li { margin: 6px 0; }
 li.done { color: var(--color-ink); font-weight: 600; }
 .dim { color: var(--color-muted); }
+.proof-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); margin: var(--space-5) 0; }
+input { min-width: 0; padding: 11px 12px; border: 1px solid var(--color-rule); border-radius: var(--radius-control); color: var(--color-ink); font: inherit; }
+input:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.result { border-top: 1px solid var(--color-rule); margin-top: var(--space-5); padding-top: var(--space-5); }
+.result[hidden] { display: none; }
+.proof-meta { display: grid; gap: var(--space-2); }
+.proof-meta p { margin: 0; overflow-wrap: anywhere; }
+.status { font-family: var(--font-display); font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.secondary { color: var(--color-ink); background: transparent; border-color: var(--color-rule); }
 @media (max-width: 800px) {
   .stage { grid-template-columns: minmax(0, 1fr); padding: var(--space-5) var(--space-4); }
   .bar { padding: var(--space-4); }
   h1 { font-size: 2rem; }
+  .proof-form { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
@@ -142,111 +154,99 @@ li.done { color: var(--color-ink); font-weight: 600; }
 </head>
 <body>
 <header class="bar">
-  <div class="mark">Latch</div>
-  <button id="run" type="button">Run the gate</button>
+  <div class="mark">Latch <span class="dim">/ issue proof</span></div>
+  <a href="/api/pr-proof/latest" id="receipt-link" hidden>Latest receipt</a>
 </header>
 <main class="stage">
   <section>
-    <h1>Annual discount at 10 seats</h1>
-    <p class="lede">The suite stays green after the boundary moves. Lightning names the test that cannot fail. Ultra writes the one that can. The harness runs it.</p>
-    <p class="label">billing.py</p>
-    <pre id="source">Loading the pull request.</pre>
-    <p class="label">test_suite.py</p>
-    <pre id="tests"></pre>
+    <p class="label">Issue to verified fix</p>
+    <h1>Does this pull request fix the bug it claims to?</h1>
+    <p class="lede">Latch reads the linked issue, writes a behavior test from the report, then runs it against the exact base and head commits. The lock opens only when the test fails on base and passes on the pull request.</p>
+    <form id="proof-form" class="proof-form">
+      <label class="dim" for="pull-url" style="grid-column:1/-1">Public GitHub pull request</label>
+      <input id="pull-url" name="pull_request_url" type="url" autocomplete="url" required aria-describedby="form-help" value="https://github.com/pallets/click/pull/3299">
+      <button id="prove" type="submit">Prove this fix</button>
+      <span id="form-help" class="dim" style="grid-column:1/-1">The pull request must close one issue in the same repository.</span>
+    </form>
+    <p id="feedback" class="status" role="status" aria-live="polite">Ready for a public pull request.</p>
+    <div id="result" class="result" hidden>
+      <p class="label">Linked issue</p>
+      <h2 id="issue-title"></h2>
+      <div class="proof-meta">
+        <p><strong>Pull request:</strong> <a id="pr-title" target="_blank" rel="noreferrer"></a></p>
+        <p><strong>Base:</strong> <code id="base-sha"></code></p>
+        <p><strong>Head:</strong> <code id="head-sha"></code></p>
+        <p><strong>Base test:</strong> <span id="base-result"></span></p>
+        <p><strong>Head test:</strong> <span id="head-result"></span></p>
+      </div>
+      <p class="label" style="margin-top:var(--space-5)">Generated behavior test</p>
+      <pre id="test-source"></pre>
+      <div class="actions"><a id="download" class="secondary" href="/api/pr-proof/latest">View proof receipt JSON</a></div>
+    </div>
   </section>
   <aside class="gate">
-    <p class="label">Padlock</p>
+    <p class="label">Proof status</p>
     <p id="latch" class="shut">Shut</p>
     <p id="reason" class="dim"></p>
     <ol id="steps">
-      <li data-step="suite">Original suite</li>
-      <li data-step="mutant">Same suite, changed line</li>
-      <li data-step="lightning">Lightning</li>
-      <li data-step="ultra">Ultra</li>
-      <li data-step="kill">New test on the change</li>
-      <li data-step="done">New test on the original</li>
+      <li data-step="fetching">Pull request and linked issue</li>
+      <li data-step="fetching-commits">Exact base and head commits</li>
+      <li data-step="model">Issue-grounded test generation</li>
+      <li data-step="base-test">Test fails on original code</li>
+      <li data-step="head-test">Test passes on proposed fix</li>
+      <li data-step="receipt">Proof receipt saved</li>
     </ol>
   </aside>
-  <section>
-    <p class="label">Lightning</p>
-    <pre id="lightning">Waiting.</pre>
-    <p class="label">Ultra</p>
-    <pre id="assertion">Waiting.</pre>
-  </section>
 </main>
 <script>
-const latch = document.querySelector("#latch");
-const reason = document.querySelector("#reason");
-const assertion = document.querySelector("#assertion");
-const lightning = document.querySelector("#lightning");
-const button = document.querySelector("#run");
-
-function mark(state) {
-  const done = {
-    suite: state.weak_green === true,
-    mutant: state.mutant_still_green === true,
-    lightning: Boolean(state.lightning),
-    ultra: Boolean(state.assertion),
-    kill: state.kill_failed === true,
-    done: state.restored_passed === true
-  };
-  for (const item of document.querySelectorAll("#steps li")) {
-    item.className = done[item.dataset.step] ? "done" : "dim";
-  }
+const form = document.querySelector("#proof-form"), button = document.querySelector("#prove");
+const feedback = document.querySelector("#feedback"), lock = document.querySelector("#latch");
+const result = document.querySelector("#result");
+let activeJob = null, timer = null;
+function step(name) {
+  const order = ["fetching", "fetching-commits", "model", "base-test", "head-test", "receipt"], current = order.indexOf(name);
+  for (const item of document.querySelectorAll("#steps li")) item.className = order.indexOf(item.dataset.step) <= current ? "done" : "dim";
 }
-
-function paint(payload) {
-  const state = payload.state || {};
-  const open = state.kill_failed && state.restored_passed;
-  latch.textContent = open ? "Open" : "Shut";
-  latch.className = open ? "open" : "shut";
-  reason.textContent = state.reason || "";
-  if (state.lightning) lightning.textContent = state.lightning;
-  if (state.assertion) assertion.textContent = state.assertion;
-  mark(state);
-  const running = payload.phase === "running";
-  button.disabled = running;
-  button.textContent = running ? "Running" : "Run the gate";
+function showReceipt(receipt) {
+  if (!receipt) return;
+  result.hidden = false;
+  document.querySelector("#issue-title").textContent = receipt.issue_title || "Linked issue";
+  const link = document.querySelector("#pr-title"); link.textContent = receipt.pull_request_title || receipt.pull_request_url; link.href = receipt.pull_request_url;
+  document.querySelector("#base-sha").textContent = receipt.base;
+  document.querySelector("#head-sha").textContent = receipt.head;
+  document.querySelector("#base-result").textContent = receipt.base_result?.returncode === 0 ? "passed" : "failed as expected";
+  document.querySelector("#head-result").textContent = receipt.head_result?.returncode === 0 ? "passed" : "failed";
+  document.querySelector("#test-source").textContent = receipt.test || "No test was produced.";
+  const open = receipt.proven === true;
+  lock.textContent = open ? "Proven" : "Not proven"; lock.className = open ? "open" : "shut";
+  feedback.textContent = open ? "The generated test failed on base and passed on head." : "The generated test did not prove this fix. Review both test outputs in the receipt.";
+  document.querySelector("#receipt-link").hidden = false;
+  step("receipt");
 }
-
-async function loadFixture() {
-  const response = await fetch("/api/fixture");
-  if (!response.ok) {
-    document.querySelector("#source").textContent = "The fixture did not load.";
-    return;
-  }
-  const body = await response.json();
-  document.querySelector("#source").textContent = body.billing || "";
-  document.querySelector("#tests").textContent = body.tests || "";
-}
-
 async function poll() {
-  const response = await fetch("/api/status");
-  if (!response.ok) return;
-  const payload = await response.json();
-  paint(payload);
-  if (payload.phase === "running") setTimeout(poll, 500);
+  if (!activeJob) return;
+  try {
+    const response = await fetch(`/api/pr-proof/status?id=${encodeURIComponent(activeJob)}`), job = await response.json();
+    if (!response.ok) throw new Error(job.error || "Could not read proof status.");
+    feedback.textContent = job.phase === "failed" ? job.reason : `Working: ${job.step.replaceAll("-", " ")}`;
+    step(job.step);
+    if (job.phase === "running") { timer = setTimeout(poll, 700); return; }
+    button.disabled = false; activeJob = null;
+    if (job.phase === "failed") { lock.textContent = "Shut"; return; }
+    const latest = await fetch("/api/pr-proof/latest");
+    showReceipt((await latest.json()).receipt);
+  } catch (error) { feedback.textContent = error.message; button.disabled = false; activeJob = null; }
 }
-
-button.addEventListener("click", async () => {
-  button.disabled = true;
-  button.textContent = "Running";
-  const response = await fetch("/api/run", { method: "POST" });
-  if (response.status === 409) {
-    poll();
-    return;
-  }
-  if (!response.ok) {
-    reason.textContent = "The gate did not start.";
-    button.disabled = false;
-    button.textContent = "Run the gate";
-    return;
-  }
-  poll();
+form.addEventListener("submit", async event => {
+  event.preventDefault(); clearTimeout(timer); result.hidden = true; lock.textContent = "Shut"; lock.className = "shut"; step("fetching");
+  button.disabled = true; feedback.textContent = "Starting proof run…";
+  try {
+    const response = await fetch("/api/pr-proof", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pull_request_url: form.pull_request_url.value }) });
+    const body = await response.json(); if (!response.ok) throw new Error(body.reason || "Could not start the proof run.");
+    activeJob = body.id; poll();
+  } catch (error) { feedback.textContent = error.message; button.disabled = false; }
 });
-
-loadFixture();
-poll();
+fetch("/api/pr-proof/latest").then(response => response.json()).then(body => showReceipt(body.receipt)).catch(() => {});
 </script>
 </body>
 </html>

@@ -1,17 +1,30 @@
 import json
 import os
+import re
 import threading
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
-from run import FIXTURE, SOURCE_NAME, SUITE_NAME, execute, render_screen
-from screen.page import PAGE_HTML
+from urllib.parse import parse_qs, urlsplit
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+if __package__:
+    from .github_pr import parse_pull_request_url, run_pull_request
+    from .run import FIXTURE, SOURCE_NAME, SUITE_NAME, execute, render_screen
+    from .screen.page import PAGE_HTML
+else:
+    sys.path.insert(0, os.path.dirname(ROOT))
+    from latch.github_pr import parse_pull_request_url, run_pull_request
+    from latch.run import FIXTURE, SOURCE_NAME, SUITE_NAME, execute, render_screen
+    from latch.screen.page import PAGE_HTML
+
 HOST = "127.0.0.1"
-PORT = 4173
+PORT = int(os.environ.get("LATCH_PORT", "4173"))
+PROOF_RECEIPT = os.path.join(ROOT, "runs", "latest-proof.json")
 
 STATUS = {"phase": "idle", "step": None, "state": None}
 LOCK = threading.Lock()
+PR_JOBS = {}
+PR_LOCK = threading.Lock()
 
 
 def fixture_payload():
@@ -58,6 +71,42 @@ def run_job():
         STATUS["step"] = state.get("step")
 
 
+def start_pr_job(job_id, pull_url):
+    def set_step(step):
+        with PR_LOCK:
+            job = PR_JOBS[job_id]
+            job["step"] = step
+
+    def work():
+        try:
+            result = run_pull_request(
+                pull_url,
+                PROOF_RECEIPT,
+                "python3 -m pytest -q",
+                on_step=set_step,
+            )
+            with PR_LOCK:
+                PR_JOBS[job_id]["phase"] = "done"
+                PR_JOBS[job_id]["proven"] = result["proven"]
+        except Exception as error:
+            with PR_LOCK:
+                PR_JOBS[job_id]["phase"] = "failed"
+                PR_JOBS[job_id]["reason"] = str(error)[:500]
+
+    with PR_LOCK:
+        if any(job["phase"] == "running" for job in PR_JOBS.values()):
+            return False
+        PR_JOBS[job_id] = {
+            "phase": "running",
+            "step": "queued",
+            "pull_request_url": pull_url,
+            "proven": None,
+            "reason": None,
+        }
+    threading.Thread(target=work, daemon=True).start()
+    return True
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return
@@ -71,13 +120,33 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        url = urlsplit(self.path)
+        path = url.path
         if path == "/api/status":
             with LOCK:
                 self.send_json(dict(STATUS))
             return
         if path == "/api/fixture":
             self.send_json(fixture_payload())
+            return
+        if path == "/api/pr-proof/latest":
+            if not os.path.exists(PROOF_RECEIPT):
+                self.send_json({"receipt": None})
+                return
+            with open(PROOF_RECEIPT, encoding="utf-8") as handle:
+                self.send_json({"receipt": json.load(handle)})
+            return
+        if path == "/api/pr-proof/status":
+            job_id = parse_qs(url.query).get("id", [""])[0]
+            if not re.fullmatch(r"[a-f0-9]{32}", job_id):
+                self.send_json({"error": "invalid job id"}, 400)
+                return
+            with PR_LOCK:
+                job = PR_JOBS.get(job_id)
+                if not job:
+                    self.send_json({"error": "proof job not found"}, 404)
+                    return
+                self.send_json({"id": job_id, **job})
             return
         if path not in ("/", "/app.html"):
             self.send_error(404)
@@ -90,7 +159,25 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path.split("?", 1)[0] != "/api/run":
+        path = urlsplit(self.path).path
+        if path == "/api/pr-proof":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length < 1 or length > 4096:
+                    raise ValueError("request body must be under 4 KB")
+                payload = json.loads(self.rfile.read(length))
+                pull_url = payload.get("pull_request_url", "")
+                parse_pull_request_url(pull_url)
+            except (ValueError, json.JSONDecodeError, AttributeError) as error:
+                self.send_json({"ok": False, "reason": str(error)}, 400)
+                return
+            job_id = uuid.uuid4().hex
+            if not start_pr_job(job_id, pull_url):
+                self.send_json({"ok": False, "reason": "A proof is already running"}, 409)
+                return
+            self.send_json({"ok": True, "id": job_id}, 202)
+            return
+        if path != "/api/run":
             self.send_error(404)
             return
         with LOCK:
