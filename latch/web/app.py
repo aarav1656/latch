@@ -225,6 +225,11 @@ def main():
         f"rate={service.config.rate_limit}/{service.config.rate_window}s non_dumpable={dumpable_dropped}",
         flush=True,
     )
+    isolation = service.sandbox_status()
+    print(f"sandbox: {isolation['description']}", flush=True)
+    if isolation["warning"]:
+        sys.stderr.write(f"WARNING: {isolation['warning']}\n")
+        sys.stderr.flush()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
