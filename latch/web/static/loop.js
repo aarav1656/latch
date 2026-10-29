@@ -116,6 +116,19 @@
           c.appendChild(chips);
           c.appendChild(fold("pytest output", ev.pytest_output));
         });
+      case "proof_test_attempt":
+        if (ev.valid !== false) return null;
+        return card(ev, "retry", "Proof test attempt " + (ev.attempt || "") + " rejected", (c) => {
+          meta(c, ev.completion_id && "completion " + ev.completion_id);
+          c.appendChild(el("p", "tl-text", (ev.rejection ? String(ev.rejection) : "The generated test was rejected") + ". " + (ev.attempt === 1 ? "Asking the model once more." : "No test was run.")));
+        });
+      case "model_retry":
+        return card(ev, "retry", "Model call retried", (c) => {
+          const why = ev.error ? String(ev.error).split(":")[0] : ev.status ? "HTTP " + ev.status : "network error";
+          const wait = typeof ev.delay === "number" && ev.will_retry ? "waiting " + (Math.round(ev.delay * 10) / 10) + " s" : "";
+          meta(c, "attempt " + ev.attempt + " of " + ev.attempts, why, wait);
+          c.appendChild(el("p", "tl-text", ev.will_retry === false ? "The model request failed and was not retried." : "A transient model error. Trying again automatically."));
+        });
       case "gate_check":
         return card(ev, "info", "Gate check: head already passes", null);
       case "triage": {
@@ -172,6 +185,8 @@
       case "iteration_result": return ev.verdict === "gate_open" ? ["open", "Gate: open"] : ["shut", "Gate: shut"];
       case "gate_open": return ["open", "Gate: open"];
       case "gate_check": return ["info", "Gate: checking"];
+      case "model_retry": return ["working", ev.will_retry === false ? "Model error" : "Gate: retrying model call"];
+      case "proof_test_attempt": return ["working", "Gate: rewriting proof test"];
       case "gave_up": case "error": return ["shut", ev.type === "error" ? "Error" : "Gave up"];
       default: return null;
     }

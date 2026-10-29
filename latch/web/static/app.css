@@ -156,6 +156,9 @@ details.issue p { white-space: pre-wrap; color: var(--color-body); margin: var(-
 .tl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
 .tl-title { font-family: var(--font-display); font-weight: 600; font-size: 1rem; margin: 0; }
 .tl-time { font: 400 0.75rem var(--font-mono); color: var(--color-muted); }
+.quiet { font-size: 0.8rem; margin-top: var(--space-1); }
+.tl-item[data-tone=retry]::before { border-color: var(--color-muted); }
+.tl-item[data-tone="retry"] .tl-card { border-style: dashed; }
 .tl-meta { margin: var(--space-2) 0 0; font: 400 0.8rem var(--font-mono); color: var(--color-muted); overflow-wrap: anywhere; }
 .tl-text { margin: var(--space-2) 0 0; white-space: pre-wrap; color: var(--color-body); overflow-wrap: anywhere; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }

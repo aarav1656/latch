@@ -88,6 +88,8 @@
     const tags = { recorded: "Recorded run", live: "Live run", cached: "Cached receipt" };
     verdict.appendChild(el("span", "tag", tags[opts.cached && m.source === "live" ? "cached" : m.source] || "Receipt"));
     receiptEl.appendChild(verdict);
+    const quiet = [m.test_attempts_note, m.model_retries_note].filter(Boolean).join(" ");
+    if (quiet) receiptEl.appendChild(el("p", "hint quiet", quiet));
 
     const facts = el("dl", "facts");
     const prTitle = r.pull_request_title || "Pull request";
@@ -107,18 +109,33 @@
       receiptEl.appendChild(d);
     }
 
-    const test = el("div", "block");
-    const th = el("h3", null, "Generated test");
-    if (r.test_name) th.appendChild(el("small", null, r.test_name));
-    test.append(th, el("pre", null, r.test || "", { tabindex: "0", role: "region", "aria-label": "Generated test source" }));
-    receiptEl.appendChild(test);
+    const ran = !!r.test && r.base_result != null && r.head_result != null;
+    const rejected = (r.test_attempts || r.proof_test_attempts || []).filter((a) => a && a.valid === false && a.source);
+    if (ran) {
+      const test = el("div", "block");
+      const th = el("h3", null, "Generated test");
+      if (r.test_name) th.appendChild(el("small", null, r.test_name));
+      test.append(th, el("pre", null, r.test || "", { tabindex: "0", role: "region", "aria-label": "Generated test source" }));
+      receiptEl.appendChild(test);
 
-    const runs = el("div", "block runs");
-    runs.appendChild(outputBlock("base", "Base: " + short(r.base), r.base_result, false));
-    runs.appendChild(outputBlock("head", "Head: " + short(r.head), r.head_result, (r.head_result || {}).returncode === 0));
-    receiptEl.appendChild(runs);
-    if (r.base_failure_type) {
-      receiptEl.appendChild(el("p", "hint", "Base failure type: " + r.base_failure_type + (r.base_failure_is_expected ? " (accepted as the issue's failure)" : " (not accepted)")));
+      const runs = el("div", "block runs");
+      runs.appendChild(outputBlock("base", "Base: " + short(r.base), r.base_result, false));
+      runs.appendChild(outputBlock("head", "Head: " + short(r.head), r.head_result, (r.head_result || {}).returncode === 0));
+      receiptEl.appendChild(runs);
+      if (r.base_failure_type) {
+        receiptEl.appendChild(el("p", "hint", "Base failure type: " + r.base_failure_type + (r.base_failure_is_expected ? " (accepted as the issue's failure)" : " (not accepted)")));
+      }
+    } else {
+      receiptEl.appendChild(el("p", "hint", "No test was run on base or head, so there is no test output to show."));
+    }
+    if (rejected.length) {
+      const d = el("details", "issue");
+      d.appendChild(el("summary", null, "Rejected test attempts (" + rejected.length + ")"));
+      rejected.forEach((a) => {
+        d.appendChild(el("p", "hint", "Attempt " + a.attempt + ": " + (a.rejection || "rejected")));
+        d.appendChild(el("pre", null, String(a.source), { tabindex: "0" }));
+      });
+      receiptEl.appendChild(d);
     }
 
     const actions = el("div", "actions");
@@ -303,6 +320,7 @@
   });
 
   applyConfig();
+  setInterval(() => { if (!document.hidden && !busy) refreshConfig(); }, 60000);
   if (boot.initial) {
     renderReceipt(boot.initial);
     const u = boot.initial.receipt.pull_request_url;

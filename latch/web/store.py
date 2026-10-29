@@ -42,12 +42,31 @@ def pr_key(repo_full_name, number):
     return _digest(f"{repo_full_name}#{int(number)}")
 
 
+def _sentence(text):
+    text = " ".join(str(text).split())
+    if not text:
+        return text
+    text = text[0].upper() + text[1:]
+    return text if text.endswith((".", "!", "?")) else text + "."
+
+
 def explain(receipt):
-    """Human reason a receipt is not proven (None when it is)."""
+    """Human reason a receipt is not proven (None when it is).
+
+    A reason recorded by the pipeline itself (receipt["why_not_proven"], used when it fails closed) wins over
+    the reasons derived from the two test runs. A receipt may have no runs at all (base_result None): then
+    nothing is claimed about the base commit.
+    """
     if receipt.get("proven") is True:
         return None
-    base = receipt.get("base_result") or {}
-    head = receipt.get("head_result") or {}
+    recorded = receipt.get("why_not_proven")
+    if isinstance(recorded, str) and recorded.strip():
+        return _sentence(recorded)
+    base, head = receipt.get("base_result"), receipt.get("head_result")
+    if base is None:
+        return "The generated test was never run on the base commit, so nothing was proven."
+    if head is None:
+        return "The generated test was never run on the pull request head, so nothing was proven."
     if base.get("returncode") == 0:
         return "The generated test passed on the buggy base commit, so it does not reproduce the reported issue."
     if isinstance(base.get("returncode"), int) and base["returncode"] < 0:
@@ -62,11 +81,61 @@ def explain(receipt):
     return "The generated test did not show the issue failing on base and passing on head."
 
 
+def _short_rejection(reason):
+    text = str(reason or "").strip().lower()
+    for needle, label in (
+        ("body is empty", "empty body"),
+        ("only `...` or `pass`", "placeholder body (`...` or `pass`)"),
+        ("no real check", "no real assertion"),
+        ("not valid python", "not valid Python"),
+        ("no top-level test_", "no test function"),
+        ("no test_ function", "no test function"),
+    ):
+        if needle in text:
+            return label
+    text = text[4:] if text.startswith("the ") else text
+    return (text[:70] + "...") if len(text) > 70 else (text or "rejected")
+
+
+def attempts_note(receipt):
+    """One quiet line about rejected proof-test generations (None when the first test was fine)."""
+    attempts = receipt.get("test_attempts") or receipt.get("proof_test_attempts")
+    if not isinstance(attempts, list) or not attempts or not isinstance(attempts[0], dict):
+        return None
+    first = attempts[0]
+    if first.get("valid", True):
+        return None
+    why = _short_rejection(first.get("rejection"))
+    if len(attempts) == 1:
+        return f"The generated test was rejected: {why}."
+    second = attempts[1] if isinstance(attempts[1], dict) else {}
+    if second.get("valid"):
+        return f"First test rejected: {why}, retried."
+    return f"First test rejected: {why}; the retry was rejected too ({_short_rejection(second.get('rejection'))}), so no test was run."
+
+
+def retries_note(receipt):
+    """One quiet line about transient model errors that were retried (None when there were none)."""
+    retries = [r for r in (receipt.get("model_retries") or []) if isinstance(r, dict) and r.get("will_retry")]
+    if not retries:
+        return None
+    reasons = []
+    for item in retries:
+        status = item.get("status")
+        reason = f"HTTP {status}" if status else str(item.get("error") or "network error").split(":")[0][:40]
+        if reason not in reasons:
+            reasons.append(reason)
+    times = "once" if len(retries) == 1 else f"{len(retries)} times"
+    return f"The model request was retried {times} ({', '.join(reasons)})."
+
+
 def make_envelope(receipt, source, started=None, finished=None, extra=None):
     meta = {
         "source": source,
         "verdict": "proven" if receipt.get("proven") is True else "not_proven",
         "why_not_proven": explain(receipt),
+        "test_attempts_note": attempts_note(receipt),
+        "model_retries_note": retries_note(receipt),
         "created_at": utc_iso(started),
         "finished_at": utc_iso(finished) if finished is not None else None,
         "duration_s": round(finished - started, 1) if started is not None and finished is not None else None,
