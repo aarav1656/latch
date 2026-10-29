@@ -1,0 +1,8 @@
+Back-to-back bookings are treated as double-booked
+
+A booking that ends at 10:00 and the next one that starts at 10:00 do not share any time, but the booking helpers treat them as a clash. Example with times in minutes since midnight:
+
+    find_conflicts([(540, 600), (600, 660)])   # returns [((540, 600), (600, 660))], should be []
+    merge_bookings([(540, 600), (600, 660)])   # returns [(540, 660)], should stay [(540, 600), (600, 660)]
+
+Back-to-back bookings must not be reported as conflicts and must not be merged into one block. Bookings that really overlap (for example (540, 600) and (570, 630)) must keep behaving as before.
