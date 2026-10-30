@@ -324,6 +324,78 @@ class ProveIntegrationTests(unittest.TestCase):
         result, saved, _ = self.go(red)
         self.assertEqual((saved["verdict"], saved["proven"]), ("FIX_FAILS_TEST", False))
 
+    def test_flake_check_reruns_both_sides_and_stable_runs_stay_validated(self):
+        calls = []
+        base_run = self.runner()
+
+        def counting(snapshot, command):
+            calls.append(snapshot.name)
+            return base_run(snapshot, command)
+
+        result, saved, events = self.go(counting)
+        self.assertEqual((calls.count("base"), calls.count("head")), (5, 5))
+        self.assertEqual(saved["verdict"], "VALIDATED")
+        self.assertEqual((saved["flaky"]["runs"], saved["flaky"]["flaky"], saved["flaky"]["flake_rate"]), (5, False, 0.0))
+        started = [e["detail"] for e in events if e["step"] == "flake_check" and e["status"] == "started"]
+        self.assertEqual(started, [{"runs": 5}])
+        self.assertIn(("flake_check", "done"), [(e["step"], e["status"]) for e in events])
+
+    def test_a_head_that_fails_once_in_five_is_flaky_and_stops_before_the_revert_check(self):
+        head_calls = []
+
+        def run(snapshot, command):
+            if snapshot.name == "base":
+                return {"returncode": 1, "stdout": FAIL, "stderr": ""}
+            head_calls.append(1)
+            return {"returncode": 1 if len(head_calls) == 3 else 0, "stdout": FAIL if len(head_calls) == 3 else "1 passed", "stderr": ""}
+
+        result, saved, events = self.go(run)
+        self.assertEqual((saved["verdict"], saved["proven"], result["proven"]), ("FLAKY", False, False))
+        self.assertTrue(saved["flaky"]["flaky"])
+        self.assertEqual(saved["flaky"]["head_pass_rate"], 0.8)
+        self.assertEqual(saved["flaky"]["flake_rate"], 0.1)
+        self.assertFalse(saved["revert_check"]["ran"])
+        self.assertIn(("flake_check", "failed"), [(e["step"], e["status"]) for e in events])
+        self.assertNotIn("revert_check", [e["step"] for e in events])
+        self.assertEqual(events[-1]["detail"]["verdict"], "FLAKY")
+
+    def test_flaky_beats_no_regression_found(self):
+        base_calls = []
+
+        def run(snapshot, command):
+            if snapshot.name == "base":
+                base_calls.append(1)
+                failed = len(base_calls) == 4
+                return {"returncode": 1 if failed else 0, "stdout": FAIL if failed else "1 passed", "stderr": ""}
+            return {"returncode": 0, "stdout": "1 passed", "stderr": ""}
+
+        _, saved, _ = self.go(run)
+        self.assertEqual(saved["verdict"], "FLAKY")
+
+    def test_flake_runs_is_configurable_and_one_disables_it(self):
+        calls = []
+
+        def run(snapshot, command):
+            calls.append(snapshot.name)
+            return self.runner()(snapshot, command)
+
+        _, saved, events = self.go(run, flake_runs=3)
+        self.assertEqual((calls.count("base"), calls.count("head"), saved["flaky"]["runs"]), (3, 3, 3))
+        _, saved, events = self.go(self.runner(), flake_runs=1)
+        self.assertEqual(saved["verdict"], "VALIDATED")
+        self.assertIsNone(saved["flaky"])
+        self.assertNotIn("flake_check", [e["step"] for e in events])
+
+    def test_invalid_tests_are_not_rerun(self):
+        calls = []
+
+        def run(snapshot, command):
+            calls.append(1)
+            return {"returncode": 2, "stdout": "ERROR collecting latch_issue_test.py\nImportError", "stderr": ""}
+
+        _, saved, _ = self.go(run)
+        self.assertEqual((saved["verdict"], len(calls)), ("INVALID_TEST", 2))
+
 
 if __name__ == "__main__":
     unittest.main()

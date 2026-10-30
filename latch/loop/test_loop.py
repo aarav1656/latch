@@ -330,7 +330,7 @@ class LoopTests(unittest.TestCase):
         seen = []
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), on_step_event=seen.append)
         started = [e["step"] for e in seen if e["status"] == "started"]
-        self.assertEqual(started, ["fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "revert_check"])
+        self.assertEqual(started, ["fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "flake_check", "revert_check"])
         self.assertEqual(seen[-1]["step"], "verdict")
         self.assertEqual(receipt["steps"], seen)
         self.assertEqual([e["step"] for e in self.events if e["type"] == "step"], [e["step"] for e in seen])
@@ -528,6 +528,60 @@ class LoopVerdictTests(unittest.TestCase):
         with mock.patch.object(core, "revert_check", return_value=survived):
             receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
         self.assertEqual((receipt["gate"], receipt["verdict"], receipt["proven"]), ("gave_up", "MUTATION_SURVIVED", False))
+
+    def _flaky_proof_test(self, bad_call):
+        counter = Path(self._tmp.name) / "counter"
+        return (
+            "def test_back_to_back_flaky():\n"
+            "    import pathlib\n"
+            "    from bookings import find_conflicts\n"
+            f"    p = pathlib.Path({str(counter)!r})\n"
+            "    n = int(p.read_text()) if p.exists() else 0\n"
+            "    p.write_text(str(n + 1))\n"
+            f"    assert find_conflicts([(540, 600), (600, 660)]) == [] and n != {bad_call}\n"
+        )
+
+    def _correct_head(self):
+        (self.repo / "bookings.py").write_text(FIXED_BOOKINGS)
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@e.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@e.invalid"}
+        subprocess.run(["git", "-C", str(self.repo), "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null",
+                        "commit", "-qam", "good"], env=env, check=True)
+        return subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+
+    def test_a_proof_test_that_flips_on_a_rerun_is_flaky(self):
+        head = self._correct_head()
+        # call 0 = base, 1 = head, 2-5 = base reruns, 6-9 = head reruns: the second head rerun (call 7) fails.
+        receipt = run_loop(self.repo, self.base, head, ISSUE, model_fn=Stub(), proof_test=self._flaky_proof_test(7),
+                           on_event=self.events.append)
+        self.assertEqual((receipt["gate"], receipt["verdict"], receipt["proven"]), ("gave_up", "FLAKY", False))
+        self.assertTrue(receipt["flaky"]["flaky"])
+        self.assertEqual(receipt["flaky"]["head_pass_rate"], 0.8)
+        self.assertEqual(receipt["flaky"]["runs"], 5)
+        self.assertIn("flaky", receipt["reason"])
+        steps = [(e["step"], e["status"]) for e in self.events if e["type"] == "step"]
+        self.assertIn(("flake_check", "failed"), steps)
+        self.assertNotIn("revert_check", [s for s, _ in steps])  # stops before the revert check
+
+    def test_a_stable_proof_test_passes_the_flake_gate_and_flake_runs_one_skips_it(self):
+        head = self._correct_head()
+        receipt = run_loop(self.repo, self.base, head, ISSUE, model_fn=Stub(), proof_test=self._flaky_proof_test(999),
+                           on_event=self.events.append)
+        self.assertEqual((receipt["verdict"], receipt["flaky"]["flaky"], receipt["flaky"]["runs"]), ("VALIDATED", False, 5))
+        off = run_loop(self.repo, self.base, head, ISSUE, model_fn=Stub(), proof_test=self._flaky_proof_test(999), flake_runs=1)
+        self.assertEqual((off["verdict"], off["flaky"]["ran"]), ("VALIDATED", False))
+
+    def test_a_base_that_sometimes_passes_is_flaky_not_no_regression(self):
+        counter = Path(self._tmp.name) / "c2"
+        test = ("def test_sometimes():\n    import pathlib\n    from bookings import merge_bookings\n"
+                f"    p = pathlib.Path({str(counter)!r})\n"
+                "    n = int(p.read_text()) if p.exists() else 0\n    p.write_text(str(n + 1))\n"
+                "    assert merge_bookings([(1, 2)]) == [(1, 2)] and n != 2\n")  # passes on the base run (0) and the head run (1), fails on the first base rerun (2)
+        receipt = run_loop(self.repo, self.base, self.head, ISSUE, model_fn=Stub(), proof_test=test)
+        self.assertEqual((receipt["gate"], receipt["verdict"]), ("gave_up", "FLAKY"))
+        self.assertEqual(receipt["flaky"]["outcomes"]["head_passed"], [])  # base-only check on this exit
+        always_green = run_loop(self.repo, self.base, self.head, ISSUE, model_fn=Stub(), proof_test=PASSING_ON_BASE_TEST)
+        self.assertEqual(always_green["verdict"], "NO_REGRESSION_FOUND")
 
     def test_infrastructure_error_has_no_named_verdict(self):
         with self.assertRaises(LoopError):

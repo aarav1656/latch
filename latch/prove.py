@@ -13,7 +13,8 @@ from pathlib import Path
 
 from .run import LIGHTNING, MODEL, call_model, load_key
 from .harness.parse import extract_test_function
-from .verdict import VALIDATED, decide_verdict, step_detail, verdict_fields
+from .flake import clean_snapshot, flake_check
+from .verdict import FLAKE_RUNS, INVALID_TEST, VALIDATED, decide_verdict, step_detail, verdict_fields
 
 
 _SECTION_END = re.compile(r"(?m)^(?:_{3,} .+ _{3,}|={3,} .+ ={3,})$")
@@ -297,7 +298,7 @@ def run_triage(ask, key, issue, test_source, failure_text, where="the submitted 
 
 
 def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None,
-          on_step_event=None, revert=True, triage=True, repo_map=True):
+          on_step_event=None, revert=True, triage=True, repo_map=True, flake_runs=FLAKE_RUNS):
     """Prove that a change fixes an issue: a generated test must fail on base and pass on head.
 
     on_step(name): legacy string callback (fetching ... receipt), unchanged.
@@ -306,6 +307,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     runner(snapshot: Path, command: list[str]) -> {returncode, stdout, stderr} replaces run_test for each
         snapshot (used by hosted deployments to sandbox PR code); the revert check uses it too.
     revert: after the gate looks open, revert the fix and require the proof test to fail again (fail closed).
+    flake_runs: run the proof test this many times on base and on head (default 5, at most 10, 1 turns the check
+        off). Any inconsistent side gives the FLAKY verdict. No model calls.
     triage / repo_map: the Lightning calls (an advisory read of the base failure; the repo map that feeds the
         test-writing prompt). repo_map failure never blocks a run; triage never changes `proven`.
     """
@@ -478,9 +481,21 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
                 triage_record["advisory"] = True
                 steps.done("triage", {"verdict": triage_record["verdict"], "completion_id": triage_record["completion_id"]})
 
+        flake_result = None
+        if flake_runs is None or flake_runs > 1:
+            pre_verdict, _ = decide_verdict({"base": base_result, "head": head_result, "test_name": test_name})
+            if pre_verdict != INVALID_TEST:  # an invalid test is not worth rerunning; every other outcome must be stable
+                steps.started("flake_check", {"runs": flake_runs})
+                rerun = lambda snapshot: (lambda: (clean_snapshot(snapshot), execute(snapshot, command))[1])
+                flake_result = flake_check(rerun(base_dir), rerun(head_dir), base_result["returncode"] == 0,
+                                           head_result["returncode"] == 0, flake_runs)
+                (steps.failed if flake_result["flaky"] else steps.done)(
+                    "flake_check", {k: flake_result[k] for k in ("runs", "flaky", "flake_rate", "base_fail_rate", "head_pass_rate")})
+        gate_ok = is_proven and not (flake_result and flake_result["flaky"])
+
         revert_result = {"ran": False, "skipped": "the gate is not open"}
         why_not = None
-        if is_proven and revert:
+        if gate_ok and revert:
             steps.started("revert_check")
             try:
                 source_changes = changed_files(repo, base_commit, head_commit)
@@ -493,12 +508,12 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             (steps.done if revert_result["ok"] else steps.failed)("revert_check", revert_result["summary"])
             if not revert_result["ok"]:
                 is_proven = False
-        elif is_proven:
+        elif gate_ok:
             revert_result = {"ran": False, "skipped": "revert check disabled"}
 
     decided = verdict_fields(
         {"base": base_result, "head": head_result, "test_name": test_name, "revert": revert_result,
-         "tautology": test_attempts[-1].get("tautology") or _unchecked_tautology()},
+         "tautology": test_attempts[-1].get("tautology") or _unchecked_tautology(), "flaky": flake_result},
         base_commit, head_commit)
     is_proven = decided["proven"]  # derived: proven == (verdict == VALIDATED)
     why_not = None if is_proven else decided["verdict_reason"]

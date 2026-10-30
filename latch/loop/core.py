@@ -26,8 +26,9 @@ from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
 from ..run import LIGHTNING, MODEL, call_model, load_key
 from ..steps import StepLog
+from ..flake import clamp_runs, flake_check
 from ..tautology import repo_modules, safe_changed_symbols
-from ..verdict import step_detail, verdict_fields
+from ..verdict import FLAKE_RUNS, step_detail, verdict_fields
 
 ULTRA = MODEL
 DEFAULT_MODEL = ULTRA
@@ -211,6 +212,7 @@ def run_loop(
     on_step_event=None,
     revert=True,
     repo_map=True,
+    flake_runs=FLAKE_RUNS,
 ):
     """Run the fix loop and return the receipt dict (`receipt["gate"]` is "gate_open", "gave_up" or "error";
     `receipt["verdict"]` is the named verdict from latch.verdict, or None on an infrastructure error).
@@ -233,6 +235,8 @@ def run_loop(
     revert: after the gate opens, revert the fix (and, if the loop rewrote files, restore the submitted patch) and
         require the proof test to fail again; if it does not, the gate stays shut (gave_up).
     repo_map: Nemotron Lightning builds a compact repo map that goes into Ultra's test-writing prompt.
+    flake_runs: rerun the proof test this many times on base and on the final code (default 5, at most 10, 1 turns it
+        off) before the revert check. Any inconsistent side gives the FLAKY verdict and the gate stays shut.
     model_fn: optional replacement for latch.run.call_model(key, user, model=, system=, max_tokens=)
         returning (status, content, completion_id). Used by the offline tests.
     Raises ValueError for bad arguments (before any event) and LoopError for infra failure
@@ -496,7 +500,38 @@ def run_loop(
                 "head_suite_green": suite_green,
                 "gate_open": bool(head_ok and suite_green),
             }
+            def rerun_proof(directory, write_test):
+                def go():
+                    if write_test:
+                        (directory / TEST_FILE).write_text(test_source, encoding="utf-8")
+                    try:
+                        return _run_proof(directory, command)
+                    finally:
+                        if write_test:
+                            (directory / TEST_FILE).unlink(missing_ok=True)
+                return go
+
+            def flake_gate(head_dir=None):
+                """Rerun the proof test; an inconsistent side is FLAKY and the gate stays shut."""
+                runs = clamp_runs(flake_runs)
+                if runs <= 1:
+                    receipt["flaky"] = ev["flaky"] = {"ran": False, "skipped": "flake check disabled", "flaky": False}
+                    return True
+                steps.started("flake_check", {"runs": runs})
+                result = flake_check(rerun_proof(base_dir, False), rerun_proof(head_dir, True) if head_dir else None,
+                                     base_result["returncode"] == 0,
+                                     ev["head"]["returncode"] == 0 if head_dir else None, runs)
+                receipt["flaky"] = ev["flaky"] = result
+                (steps.failed if result["flaky"] else steps.done)(
+                    "flake_check", {k: result[k] for k in ("runs", "flaky", "flake_rate", "base_fail_rate", "head_pass_rate")})
+                if result["flaky"]:
+                    emit("gate_shut", iteration=len(receipt["iterations"]), reason="flaky proof test: " + result["note"],
+                         base_red=base_red, head_suite_green=ev.get("suite_ok", True))
+                return not result["flaky"]
+
             if not base_red:
+                if base_result["returncode"] == 0 and not flake_gate():  # a test that sometimes fails on base is FLAKY, not "no regression"
+                    return finish("gave_up", "the proof test is flaky on the base revision: " + receipt["flaky"]["note"])
                 emit("gate_shut", iteration=0, reason="proof test does not fail on base with an assertion",
                      base_red=False, head_suite_green=suite_green,
                      pytest_output=base_result["stdout"] + base_result["stderr"])
@@ -525,6 +560,8 @@ def run_loop(
 
             if head_ok and suite_green:
                 emit("gate_check", iteration=0, base_red=True, head_suite_green=True)
+                if not flake_gate(work):
+                    return finish("gave_up", "the proof test is flaky: " + receipt["flaky"]["note"])
                 if not revert_gate():
                     return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
                                              "isolate the fix: " + receipt["revert_check"]["summary"])
@@ -634,6 +671,8 @@ def run_loop(
                 receipt["iterations"].append(record)
                 emit("iteration_result", **record)
                 if gate:
+                    if not flake_gate(work):
+                        return finish("gave_up", "the proof test is flaky: " + receipt["flaky"]["note"])
                     if not revert_gate(loop_files):
                         return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
                                                  "isolate the fix: " + receipt["revert_check"]["summary"])

@@ -137,6 +137,8 @@ Every `latch prove` and `latch loop` run ends with exactly one named verdict. Th
 | 5 | `MUTATION_SURVIVED` | the proof test still passes with the fix reverted (or too many mutants of the fix survive) |
 | 6 | `VALIDATED` | red on base, green on head, and every gate above passed |
 
+**Flake check.** Before the revert check, Latch reruns the proof test on base and on head (`--flake-runs N`, default 5, at most 10, 1 turns it off; the first run counts). It runs no model. If either side is not the same on every run the verdict is `FLAKY`, and the receipt's `flaky` block records `runs`, `base_fail_rate`, `head_pass_rate` and `flake_rate` (the share of runs that disagree with their side's majority). A flaky test that sometimes passes on base is reported as `FLAKY`, not as "no regression found".
+
 `proven` stays in the receipt as `verdict == "VALIDATED"`. Each receipt also carries `verdict_reason`, `base_sha`, `head_sha` and `verdict_logs` (log excerpts from base, head and any surviving mutants). A loop receipt keeps the old gate state (`gate_open`, `gave_up`, `error`) in `gate`; `verdict` is `null` only when the run died on an infrastructure error. `FIX_FAILS_TEST` is separate from the other four failure verdicts on purpose: a test that is right but a fix that is wrong should not read as a bad test.
 
 ## Prior art
