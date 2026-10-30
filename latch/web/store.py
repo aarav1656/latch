@@ -14,6 +14,8 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .provenance import is_dev_output, is_dev_path
+
 CLICK_PR_URL = "https://github.com/pallets/click/pull/3299"
 CLICK_ENRICHMENT = {
     "pull_request_url": CLICK_PR_URL,
@@ -50,7 +52,7 @@ def _sentence(text):
     return text if text.endswith((".", "!", "?")) else text + "."
 
 
-VERDICT_CODES = ("VALIDATED", "NO_REGRESSION_FOUND", "INVALID_TEST", "MUTATION_SURVIVED", "FLAKY")
+VERDICT_CODES = ("INVALID_TEST", "FLAKY", "NO_REGRESSION_FOUND", "FIX_FAILS_TEST", "MUTATION_SURVIVED", "VALIDATED")  # latch/verdict.py, precedence order
 
 
 def verdict_code(receipt):
@@ -175,10 +177,14 @@ class Store:
 
     # -- seeds ---------------------------------------------------------
     def _load_click_seed(self, path):
+        if is_dev_path(path):
+            return
         try:
             receipt = json.loads(path.read_text(encoding="utf-8"))
             mtime = path.stat().st_mtime
         except (OSError, ValueError):
+            return
+        if is_dev_output(receipt):
             return
         receipt.update({k: v for k, v in CLICK_ENRICHMENT.items() if k not in receipt})
         envelope = make_envelope(
@@ -204,10 +210,12 @@ class Store:
 
     # -- disk ------------------------------------------------------------
     def _read(self, path):
+        """A stored envelope, or None when it is missing, unreadable, or development-only output (never shown)."""
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return None
+        return None if is_dev_output(data) else data
 
     def _write(self, path, payload):
         fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
