@@ -51,6 +51,8 @@ GOOD_TEST = '''```python
 def test_back_to_back_not_conflict_or_merged():
     from bookings import find_conflicts, merge_bookings
     assert find_conflicts([(540, 600), (600, 660)]) == []
+    assert find_conflicts([(600, 660), (540, 600)]) == []
+    assert find_conflicts([(540, 600), (570, 630)]) == [((540, 600), (570, 630))]
     assert merge_bookings([(540, 600), (600, 660)]) == [(540, 600), (600, 660)]
     assert merge_bookings([(540, 600), (570, 630)]) == [(540, 630)]
 ```'''
@@ -330,7 +332,7 @@ class LoopTests(unittest.TestCase):
         seen = []
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), on_step_event=seen.append)
         started = [e["step"] for e in seen if e["status"] == "started"]
-        self.assertEqual(started, ["fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "flake_check", "revert_check"])
+        self.assertEqual(started, ["fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "flake_check", "revert_check", "mutation_check"])
         self.assertEqual(seen[-1]["step"], "verdict")
         self.assertEqual(receipt["steps"], seen)
         self.assertEqual([e["step"] for e in self.events if e["type"] == "step"], [e["step"] for e in seen])
@@ -350,7 +352,7 @@ class LoopTests(unittest.TestCase):
             receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
         self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("revert", receipt["reason"])
-        self.assertEqual(self.types()[-2:], ["gate_shut", "gave_up"])
+        self.assertEqual([e["type"] for e in self.events if e["type"] in ("gate_shut", "gave_up")][-2:], ["gate_shut", "gave_up"])
 
     def test_revert_check_can_be_disabled(self):
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), revert=False, repo_map=False)
@@ -508,6 +510,38 @@ class LoopVerdictTests(unittest.TestCase):
         self.assertEqual(final["detail"], {"verdict": "VALIDATED", "reason": receipt["verdict_reason"]})
         self.assertEqual(json.loads(Path(receipt["receipt_path"]).read_text())["verdict"], "VALIDATED")
 
+    def test_the_loop_runs_real_mutants_of_the_fix_and_records_them(self):
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        mutation = receipt["mutation"]
+        self.assertTrue(mutation["ran"] and mutation["ok"])
+        self.assertGreaterEqual(mutation["total"], 1)
+        self.assertGreaterEqual(mutation["kill_rate"], 0.6)
+        self.assertEqual({m["file"] for m in mutation["mutants"]}, {"bookings.py"})
+        steps = [(e["step"], e["status"]) for e in self.events if e["type"] == "step"]
+        self.assertLess(steps.index(("revert_check", "done")), steps.index(("mutation_check", "started")))
+        done = [e for e in self.events if e["type"] == "step" and e["step"] == "mutation_check" and e["status"] == "done"]
+        self.assertEqual(done[0]["detail"], {"killed": mutation["killed"], "total": mutation["total"], "kill_rate": mutation["kill_rate"]})
+        self.assertIn("mutants", receipt["verdict_reason"])
+        self.assertFalse(any((self.repo / name).exists() for name in ("latch_issue_test.py",)))  # the source repo is untouched
+
+    def test_surviving_mutants_shut_the_gate_with_mutation_survived(self):
+        from unittest import mock
+        weak = {"ran": True, "ok": False, "killed": 1, "total": 5, "kill_rate": 0.2, "threshold": 0.6,
+                "mutants": [{"id": "m2", "killed": False, "file": "bookings.py", "line": 12, "what": "x", "operator": "return_none"}],
+                "note": "1/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)"}
+        with mock.patch("latch.mutate.run_mutation", return_value=weak):
+            receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual((receipt["gate"], receipt["verdict"], receipt["proven"]), ("gave_up", "MUTATION_SURVIVED", False))
+        self.assertIn("kill rate 20%", receipt["verdict_reason"])
+        self.assertEqual([e["type"] for e in self.events if e["type"] in ("gate_shut", "gave_up")][-2:], ["gate_shut", "gave_up"])
+        failed = [e for e in self.events if e["type"] == "step" and e["step"] == "mutation_check" and e["status"] == "failed"]
+        self.assertEqual(failed[0]["detail"], {"killed": 1, "total": 5, "kill_rate": 0.2})
+
+    def test_mutation_can_be_turned_off(self):
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), mutation=False)
+        self.assertEqual((receipt["verdict"], receipt.get("mutation")), ("VALIDATED", None))
+        self.assertNotIn("mutation_check", [e["step"] for e in self.events if e["type"] == "step"])
+
     def test_named_verdicts_for_each_way_to_give_up(self):
         green = self.run_it(Stub(test=PASSING_ON_BASE_TEST))
         self.assertEqual((green["verdict"], green["proven"]), ("NO_REGRESSION_FOUND", False))
@@ -566,9 +600,9 @@ class LoopVerdictTests(unittest.TestCase):
     def test_a_stable_proof_test_passes_the_flake_gate_and_flake_runs_one_skips_it(self):
         head = self._correct_head()
         receipt = run_loop(self.repo, self.base, head, ISSUE, model_fn=Stub(), proof_test=self._flaky_proof_test(999),
-                           on_event=self.events.append)
+                           on_event=self.events.append, mutation=False)
         self.assertEqual((receipt["verdict"], receipt["flaky"]["flaky"], receipt["flaky"]["runs"]), ("VALIDATED", False, 5))
-        off = run_loop(self.repo, self.base, head, ISSUE, model_fn=Stub(), proof_test=self._flaky_proof_test(999), flake_runs=1)
+        off = run_loop(self.repo, self.base, head, ISSUE, model_fn=Stub(), proof_test=self._flaky_proof_test(999), flake_runs=1, mutation=False)
         self.assertEqual((off["verdict"], off["flaky"]["ran"]), ("VALIDATED", False))
 
     def test_a_base_that_sometimes_passes_is_flaky_not_no_regression(self):

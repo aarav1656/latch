@@ -98,6 +98,8 @@ def _flake_cell(flaky):
 def _mutation_cell(mutation):
     if not mutation:
         return None
+    if not mutation.get("total") and mutation.get("ok") is False:
+        return f"❌ the mutation check could not complete ({mutation.get('note')}); the gate stays shut"
     if not mutation.get("total"):
         return "no mutable lines in the change, nothing to mutate (does not block)"
     mark = "✅" if mutation.get("ok") else "❌"

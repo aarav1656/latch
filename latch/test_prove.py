@@ -141,7 +141,7 @@ class ProveRunnerTests(unittest.TestCase):
             with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
                 "latch.prove.call_model", return_value=(200, generated, "cmpl-1")
             ), mock.patch("latch.prove.run_test", side_effect=AssertionError("default runner used")):
-                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, on_step=steps.append, runner=runner, flake_runs=1)
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, on_step=steps.append, runner=runner, flake_runs=1, mutation=False)
             saved = json.loads(receipt.read_text())
         self.assertEqual([c[0] for c in calls], ["base", "head", "revert-fix"])
         self.assertTrue(all(c[1] == ["python3", "-m", "pytest", "-q"] and c[2] for c in calls))
@@ -280,7 +280,7 @@ class TautologyWiringTests(unittest.TestCase):
             ok = {"returncode": 0, "stdout": "1 passed", "stderr": ""}
 
             def default_runner(snapshot, command):
-                return fail if snapshot.name in ("base", "revert-fix") else ok
+                return fail if snapshot.name in ("base", "revert-fix") or snapshot.name.startswith("mutant-") else ok
 
             default_runner.description = "stub"
             with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(

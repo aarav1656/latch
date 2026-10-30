@@ -138,6 +138,14 @@ class RenderTests(unittest.TestCase):
         self.assertIn("25% is below", body)
         self.assertIn("❌ killed 1/4", body)
 
+    def test_a_mutation_check_that_could_not_run_is_not_shown_as_nothing_to_mutate(self):
+        body = render_comment({"base": "a" * 40, "head": "b" * 40, "proven": False, "verdict": "MUTATION_SURVIVED",
+                               "verdict_reason": "the mutation check could not complete: boom",
+                               "mutation": {"ran": False, "ok": False, "killed": 0, "total": 0, "kill_rate": None,
+                                            "threshold": 0.6, "note": "boom"}})
+        self.assertIn("could not complete (boom)", body)
+        self.assertNotIn("nothing to mutate", body)
+
 
 class FakeGitHub:
     def __init__(self, comments=()):

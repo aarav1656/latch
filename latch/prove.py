@@ -298,7 +298,8 @@ def run_triage(ask, key, issue, test_source, failure_text, where="the submitted 
 
 
 def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None,
-          on_step_event=None, revert=True, triage=True, repo_map=True, flake_runs=FLAKE_RUNS):
+          on_step_event=None, revert=True, triage=True, repo_map=True, flake_runs=FLAKE_RUNS,
+          mutation=True):
     """Prove that a change fixes an issue: a generated test must fail on base and pass on head.
 
     on_step(name): legacy string callback (fetching ... receipt), unchanged.
@@ -307,6 +308,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     runner(snapshot: Path, command: list[str]) -> {returncode, stdout, stderr} replaces run_test for each
         snapshot (used by hosted deployments to sandbox PR code); the revert check uses it too.
     revert: after the gate looks open, revert the fix and require the proof test to fail again (fail closed).
+    mutation: after the revert check, run the proof test against up to 5 AST mutants of the changed lines; a kill rate
+        below 60% is MUTATION_SURVIVED (fail closed). False skips it.
     flake_runs: run the proof test this many times on base and on head (default 5, at most 10, 1 turns the check
         off). Any inconsistent side gives the FLAKY verdict. No model calls.
     triage / repo_map: the Lightning calls (an advisory read of the base failure; the repo map that feeds the
@@ -511,9 +514,25 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         elif gate_ok:
             revert_result = {"ran": False, "skipped": "revert check disabled"}
 
+        mutation_result = None
+        if is_proven and mutation:
+            from .mutate import RUN_TIMEOUT, mutation_detail, run_mutation
+            steps.started("mutation_check")
+            mutant_timeout = 300 if isolate_tests else RUN_TIMEOUT  # isolated runs install a venv first
+            mutant_run = ((lambda directory: execute(directory, command)) if runner is not None else
+                          (lambda directory: run_test(directory, command, isolate=isolate_tests, timeout=mutant_timeout)))
+            try:
+                mutation_changes = changed_files(repo, base_commit, head_commit)
+                mutation_result = run_mutation(mutant_run, head_dir, base_dir, mutation_changes, test_source,
+                                               "latch_issue_test.py", root / "mutations", is_test_path)
+            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                mutation_result = {"ran": False, "mutants": [], "killed": 0, "total": 0, "kill_rate": None, "ok": False,
+                                   "threshold": 0.6, "note": f"{type(error).__name__}: {error}"}
+            (steps.done if mutation_result["ok"] else steps.failed)("mutation_check", mutation_detail(mutation_result))
+
     decided = verdict_fields(
         {"base": base_result, "head": head_result, "test_name": test_name, "revert": revert_result,
-         "tautology": test_attempts[-1].get("tautology") or _unchecked_tautology(), "flaky": flake_result},
+         "tautology": test_attempts[-1].get("tautology") or _unchecked_tautology(), "flaky": flake_result, "mutation": mutation_result},
         base_commit, head_commit)
     is_proven = decided["proven"]  # derived: proven == (verdict == VALIDATED)
     why_not = None if is_proven else decided["verdict_reason"]

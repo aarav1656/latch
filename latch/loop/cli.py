@@ -35,7 +35,8 @@ def _common(p):
     p.add_argument("--pr-comment", metavar="PATH", help="also write the receipt as a Markdown PR comment ('-' = stdout)")
     p.add_argument("--flake-runs", type=int, default=5, metavar="N",
                    help="rerun the proof test N times on base and head to catch flakiness (default 5, max 10; 1 = off)")
-    p.add_argument("--no-revert", action="store_true", help="skip the revert/mutation check (not recommended)")
+    p.add_argument("--no-mutation", action="store_true", help="skip the AST mutation check of the changed lines (not recommended)")
+    p.add_argument("--no-revert", action="store_true", help="skip the revert check (not recommended)")
 
 
 def build_parser():
@@ -121,6 +122,7 @@ def main(argv=None):
         run_id=args.run_id,
         revert=not args.no_revert,
         flake_runs=args.flake_runs,
+        mutation=not args.no_mutation,
     )
     started = time.monotonic()
     try:
