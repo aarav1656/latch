@@ -565,11 +565,11 @@ def run_loop(
                 """Mutate the changed lines of the final code; the proof test must kill enough mutants, or the gate stays shut."""
                 if not mutation:
                     return True
-                from ..mutate import RUN_TIMEOUT, mutation_detail, run_mutation
+                from ..mutate import RUN_TIMEOUT, mutation_detail, run_mutation, time_budget_for
                 steps.started("mutation_check")
                 result = run_mutation(lambda directory: run_test(directory, command, timeout=RUN_TIMEOUT), work, base_dir,
                                       source_changes, test_source, TEST_FILE, root / "mutations", is_test_path,
-                                      loop_files=loop_files)
+                                      loop_files=loop_files, time_budget=time_budget_for(False))
                 receipt["mutation"] = ev["mutation"] = result
                 (steps.done if result["ok"] else steps.failed)("mutation_check", mutation_detail(result))
                 if not result["ok"]:

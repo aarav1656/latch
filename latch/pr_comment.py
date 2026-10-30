@@ -98,13 +98,16 @@ def _flake_cell(flaky):
 def _mutation_cell(mutation):
     if not mutation:
         return None
+    if mutation.get("incomplete"):
+        return f"⚠️ {mutation.get('note')}"
     if not mutation.get("total") and mutation.get("ok") is False:
         return f"❌ the mutation check could not complete ({mutation.get('note')}); the gate stays shut"
     if not mutation.get("total"):
         return "no mutable lines in the change, nothing to mutate (does not block)"
     mark = "✅" if mutation.get("ok") else "❌"
     return (f"{mark} killed {mutation['killed']}/{mutation['total']} mutants of the changed lines "
-            f"(kill rate {mutation['kill_rate']:.0%}, needs {mutation['threshold']:.0%})")
+            f"(kill rate {mutation['kill_rate']:.0%}, needs {mutation['threshold']:.0%})"
+            + (f"; {mutation['not_run']} not run: budget" if mutation.get("not_run") else ""))
 
 
 def _models_table(receipt):

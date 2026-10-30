@@ -59,6 +59,20 @@ class DecideTests(unittest.TestCase):
         self.assertEqual(none_to_mutate[0], v.VALIDATED)
         self.assertIn("no mutable lines", none_to_mutate[1])
 
+    def test_an_incomplete_mutation_check_validates_but_says_it_is_not_mutation_backed(self):
+        inc = {"ok": True, "incomplete": True, "killed": 0, "total": 1, "kill_rate": 0.0, "not_run": 4,
+               "note": "mutation check incomplete: budget (1 of 5 mutants ran, 4 not run within 240s)"}
+        verdict, reason = v.decide_verdict(ev(mutation=inc))
+        self.assertEqual(verdict, v.VALIDATED)
+        self.assertIn("mutation check incomplete: budget", reason)
+        none_ran = v.decide_verdict(ev(mutation={**inc, "total": 0, "kill_rate": None, "not_run": 5}))
+        self.assertEqual(none_ran[0], v.VALIDATED)
+        self.assertIn("mutation check incomplete: budget", none_ran[1])
+        self.assertNotIn("no mutable lines", none_ran[1])
+        partial = v.decide_verdict(ev(mutation={"ok": True, "killed": 3, "total": 3, "kill_rate": 1.0, "not_run": 2}))
+        self.assertIn("killed 3/3 mutants", partial[1])
+        self.assertIn("2 more mutants were not run: budget", partial[1])
+
     def test_revert_skipped_does_not_block_but_is_noted(self):
         verdict, reason = v.decide_verdict(ev(revert={"ran": False, "skipped": "revert check disabled"}))
         self.assertEqual(verdict, v.VALIDATED)

@@ -516,7 +516,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
 
         mutation_result = None
         if is_proven and mutation:
-            from .mutate import RUN_TIMEOUT, mutation_detail, run_mutation
+            from .mutate import RUN_TIMEOUT, mutation_detail, run_mutation, time_budget_for
             steps.started("mutation_check")
             mutant_timeout = 300 if isolate_tests else RUN_TIMEOUT  # isolated runs install a venv first
             mutant_run = ((lambda directory: execute(directory, command)) if runner is not None else
@@ -524,7 +524,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             try:
                 mutation_changes = changed_files(repo, base_commit, head_commit)
                 mutation_result = run_mutation(mutant_run, head_dir, base_dir, mutation_changes, test_source,
-                                               "latch_issue_test.py", root / "mutations", is_test_path)
+                                               "latch_issue_test.py", root / "mutations", is_test_path,
+                                               time_budget=time_budget_for(runner is not None))
             except (OSError, RuntimeError, subprocess.SubprocessError) as error:
                 mutation_result = {"ran": False, "mutants": [], "killed": 0, "total": 0, "kill_rate": None, "ok": False,
                                    "threshold": 0.6, "note": f"{type(error).__name__}: {error}"}

@@ -128,7 +128,9 @@ def decide_verdict(evidence):
     notes = []
     if revert is not None and revert.get("skipped"):
         notes.append("revert check was " + str(revert["skipped"]))
-    if mutation is not None and mutation.get("total") == 0:
+    if mutation is not None and mutation.get("incomplete"):
+        notes.append(mutation.get("note") or "mutation check incomplete: budget")
+    elif mutation is not None and mutation.get("total") == 0:
         notes.append("no mutable lines, so no mutants were generated")
     elif mutation is None:
         notes.append("mutation check was not run")
@@ -139,6 +141,8 @@ def decide_verdict(evidence):
         reason += ", killed the revert"
     if mutation is not None and mutation.get("total"):
         reason += f", killed {mutation['killed']}/{mutation['total']} mutants"
+        if mutation.get("not_run") and not mutation.get("incomplete"):
+            notes.append(f"{mutation['not_run']} more mutants were not run: budget")
     return VALIDATED, reason + (f" ({'; '.join(notes)})" if notes else "")
 
 

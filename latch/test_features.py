@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -395,6 +396,26 @@ class ProveIntegrationTests(unittest.TestCase):
         failed = [e for e in events if e["step"] == "mutation_check" and e["status"] == "failed"]
         self.assertEqual(failed[0]["detail"], {"killed": 0, "total": 1, "kill_rate": 0.0})
         self.assertEqual(events[-1]["detail"], {"verdict": "MUTATION_SURVIVED", "reason": saved["verdict_reason"]})
+
+    def test_the_mutation_budget_is_600_with_a_custom_runner_and_the_env_var_overrides_it(self):
+        seen = []
+
+        def fake(*args, **kwargs):
+            seen.append(kwargs["time_budget"])
+            return {"ran": True, "mutants": [], "killed": 0, "total": 0, "kill_rate": None, "threshold": 0.6, "ok": True,
+                    "note": "mutation check incomplete: budget (0 of 5 mutants ran, 5 not run within 600s)",
+                    "not_run": 5, "incomplete": True}
+
+        env = {k: v for k, v in os.environ.items() if k != "LATCH_MUTATION_BUDGET"}
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch("latch.mutate.run_mutation", side_effect=fake):
+            _, saved, events = self.go(self.runner())
+            with mock.patch.dict(os.environ, {"LATCH_MUTATION_BUDGET": "1200"}):
+                self.go(self.runner())
+        self.assertEqual(seen, [600, 1200])
+        self.assertEqual(saved["verdict"], "VALIDATED")  # an incomplete check does not block...
+        self.assertIn("mutation check incomplete: budget", saved["verdict_reason"])  # ...and is not hidden
+        done = [e for e in events if e["step"] == "mutation_check" and e["status"] == "done"]
+        self.assertEqual(done[0]["detail"], {"killed": 0, "total": 0, "kill_rate": None})
 
     def test_mutants_never_run_when_the_revert_check_fails_or_the_check_is_off(self):
         calls = []
