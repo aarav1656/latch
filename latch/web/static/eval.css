@@ -1,0 +1,17 @@
+/* Evidence page. Tokens and shared primitives come from tokens.css and app.css. */
+.eval-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-7); min-width: 0; }
+.eval-root > * { min-width: 0; }
+.eval-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-5); background: var(--surface); }
+.eval-hero.is-pass { border-color: var(--pass); background: var(--pass-wash); }
+.eval-hero.is-fail { border-color: var(--fail); background: var(--fail-wash); }
+.eval-hero .hero-num { color: var(--ink); }
+.eval-hero.is-pass .hero-num { color: var(--pass); }
+.eval-hero p { max-width: var(--measure); }
+.eval-sub { color: var(--muted); font: 400 var(--t-small)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
+.eval-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
+.eval-featured { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); border-top: 1px solid var(--line); padding-top: var(--space-4); }
+.eval-featured .verdict-line { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
+.eval-scroll { overflow-x: auto; }
+.eval-cases { min-width: 44rem; }
+@media (max-width: 52rem) { .eval-split { grid-template-columns: minmax(0, 1fr); } .eval-hero { padding: var(--space-4); } }
+.eval-scroll .ledger-table { min-width: 34rem; }

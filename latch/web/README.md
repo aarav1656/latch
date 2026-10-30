@@ -14,6 +14,7 @@ Stdlib only. No build step. Python 3.10+ to run the tests, **3.12 in the image**
 python3 -m latch.web.app                      # http://localhost:8080
 PORT=9000 LATCH_LIVE=0 python3 -m latch.web.app   # cached receipts only, no model calls
 python3 -m unittest latch.web.test_app latch.test_prove latch.test_github_pr
+python3 -m pytest -q                        # the whole repository suite
 ```
 
 The first screen shows the recorded Click receipt immediately, with no click and
@@ -30,6 +31,9 @@ cached receipt returns it, anything else says why a live run is unavailable.
 | `GET /r/<owner>/<repo>/<pr>` | Shareable page for a cached receipt. `/api/receipt/<owner>/<repo>/<pr>` is the JSON. |
 | `GET /api/example` | The recorded Click receipt. |
 | `POST /api/loop`, `GET /api/loop/<id>[/events]`, `GET /api/loop/example` | The Fix loop tab (live run or recorded replay). Same limits as proofs. |
+| `GET /api/recent` | Real cached receipts only, newest first (the recorded Click receipt is labelled `recorded`). Nothing is invented. |
+| `GET /api/eval` | `{available: false, reason}` until `latch/runs/eval-summary.json` is committed, then the summary and the featured wrong-fix receipt. |
+| `GET /eval`, `GET /ship` | Evidence page (reads `/api/eval`; shows "Eval pending" when absent) and the CLI and GitHub Action page. |
 | `GET /api/config`, `GET /healthz` | Public limits and live state; liveness. |
 
 Failures are JSON `{"error": {"code", "message"}}` with a human reason. The server fails
@@ -178,6 +182,7 @@ Disk note: keep Docker/Colima data and image tarballs on the external drive
 * `app.py`: HTTP server, routes, SSE, CSP.
 * `service.py`: jobs, queue, rate limits, daily cap, proof and loop execution.
 * `sandbox.py`: the sandbox runner. `store.py`: disk cache.
-* `static/`: `index.html`, `app.css`, `app.js`, `loop.js`.
+* `static/`: `index.html`, `eval.html`, `ship.html`, `tokens.css` (design tokens), `app.css` (shared primitives), `loop.css`, `eval.css`, `ship.css`, `app.js`, `loop.js`, `eval.js`, `ship.js`. No inline styles or scripts (CSP).
+* `DESIGN.md`: the visual system (dark warm graphite, three type sizes, colour only on pass or fail plus one accent).
 * `test_app.py`: tests (no network, no model).
 * `Dockerfile`, `Dockerfile.dockerignore`, `deploy.sh`, `vercel/`.
