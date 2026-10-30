@@ -1,0 +1,388 @@
+{
+  "run_id": "moreitertools409.wrong",
+  "provider": "nebius",
+  "repo": "more-itertools/more-itertools@62411c1618 + constructed wrong patch",
+  "base": "b1c4ea9eab39c22a36a6e301a602cf150e6246be",
+  "head": "3f041c5e8177f8e5100407a61f10ebc099e46378",
+  "issue": "spy: changing the result list changes the returned iterable\n\nChanging the result list of `spy` also alters the iterable.\r\n\r\n```python\r\nIn [1]: from more_itertools import spy\r\n\r\nIn [2]: it = range(10)\r\n\r\nIn [3]: head, it = spy(it, 3)\r\n\r\nIn [4]: head[1] = 'bad'\r\n\r\nIn [5]: list(it)\r\nOut[5]: [0, 'bad', 2, 3, 4, 5, 6, 7, 8, 9]\r\n```\r\n\r\n I think it is a case of implementation details leaking out.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-e145ae97",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe pytest test failure confirms that mutating the `head` list still alters the original iterable, exactly reproducing the reported issue."
+  },
+  "started_at": "2026-10-30T08:20:23.038Z",
+  "proof_test": {
+    "name": "test_spy_head_mutation_does_not_affect_returned_iterable",
+    "source": "import pytest\n\ndef test_spy_head_mutation_does_not_affect_returned_iterable():\n    from more_itertools import spy\n\n    it = range(10)\n    head, it = spy(it, 3)\n    head[1] = 'bad'\n    result = list(it)\n    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-a81b16028e90ae5a"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________ test_spy_head_mutation_does_not_affect_returned_iterable _______________________________________________________________________\nlatch_issue_test.py:10: in test_spy_head_mutation_does_not_affect_returned_iterable\n    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\nE   AssertionError: assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\nE     \nE     At index 1 diff: 'bad' != 1\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_mutation_does_not_affect_returned_iterable - AssertionError: assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\n1 failed in 0.23s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________ test_spy_head_mutation_does_not_affect_returned_iterable _______________________________________________________________________\nlatch_issue_test.py:10: in test_spy_head_mutation_does_not_affect_returned_iterable\n    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\nE   AssertionError: assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\nE     \nE     At index 1 diff: 'bad' != 1\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_mutation_does_not_affect_returned_iterable - AssertionError: assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\n1 failed in 0.26s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "................................................................................................................................................................................................ [ 48%]\n................................................................................................................................................................................................ [ 96%]\n............                                                                                                                                                                                     [100%]\n=========================================================================================== warnings summary ===========================================================================================\ntests/test_more.py::CollateTests::test_default\ntests/test_more.py::CollateTests::test_empty\ntests/test_more.py::CollateTests::test_key\ntests/test_more.py::CollateTests::test_one\ntests/test_more.py::CollateTests::test_reverse\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-ck9zgdsu/work/more_itertools/more.py:399: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n396 passed, 5 warnings in 1.28s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-9965443a48e16dee",
+      "diff": "--- a/more_itertools/more.py\n+++ b/more_itertools/more.py\n@@ -1,907 +1,22 @@\n-import warnings\n-from collections import Counter, defaultdict, deque, abc\n-from collections.abc import Sequence\n-from functools import partial, wraps\n-from heapq import merge, heapify, heapreplace, heappop\n-from itertools import (\n-    chain,\n-    compress,\n-    count,\n-    cycle,\n-    dropwhile,\n-    groupby,\n-    islice,\n-    repeat,\n-    starmap,\n-    takewhile,\n-    tee,\n-    zip_longest,\n-)\n-from math import exp, floor, log\n-from random import random, randrange, uniform\n-from operator import itemgetter, sub, gt, lt\n-from sys import maxsize\n-from time import monotonic\n-\n-from .recipes import consume, flatten, powerset, take, unique_everseen\n-\n-__all__ = [\n-    'adjacent',\n-    'always_iterable',\n-    'always_reversible',\n-    'bucket',\n-    'chunked',\n-    'circular_shifts',\n-    'collapse',\n-    'collate',\n-    'consecutive_groups',\n-    'consumer',\n-    'count_cycle',\n-    'difference',\n-    'distinct_combinations',\n-    'distinct_permutations',\n-    'distribute',\n-    'divide',\n-    'exactly_n',\n-    'filter_except',\n-    'first',\n-    'groupby_transform',\n-    'ilen',\n-    'interleave_longest',\n-    'interleave',\n-    'intersperse',\n-    'islice_extended',\n-    'iterate',\n-    'ichunked',\n-    'last',\n-    'locate',\n-    'lstrip',\n-    'make_decorator',\n-    'map_except',\n-    'map_reduce',\n-    'nth_or_last',\n-    'numeric_range',\n-    'one',\n-    'only',\n-    'padded',\n-    'partitions',\n-    'set_partitions',\n-    'peekable',\n-    'repeat_last',\n-    'replace',\n-    'rlocate',\n-    'rstrip',\n-    'run_length',\n-    'sample',\n-    'seekable',\n-    'SequenceView',\n-    'side_effect',\n-    'sliced',\n-    'sort_together',\n-    'split_at',\n-    'split_after',\n-    'split_before',\n-    'split_when',\n-    'split_into',\n-    'spy',\n-    'stagger',\n-    'strip',\n-    'substrings',\n-    'substrings_indexes',\n-    'time_limited',\n-    'unique_to_each',\n-    'unzip',\n-    'windowed',\n-    'with_iter',\n-    'zip_offset',\n-]\n-\n-_marker = object()\n-\n-\n-def chunked(iterable, n):\n-    \"\"\"Break *iterable* into lists of length *n*:\n-\n-        >>> list(chunked([1, 2, 3, 4, 5, 6], 3))\n-        [[1, 2, 3], [4, 5, 6]]\n-\n-    If the length of *iterable* is not evenly divisible by *n*, the last\n-    returned list will be shorter:\n-\n-        >>> list(chunked([1, 2, 3, 4, 5, 6, 7, 8], 3))\n-        [[1, 2, 3], [4, 5, 6], [7, 8]]\n-\n-    To use a fill-in value instead, see the :func:`grouper` recipe.\n-\n-    :func:`chunked` is useful for splitting up a computation on a large number\n-    of keys into batches, to be pickled and sent off to worker processes. One\n-    example is operations on rows in MySQL, which does not implement\n-    server-side cursors properly and would otherwise load the entire dataset\n-    into RAM on the client.\n-\n-    \"\"\"\n-    return iter(partial(take, n, iter(iterable)), [])\n-\n-\n-def first(iterable, default=_marker):\n-    \"\"\"Return the first item of *iterable*, or *default* if *iterable* is\n-    empty.\n-\n-        >>> first([0, 1, 2, 3])\n-        0\n-        >>> first([], 'some default')\n-        'some default'\n-\n-    If *default* is not provided and there are no items in the iterable,\n-    raise ``ValueError``.\n-\n-    :func:`first` is useful when you have a generator of expensive-to-retrieve\n-    values and want any arbitrary one. It is marginally shorter than\n-    ``next(iter(iterable), default)``.\n-\n-    \"\"\"\n-    try:\n-        return next(iter(iterable))\n-    except StopIteration:\n-        # I'm on the edge about raising ValueError instead of StopIteration. At\n-        # the moment, ValueError wins, because the caller could conceivably\n-        # want to do something different with flow control when I raise the\n-        # exception, and it's weird to explicitly catch StopIteration.\n-        if default is _marker:\n-            raise ValueError(\n-                'first() was called on an empty iterable, and no '\n-                'default value was provided.'\n-            )\n-        return default\n-\n-\n-def last(iterable, default=_marker):\n-    \"\"\"Return the last item of *iterable*, or *default* if *iterable* is\n-    empty.\n-\n-        >>> last([0, 1, 2, 3])\n-        3\n-        >>> last([], 'some default')\n-        'some default'\n-\n-    If *default* is not provided and there are no items in the iterable,\n-    raise ``ValueError``.\n-    \"\"\"\n-    try:\n-        try:\n-            # Try to access the last item directly\n-            return iterable[-1]\n-        except (TypeError, AttributeError, KeyError):\n-            # If not slice-able, iterate entirely using length-1 deque\n-            return deque(iterable, maxlen=1)[0]\n-    except IndexError:  # If the iterable was empty\n-        if default is _marker:\n-            raise ValueError(\n-                'last() was called on an empty iterable, and no '\n-                'default value was provided.'\n-            )\n-        return default\n-\n-\n-def nth_or_last(iterable, n, default=_marker):\n-    \"\"\"Return the nth or the last item of *iterable*,\n-    or *default* if *iterable* is empty.\n-\n-        >>> nth_or_last([0, 1, 2, 3], 2)\n-        2\n-        >>> nth_or_last([0, 1], 2)\n-        1\n-        >>> nth_or_last([], 0, 'some default')\n-        'some default'\n-\n-    If *default* is not provided and there are no items in the iterable,\n-    raise ``ValueError``.\n-    \"\"\"\n-    return last(islice(iterable, n + 1), default=default)\n-\n-\n-class peekable:\n-    \"\"\"Wrap an iterator to allow lookahead and prepending elements.\n-\n-    Call :meth:`peek` on the result to get the value that will be returned\n-    by :func:`next`. This won't advance the iterator:\n-\n-        >>> p = peekable(['a', 'b'])\n-        >>> p.peek()\n-        'a'\n-        >>> next(p)\n-        'a'\n-\n-    Pass :meth:`peek` a default value to return that instead of raising\n-    ``StopIteration`` when the iterator is exhausted.\n-\n-        >>> p = peekable([])\n-        >>> p.peek('hi')\n-        'hi'\n-\n-    peekables also offer a :meth:`prepend` method, which \"inserts\" items\n-    at the head of the iterable:\n-\n-        >>> p = peekable([1, 2, 3])\n-        >>> p.prepend(10, 11, 12)\n-        >>> next(p)\n-        10\n-        >>> p.peek()\n-        11\n-        >>> list(p)\n-        [11, 12, 1, 2, 3]\n-\n-    peekables can be indexed. Index 0 is the item that will be returned by\n-    :func:`next`, index 1 is the item after that, and so on:\n-    The values up to the given index will be cached.\n-\n-        >>> p = peekable(['a', 'b', 'c', 'd'])\n-        >>> p[0]\n-        'a'\n-        >>> p[1]\n-        'b'\n-        >>> next(p)\n-        'a'\n-\n-    Negative indexes are supported, but be aware that they will cache the\n-    remaining items in the source iterator, which may require significant\n-    storage.\n-\n-    To check whether a peekable is exhausted, check its truth value:\n-\n-        >>> p = peekable(['a', 'b'])\n-        >>> if p:  # peekable has items\n-        ...     list(p)\n-        ['a', 'b']\n-        >>> if not p:  # peekable is exhaused\n-        ...     list(p)\n-        []\n-\n-    \"\"\"\n-\n-    def __init__(self, iterable):\n-        self._it = iter(iterable)\n-        self._cache = deque()\n-\n-    def __iter__(self):\n-        return self\n-\n-    def __bool__(self):\n-        try:\n-            self.peek()\n-        except StopIteration:\n-            return False\n-        return True\n-\n-    def peek(self, default=_marker):\n-        \"\"\"Return the item that will be next returned from ``next()``.\n-\n-        Return ``default`` if there are no items left. If ``default`` is not\n-        provided, raise ``StopIteration``.\n-\n-        \"\"\"\n-        if not self._cache:\n-            try:\n-                self._cache.append(next(self._it))\n-            except StopIteration:\n-                if default is _marker:\n-                    raise\n-                return default\n-        return self._cache[0]\n-\n-    def prepend(self, *items):\n-        \"\"\"Stack up items to be the next ones returned from ``next()`` or\n-        ``self.peek()``. The items will be returned in\n-        first in, first out order::\n-\n-            >>> p = peekable([1, 2, 3])\n-            >>> p.prepend(10, 11, 12)\n-            >>> next(p)\n-            10\n-            >>> list(p)\n-            [11, 12, 1, 2, 3]\n-\n-        It is possible, by prepending items, to \"resurrect\" a peekable that\n-        previously raised ``StopIteration``.\n-\n-            >>> p = peekable([])\n-            >>> next(p)\n-            Traceback (most recent call last):\n-              ...\n-            StopIteration\n-            >>> p.prepend(1)\n-            >>> next(p)\n-            1\n-            >>> next(p)\n-            Traceback (most recent call last):\n-              ...\n-            StopIteration\n-\n-        \"\"\"\n-        self._cache.extendleft(reversed(items))\n-\n-    def __next__(self):\n-        if self._cache:\n-            return self._cache.popleft()\n-\n-        return next(self._it)\n-\n-    def _get_slice(self, index):\n-        # Normalize the slice's arguments\n-        step = 1 if (index.step is None) else index.step\n-        if step > 0:\n-            start = 0 if (index.start is None) else index.start\n-            stop = maxsize if (index.stop is None) else index.stop\n-        elif step < 0:\n-            start = -1 if (index.start is None) else index.start\n-            stop = (-maxsize - 1) if (index.stop is None) else index.stop\n-        else:\n-            raise ValueError('slice step cannot be zero')\n-\n-        # If either the start or stop index is negative, we'll need to cache\n-        # the rest of the iterable in order to slice from the right side.\n-        if (start < 0) or (stop < 0):\n-            self._cache.extend(self._it)\n-        # Otherwise we'll need to find the rightmost index and cache to that\n-        # point.\n-        else:\n-            n = min(max(start, stop) + 1, maxsize)\n-            cache_len = len(self._cache)\n-            if n >= cache_len:\n-                self._cache.extend(islice(self._it, n - cache_len))\n-\n-        return list(self._cache)[index]\n-\n-    def __getitem__(self, index):\n-        if isinstance(index, slice):\n-            return self._get_slice(index)\n-\n-        cache_len = len(self._cache)\n-        if index < 0:\n-            se\n...[truncated]...\nError(\n-                \"Can't partition in a negative or zero number of groups\"\n-            )\n-        elif k > n:\n-            return\n-\n-    def set_partitions_helper(L, k):\n-        n = len(L)\n-        if k == 1:\n-            yield [L]\n-        elif n == k:\n-            yield [[s] for s in L]\n-        else:\n-            e, *M = L\n-            for p in set_partitions_helper(M, k - 1):\n-                yield [[e], *p]\n-            for p in set_partitions_helper(M, k):\n-                for i in range(len(p)):\n-                    yield p[:i] + [[e] + p[i]] + p[i + 1 :]\n-\n-    if k is None:\n-        for k in range(1, n + 1):\n-            yield from set_partitions_helper(L, k)\n-    else:\n-        yield from set_partitions_helper(L, k)\n-\n-\n-def time_limited(limit_seconds, iterable):\n-    \"\"\"\n-    Yield items from *iterable* until *limit_seconds* have passed.\n-\n-    >>> from time import sleep\n-    >>> def generator():\n-    ...     yield 1\n-    ...     yield 2\n-    ...     sleep(0.2)\n-    ...     yield 3\n-    >>> iterable = generator()\n-    >>> list(time_limited(0.1, iterable))\n-    [1, 2]\n-\n-    Note that the time is checked before each item is yielded, and iteration\n-    stops if  the time elapsed is greater than *limit_seconds*. If your time\n-    limit is 1 second, but it takes 2 seconds to generate the first item from\n-    the iterable, the function will run for 2 seconds and not yield anything.\n-\n-    \"\"\"\n-    if limit_seconds < 0:\n-        raise ValueError('limit_seconds must be positive')\n-\n-    start_time = monotonic()\n-    for item in iterable:\n-        if monotonic() - start_time > limit_seconds:\n-            break\n-        yield item\n-\n-\n-def only(iterable, default=None, too_long=None):\n-    \"\"\"If *iterable* has only one item, return it.\n-    If it has zero items, return *default*.\n-    If it has more than one item, raise the exception given by *too_long*,\n-    which is ``ValueError`` by default.\n-\n-    >>> only([], default='missing')\n-    'missing'\n-    >>> only([1])\n-    1\n-    >>> only([1, 2])  # doctest: +IGNORE_EXCEPTION_DETAIL\n-    Traceback (most recent call last):\n-    ...\n-    ValueError: Expected exactly one item in iterable, but got 1, 2,\n-     and perhaps more.'\n-    >>> only([1, 2], too_long=TypeError)  # doctest: +IGNORE_EXCEPTION_DETAIL\n-    Traceback (most recent call last):\n-    ...\n-    TypeError\n-\n-    Note that :func:`only` attempts to advance *iterable* twice to ensure there\n-    is only one item.  See :func:`spy` or :func:`peekable` to check\n-    iterable contents less destructively.\n-    \"\"\"\n-    it = iter(iterable)\n-    first_value = next(it, default)\n-\n-    try:\n-        second_value = next(it)\n-    except StopIteration:\n-        pass\n-    else:\n-        msg = (\n-            'Expected exactly one item in iterable, but got {!r}, {!r}, '\n-            'and perhaps more.'.format(first_value, second_value)\n-        )\n-        raise too_long or ValueError(msg)\n-\n-    return first_value\n-\n-\n-def ichunked(iterable, n):\n-    \"\"\"Break *iterable* into sub-iterables with *n* elements each.\n-    :func:`ichunked` is like :func:`chunked`, but it yields iterables\n-    instead of lists.\n-\n-    If the sub-iterables are read in order, the elements of *iterable*\n-    won't be stored in memory.\n-    If they are read out of order, :func:`itertools.tee` is used to cache\n-    elements as necessary.\n-\n-    >>> from itertools import count\n-    >>> all_chunks = ichunked(count(), 4)\n-    >>> c_1, c_2, c_3 = next(all_chunks), next(all_chunks), next(all_chunks)\n-    >>> list(c_2)  # c_1's elements have been cached; c_3's haven't been\n-    [4, 5, 6, 7]\n-    >>> list(c_1)\n-    [0, 1, 2, 3]\n-    >>> list(c_3)\n-    [8, 9, 10, 11]\n-\n-    \"\"\"\n-    source = iter(iterable)\n-\n-    while True:\n-        # Check to see whether we're at the end of the source iterable\n-        item = next(source, _marker)\n-        if item is _marker:\n-            return\n-\n-        # Clone the source and yield an n-length slice\n-        source, it = tee(chain([item], source))\n-        yield islice(it, n)\n-\n-        # Advance the source iterable\n-        consume(source, n)\n-\n-\n-def distinct_combinations(iterable, r):\n-    \"\"\"Yield the distinct combinations of *r* items taken from *iterable*.\n-\n-        >>> list(distinct_combinations([0, 0, 1], 2))\n-        [(0, 0), (0, 1)]\n-\n-    Equivalent to ``set(combinations(iterable))``, except duplicates are not\n-    generated and thrown away. For larger input sequences this is much more\n-    efficient.\n-\n-    \"\"\"\n-    if r < 0:\n-        raise ValueError('r must be non-negative')\n-    elif r == 0:\n-        yield ()\n-    else:\n-        pool = tuple(iterable)\n-        for i, prefix in unique_everseen(enumerate(pool), key=itemgetter(1)):\n-            for suffix in distinct_combinations(pool[i + 1 :], r - 1):\n-                yield (prefix,) + suffix\n-\n-\n-def filter_except(validator, iterable, *exceptions):\n-    \"\"\"Yield the items from *iterable* for which the *validator* function does\n-    not raise one of the specified *exceptions*.\n-\n-    *validator* is called for each item in *iterable*.\n-    It should be a function that accepts one argument and raises an exception\n-    if that item is not valid.\n-\n-    >>> iterable = ['1', '2', 'three', '4', None]\n-    >>> list(filter_except(int, iterable, ValueError, TypeError))\n-    ['1', '2', '4']\n-\n-    If an exception other than one given by *exceptions* is raised by\n-    *validator*, it is raised like normal.\n-    \"\"\"\n-    exceptions = tuple(exceptions)\n-    for item in iterable:\n-        try:\n-            validator(item)\n-        except exceptions:\n-            pass\n-        else:\n-            yield item\n-\n-\n-def map_except(function, iterable, *exceptions):\n-    \"\"\"Transform each item from *iterable* with *function* and yield the\n-    result, unless *function* raises one of the specified *exceptions*.\n-\n-    *function* is called to transform each item in *iterable*.\n-    It should be a accept one argument.\n-\n-    >>> iterable = ['1', '2', 'three', '4', None]\n-    >>> list(map_except(int, iterable, ValueError, TypeError))\n-    [1, 2, 4]\n-\n-    If an exception other than one given by *exceptions* is raised by\n-    *function*, it is raised like normal.\n-    \"\"\"\n-    exceptions = tuple(exceptions)\n-    for item in iterable:\n-        try:\n-            yield function(item)\n-        except exceptions:\n-            pass\n-\n-\n-def _sample_unweighted(iterable, k):\n-    # Implementation of \"Algorithm L\" from the 1994 paper by Kim-Hung Li:\n-    # \"Reservoir-Sampling Algorithms of Time Complexity O(n(1+log(N/n)))\".\n-\n-    # Fill up the reservoir (collection of samples) with the first `k` samples\n-    reservoir = take(k, iterable)\n-\n-    # Generate random number that's the largest in a sample of k U(0,1) numbers\n-    # Largest order statistic: https://en.wikipedia.org/wiki/Order_statistic\n-    W = exp(log(random()) / k)\n-\n-    # The number of elements to skip before changing the reservoir is a random\n-    # number with a geometric distribution. Sample it using random() and logs.\n-    next_index = k + floor(log(random()) / log(1 - W))\n-\n-    for index, element in enumerate(iterable, k):\n-\n-        if index == next_index:\n-            reservoir[randrange(k)] = element\n-            # The new W is the largest in a sample of k U(0, `old_W`) numbers\n-            W *= exp(log(random()) / k)\n-            next_index += floor(log(random()) / log(1 - W)) + 1\n-\n-    return reservoir\n-\n-\n-def _sample_weighted(iterable, k, weights):\n-    # Implementation of \"A-ExpJ\" from the 2006 paper by Efraimidis et al. :\n-    # \"Weighted random sampling with a reservoir\".\n-\n-    # Log-transform for numerical stability for weights that are small/large\n-    weight_keys = (log(random()) / weight for weight in weights)\n-\n-    # Fill up the reservoir (collection of samples) with the first `k`\n-    # weight-keys and elements, then heapify the list.\n-    reservoir = take(k, zip(weight_keys, iterable))\n-    heapify(reservoir)\n-\n-    # The number of jumps before changing the reservoir is a random variable\n-    # with an exponential distribution. Sample it using random() and logs.\n-    smallest_weight_key, _ = reservoir[0]\n-    weights_to_skip = log(random()) / smallest_weight_key\n-\n-    for weight, element in zip(weights, iterable):\n-        if weight >= weights_to_skip:\n-            # The notation here is consistent with the paper, but we store\n-            # the weight-keys in log-space for better numerical stability.\n-            smallest_weight_key, _ = reservoir[0]\n-            t_w = exp(weight * smallest_weight_key)\n-            r_2 = uniform(t_w, 1)  # generate U(t_w, 1)\n-            weight_key = log(r_2) / weight\n-            heapreplace(reservoir, (weight_key, element))\n-            smallest_weight_key, _ = reservoir[0]\n-            weights_to_skip = log(random()) / smallest_weight_key\n-        else:\n-            weights_to_skip -= weight\n-\n-    # Equivalent to [element for weight_key, element in sorted(reservoir)]\n-    return [heappop(reservoir)[1] for _ in range(k)]\n-\n-\n-def sample(iterable, k, weights=None):\n-    \"\"\"Return a *k*-length list of elements chosen (without replacement)\n-    from the *iterable*. Like :func:`random.sample`, but works on iterables\n-    of unknown length.\n-\n-    >>> iterable = range(100)\n-    >>> sample(iterable, 5)  # doctest: +SKIP\n-    [81, 60, 96, 16, 4]\n-\n-     An iterable with *weights* may also be given:\n-\n-    >>> iterable = range(100)\n-    >>> weights = (i * i + 1 for i in range(100))\n-    >>> sampled = sample(iterable, 5, weights=weights)  # doctest: +SKIP\n-    [79, 67, 74, 66, 78]\n-\n-    The algorithm can also be used to generate weighted random permutations.\n-    The relative weight of each item determines the probability that it\n-    appears late in the permutation.\n-\n-    >>> data = \"abcdefgh\"\n-    >>> weights = range(1, len(data) + 1)\n-    >>> sample(data, k=len(data), weights=weights)  # doctest: +SKIP\n-    ['c', 'a', 'b', 'e', 'g', 'd', 'h', 'f']\n-    \"\"\"\n-    if k == 0:\n-        return []\n-\n-    iterable = iter(iterable)\n-    if weights is None:\n-        return _sample_unweighted(iterable, k)\n-    else:\n-        weights = iter(weights)\n-        return _sample_weighted(iterable, k, weights)\n",
+      "changed_files": [
+        "more_itertools/more.py"
+      ],
+      "pytest_output": "REPO SUITE FAILED:\n\n================================================================================================ ERRORS ================================================================================================\n_________________________________________________________________________________ ERROR collecting tests/test_more.py __________________________________________________________________________________\nImportError while importing test module '/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-ck9zgdsu/work/tests/test_more.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\ntests/test_more.py:29: in <module>\n    import more_itertools as mi\nmore_itertools/__init__.py:1: in <module>\n    from .more import *  # noqa\nmore_itertools/more.py:1: in <module>\n    from ._more import take, chain, zip_longest, _marker\nE   ModuleNotFoundError: No module named 'more_itertools._more'\n________________________________________________________________________________ ERROR collecting tests/test_recipes.py ________________________________________________________________________________\nImportError while importing test module '/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-ck9zgdsu/work/tests/test_recipes.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\ntests/test_recipes.py:7: in <module>\n    import more_itertools as mi\nmore_itertools/__init__.py:1: in <module>\n    from .more import *  # noqa\nmore_itertools/more.py:1: in <module>\n    from ._more import take, chain, zip_longest, _marker\nE   ModuleNotFoundError: No module named 'more_itertools._more'\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n2 errors in 0.71s\n\nF                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________ test_spy_head_mutation_does_not_affect_returned_iterable _______________________________________________________________________\nlatch_issue_test.py:4: in test_spy_head_mutation_does_not_affect_returned_iterable\n    from more_itertools import spy\nmore_itertools/__init__.py:1: in <module>\n    from .more import *  # noqa\nmore_itertools/more.py:1: in <module>\n    from ._more import take, chain, zip_longest, _marker\nE   ModuleNotFoundError: No module named 'more_itertools._more'\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_mutation_does_not_affect_returned_iterable - ModuleNotFoundError: No module named 'more_itertools._more'\n1 failed in 0.40s\n",
+      "verdict": "gate_shut",
+      "truncated": true,
+      "proof_returncode": 1,
+      "suite_returncode": 2
+    },
+    {
+      "iteration": 2,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-b925e4955859883a",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model may only rewrite existing files, not create more_itertools/_more.py"
+    },
+    {
+      "iteration": 3,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-8423e7afba478e4b",
+      "diff": "--- a/more_itertools/more.py\n+++ b/more_itertools/more.py\n@@ -1,4 +1,43 @@\n-from ._more import take, chain, zip_longest, _marker\n+import itertools\n+\n+\n+def take(n, iterable):\n+    \"\"\"Return first *n* items of the iterable as a list.\"\"\"\n+    return list(itertools.islice(iterable, n))\n+\n+\n+class chain:\n+    \"\"\"Chain iterables together.\"\"\"\n+    def __init__(self, *iterables):\n+        self._iterables = iterables\n+\n+    def __iter__(self):\n+        for it in self._iterables:\n+            yield from it\n+\n+    @classmethod\n+    def from_iterable(cls, iterables):\n+        return cls(*iterables)\n+\n+\n+def zip_longest(*iterables, fillvalue=None):\n+    \"\"\"Zip iterables together, filling missing values with fillvalue.\"\"\"\n+    iterators = [iter(it) for it in iterables]\n+    while iterators:\n+        result = []\n+        exhausted = 0\n+        for it in iterators:\n+            try:\n+                result.append(next(it))\n+            except StopIteration:\n+                result.append(fillvalue)\n+                exhausted += 1\n+        if exhausted == len(iterators):\n+            break\n+        yield tuple(result)\n+\n+\n+_marker = object()\n \n \n def spy(iterable, n=1):\n",
+      "changed_files": [
+        "more_itertools/more.py"
+      ],
+      "pytest_output": "REPO SUITE FAILED:\nttribute 'difference'\nFAILED tests/test_more.py::SeekableTest::test_elements - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SeekableTest::test_exhaustion_reset - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SeekableTest::test_forward - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SeekableTest::test_maxlen - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SeekableTest::test_maxlen_zero - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SeekableTest::test_partial_reset - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SeekableTest::test_past_end - AttributeError: module 'more_itertools' has no attribute 'seekable'\nFAILED tests/test_more.py::SequenceViewTests::test_abc_methods - AttributeError: module 'more_itertools' has no attribute 'SequenceView'\nFAILED tests/test_more.py::SequenceViewTests::test_indexing - AttributeError: module 'more_itertools' has no attribute 'SequenceView'\nFAILED tests/test_more.py::SequenceViewTests::test_init - AttributeError: module 'more_itertools' has no attribute 'SequenceView'\nFAILED tests/test_more.py::SequenceViewTests::test_slicing - AttributeError: module 'more_itertools' has no attribute 'SequenceView'\nFAILED tests/test_more.py::SequenceViewTests::test_update - AttributeError: module 'more_itertools' has no attribute 'SequenceView'\nFAILED tests/test_more.py::RunLengthTest::test_decode - AttributeError: module 'more_itertools' has no attribute 'run_length'\nFAILED tests/test_more.py::RunLengthTest::test_encode - AttributeError: module 'more_itertools' has no attribute 'run_length'\nFAILED tests/test_more.py::ExactlyNTests::test_empty - AttributeError: module 'more_itertools' has no attribute 'exactly_n'\nFAILED tests/test_more.py::ExactlyNTests::test_false - AttributeError: module 'more_itertools' has no attribute 'exactly_n'\nFAILED tests/test_more.py::ExactlyNTests::test_true - AttributeError: module 'more_itertools' has no attribute 'exactly_n'\nFAILED tests/test_more.py::AlwaysReversibleTests::test_nonseq_reversed - AttributeError: module 'more_itertools' has no attribute 'always_reversible'\nFAILED tests/test_more.py::AlwaysReversibleTests::test_regular_reversed - AttributeError: module 'more_itertools' has no attribute 'always_reversible'\nFAILED tests/test_more.py::CircularShiftsTests::test_duplicates - AttributeError: module 'more_itertools' has no attribute 'circular_shifts'\nFAILED tests/test_more.py::CircularShiftsTests::test_empty - AttributeError: module 'more_itertools' has no attribute 'circular_shifts'\nFAILED tests/test_more.py::CircularShiftsTests::test_simple_circular_shifts - AttributeError: module 'more_itertools' has no attribute 'circular_shifts'\nFAILED tests/test_more.py::MakeDecoratorTests::test_basic - AttributeError: module 'more_itertools' has no attribute 'make_decorator'\nFAILED tests/test_more.py::MakeDecoratorTests::test_result_index - AttributeError: module 'more_itertools' has no attribute 'make_decorator'\nFAILED tests/test_more.py::MakeDecoratorTests::test_wrap_class - AttributeError: module 'more_itertools' has no attribute 'make_decorator'\nFAILED tests/test_more.py::MapReduceTests::test_default - AttributeError: module 'more_itertools' has no attribute 'map_reduce'\nFAILED tests/test_more.py::MapReduceTests::test_reducefunc - AttributeError: module 'more_itertools' has no attribute 'map_reduce'\nFAILED tests/test_more.py::MapReduceTests::test_ret - AttributeError: module 'more_itertools' has no attribute 'map_reduce'\nFAILED tests/test_more.py::MapReduceTests::test_valuefunc - AttributeError: module 'more_itertools' has no attribute 'map_reduce'\nFAILED tests/test_more.py::RlocateTests::test_custom_pred - AttributeError: module 'more_itertools' has no attribute 'rlocate'\nFAILED tests/test_more.py::RlocateTests::test_default_pred - AttributeError: module 'more_itertools' has no attribute 'rlocate'\nFAILED tests/test_more.py::RlocateTests::test_efficient_reversal - AttributeError: module 'more_itertools' has no attribute 'rlocate'\nFAILED tests/test_more.py::RlocateTests::test_no_matches - AttributeError: module 'more_itertools' has no attribute 'rlocate'\nFAILED tests/test_more.py::RlocateTests::test_window_size - AttributeError: module 'more_itertools' has no attribute 'rlocate'\nFAILED tests/test_more.py::RlocateTests::test_window_size_large - AttributeError: module 'more_itertools' has no attribute 'rlocate'\nFAILED tests/test_more.py::RlocateTests::test_window_size_zero - AttributeError: module 'more_itertools' has no attribute 'locate'\nFAILED tests/test_more.py::ReplaceTests::test_basic - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_count - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_iterable_substitutes - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_window_size - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_window_size_count - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_window_size_end - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_window_size_large - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::ReplaceTests::test_window_size_zero - AttributeError: module 'more_itertools' has no attribute 'replace'\nFAILED tests/test_more.py::PartitionsTest::test_duplicates - AttributeError: module 'more_itertools' has no attribute 'partitions'. Did you mean: 'partition'?\nFAILED tests/test_more.py::PartitionsTest::test_empty - AttributeError: module 'more_itertools' has no attribute 'partitions'. Did you mean: 'partition'?\nFAILED tests/test_more.py::PartitionsTest::test_order - AttributeError: module 'more_itertools' has no attribute 'partitions'. Did you mean: 'partition'?\nFAILED tests/test_more.py::PartitionsTest::test_types - AttributeError: module 'more_itertools' has no attribute 'partitions'. Did you mean: 'partition'?\nFAILED tests/test_more.py::SetPartitionsTests::test_duplicates - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::SetPartitionsTests::test_each_correct - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::SetPartitionsTests::test_found_all - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::SetPartitionsTests::test_no_group - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::SetPartitionsTests::test_repeated - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::SetPartitionsTests::test_stirling_numbers - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::SetPartitionsTests::test_to_many_groups - AttributeError: module 'more_itertools' has no attribute 'set_partitions'\nFAILED tests/test_more.py::TimeLimitedTests::test_basic - AttributeError: module 'more_itertools' has no attribute 'time_limited'\nFAILED tests/test_more.py::TimeLimitedTests::test_invalid_limit - AttributeError: module 'more_itertools' has no attribute 'time_limited'\nFAILED tests/test_more.py::TimeLimitedTests::test_zero_limit - AttributeError: module 'more_itertools' has no attribute 'time_limited'\nFAILED tests/test_more.py::OnlyTests::test_custom_exception - AttributeError: module 'more_itertools' has no attribute 'only'\nFAILED tests/test_more.py::OnlyTests::test_custom_value - AttributeError: module 'more_itertools' has no attribute 'only'\nFAILED tests/test_more.py::OnlyTests::test_default_exception_message - AttributeError: module 'more_itertools' has no attribute 'only'\nFAILED tests/test_more.py::OnlyTests::test_defaults - AttributeError: module 'more_itertools' has no attribute 'only'\nFAILED tests/test_more.py::IchunkedTests::test_even - AttributeError: module 'more_itertools' has no attribute 'ichunked'\nFAILED tests/test_more.py::IchunkedTests::test_laziness - AttributeError: module 'more_itertools' has no attribute 'ichunked'\nFAILED tests/test_more.py::IchunkedTests::test_negative - AttributeError: module 'more_itertools' has no attribute 'ichunked'\nFAILED tests/test_more.py::IchunkedTests::test_odd - AttributeError: module 'more_itertools' has no attribute 'ichunked'\nFAILED tests/test_more.py::IchunkedTests::test_out_of_order - AttributeError: module 'more_itertools' has no attribute 'ichunked'\nFAILED tests/test_more.py::IchunkedTests::test_zero - AttributeError: module 'more_itertools' has no attribute 'ichunked'\nFAILED tests/test_more.py::DistinctCombinationsTests::test_basic - AttributeError: module 'more_itertools' has no attribute 'distinct_combinations'\nFAILED tests/test_more.py::DistinctCombinationsTests::test_distinct - AttributeError: module 'more_itertools' has no attribute 'distinct_combinations'\nFAILED tests/test_more.py::DistinctCombinationsTests::test_empty - AttributeError: module 'more_itertools' has no attribute 'distinct_combinations'\nFAILED tests/test_more.py::DistinctCombinationsTests::test_negative - AttributeError: module 'more_itertools' has no attribute 'distinct_combinations'\nFAILED tests/test_more.py::FilterExceptTests::test_false - AttributeError: module 'more_itertools' has no attribute 'filter_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::FilterExceptTests::test_multiple - AttributeError: module 'more_itertools' has no attribute 'filter_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::FilterExceptTests::test_no_exceptions_pass - AttributeError: module 'more_itertools' has no attribute 'filter_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::FilterExceptTests::test_no_exceptions_raise - AttributeError: module 'more_itertools' has no attribute 'filter_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::FilterExceptTests::test_raise - AttributeError: module 'more_itertools' has no attribute 'filter_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::MapExceptTests::test_multiple - AttributeError: module 'more_itertools' has no attribute 'map_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::MapExceptTests::test_no_exceptions_pass - AttributeError: module 'more_itertools' has no attribute 'map_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::MapExceptTests::test_no_exceptions_raise - AttributeError: module 'more_itertools' has no attribute 'map_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::MapExceptTests::test_raise - AttributeError: module 'more_itertools' has no attribute 'map_except'. Did you mean: 'iter_except'?\nFAILED tests/test_more.py::SampleTests::test_invariance_under_permutations_unweighted - AttributeError: module 'more_itertools' has no attribute 'sample'\nFAILED tests/test_more.py::SampleTests::test_invariance_under_permutations_weighted - AttributeError: module 'more_itertools' has no attribute 'sample'\nFAILED tests/test_more.py::SampleTests::test_length - AttributeError: module 'more_itertools' has no attribute 'sample'\nFAILED tests/test_more.py::SampleTests::test_samling_entire_iterable - AttributeError: module 'more_itertools' has no attribute 'sample'\nFAILED tests/test_more.py::SampleTests::test_scale_invariance_of_weights - AttributeError: module 'more_itertools' has no attribute 'sample'\nFAILED tests/test_more.py::SampleTests::test_unit_case - AttributeError: module 'more_itertools' has no attribute 'sample'\n312 failed, 84 passed in 27.48s\n\n.                                                                                                                                                                                                [100%]\n1 passed in 0.21s\n",
+      "verdict": "gate_shut",
+      "proof_returncode": 0,
+      "suite_returncode": 1
+    }
+  ],
+  "gate": "gave_up",
+  "verdict": "FIX_FAILS_TEST",
+  "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-f027349d",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 3,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-a81b16028e90ae5a",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_spy_head_mutation_does_not_affect_returned_iterable():\n    from more_itertools import spy\n\n    it = range(10)\n    head, it = spy(it, 3)\n    head[1] = 'bad'\n    result = list(it)\n    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: more_itertools/._more.py: cannot parse the changed file: source code string cannot contain null bytes",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: more_itertools/._more.py: cannot parse the changed file: source code string cannot contain null bytes",
+    "affected_symbols": []
+  },
+  "finished_at": "2026-10-30T08:22:09.881Z",
+  "verdict_reason": "the proof test passes but the repo's own test suite fails on the change under test",
+  "proven": false,
+  "base_sha": "b1c4ea9eab39c22a36a6e301a602cf150e6246be",
+  "head_sha": "3f041c5e8177f8e5100407a61f10ebc099e46378",
+  "verdict_logs": {
+    "base": "st_spy_head_mutation_does_not_affect_returned_iterable _______________________________________________________________________\nlatch_issue_test.py:10: in test_spy_head_mutation_does_not_affect_returned_iterable\n    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\nE   AssertionError: assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\nE     \nE     At index 1 diff: 'bad' != 1\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_mutation_does_not_affect_returned_iterable - AssertionError: assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\n1 failed in 0.23s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.21s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 544,
+      "completion_tokens": 1024,
+      "latency_ms": 7736,
+      "completion_id": "chatcmpl-f027349d",
+      "cost_usd": 0.000278,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1025,
+      "completion_tokens": 400,
+      "latency_ms": 2325,
+      "completion_id": "chatcmpl-a81b16028e90ae5a",
+      "cost_usd": 0.002225,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 676,
+      "completion_tokens": 708,
+      "latency_ms": 9643,
+      "completion_id": "chatcmpl-e145ae97",
+      "cost_usd": 0.00021,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 3508,
+      "completion_tokens": 6541,
+      "latency_ms": 17975,
+      "completion_id": "chatcmpl-9965443a48e16dee",
+      "cost_usd": 0.023131,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 9581,
+      "completion_tokens": 6521,
+      "latency_ms": 18599,
+      "completion_id": "chatcmpl-b925e4955859883a",
+      "cost_usd": 0.029144,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 9605,
+      "completion_tokens": 4935,
+      "latency_ms": 15400,
+      "completion_id": "chatcmpl-8423e7afba478e4b",
+      "cost_usd": 0.02441,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.079398,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:20:23.038Z",
+      "detail": {
+        "base": "b1c4ea9eab39c22a36a6e301a602cf150e6246be",
+        "head": "3f041c5e8177f8e5100407a61f10ebc099e46378"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:20:23.258Z",
+      "detail": {
+        "base": "b1c4ea9eab39",
+        "head": "3f041c5e8177",
+        "changed_files": [
+          "more_itertools/._more.py",
+          "more_itertools/more.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:20:23.297Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:20:31.057Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:20:31.057Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:20:33.385Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-a81b16028e90ae5a"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:20:33.385Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:20:33.945Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:20:33.945Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:20:36.100Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T08:20:36.100Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T08:20:45.744Z",
+      "detail": {
+        "verdict": "reproduced",
+        "completion_id": "chatcmpl-e145ae97"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T08:20:45.744Z",
+      "detail": {
+        "iteration": 1,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "done",
+      "ts": "2026-10-30T08:21:03.737Z",
+      "detail": {
+        "iteration": 1,
+        "completion_id": "chatcmpl-9965443a48e16dee",
+        "changed_files": [
+          "more_itertools/more.py"
+        ]
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T08:21:05.652Z",
+      "detail": {
+        "iteration": 2,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T08:21:24.254Z",
+      "detail": {
+        "iteration": 2,
+        "detail": "model may only rewrite existing files, not create more_itertools/_more.py"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T08:21:24.254Z",
+      "detail": {
+        "iteration": 3,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "done",
+      "ts": "2026-10-30T08:21:39.659Z",
+      "detail": {
+        "iteration": 3,
+        "completion_id": "chatcmpl-8423e7afba478e4b",
+        "changed_files": [
+          "more_itertools/more.py"
+        ]
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:22:09.881Z",
+      "detail": {
+        "verdict": "FIX_FAILS_TEST",
+        "reason": "the proof test passes but the repo's own test suite fails on the change under test"
+      }
+    }
+  ],
+  "final_iteration": 3
+}

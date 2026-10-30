@@ -1,0 +1,237 @@
+{
+  "run_id": "moreitertools409.real",
+  "provider": "nebius",
+  "repo": "more-itertools/more-itertools@62411c1618",
+  "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+  "head": "62411c1618493f94b16901746c34e72ad415061e",
+  "issue": "spy: changing the result list changes the returned iterable\n\nChanging the result list of `spy` also alters the iterable.\r\n\r\n```python\r\nIn [1]: from more_itertools import spy\r\n\r\nIn [2]: it = range(10)\r\n\r\nIn [3]: head, it = spy(it, 3)\r\n\r\nIn [4]: head[1] = 'bad'\r\n\r\nIn [5]: list(it)\r\nOut[5]: [0, 'bad', 2, 3, 4, 5, 6, 7, 8, 9]\r\n```\r\n\r\n I think it is a case of implementation details leaking out.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:20:18.645Z",
+  "proof_test": {
+    "name": "test_spy_head_immutable",
+    "source": "import pytest\n\ndef test_spy_head_immutable():\n    \"\"\"Test that modifying the head list doesn't affect the returned iterable.\"\"\"\n    original = range(10)\n    head, it = spy(original, 3)\n    \n    # Modify the head list\n    head[1] = 'bad'\n    \n    # The iterable should be unchanged\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\n    \n    # Head should reflect the modification\n    assert head == [0, 'bad', 2]\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-8821eed833f23e5d"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________________ test_spy_head_immutable ________________________________________________________________________________________\nlatch_issue_test.py:6: in test_spy_head_immutable\n    head, it = spy(original, 3)\nE   NameError: name 'spy' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutable - NameError: name 'spy' is not defined\n1 failed in 0.41s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________________ test_spy_head_immutable ________________________________________________________________________________________\nlatch_issue_test.py:6: in test_spy_head_immutable\n    head, it = spy(original, 3)\nE   NameError: name 'spy' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutable - NameError: name 'spy' is not defined\n1 failed in 0.27s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "................................................................................................................................................................................................ [ 48%]\n................................................................................................................................................................................................ [ 96%]\n.............                                                                                                                                                                                    [100%]\n=========================================================================================== warnings summary ===========================================================================================\ntests/test_more.py::CollateTests::test_default\ntests/test_more.py::CollateTests::test_empty\ntests/test_more.py::CollateTests::test_key\ntests/test_more.py::CollateTests::test_one\ntests/test_more.py::CollateTests::test_reverse\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-_3o140b6/work/more_itertools/more.py:399: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n397 passed, 5 warnings in 3.34s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-4b08e85a",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 3,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-8821eed833f23e5d",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_spy_head_immutable():\n    \"\"\"Test that modifying the head list doesn't affect the returned iterable.\"\"\"\n    original = range(10)\n    head, it = spy(original, 3)\n    \n    # Modify the head list\n    head[1] = 'bad'\n    \n    # The iterable should be unchanged\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]\n    \n    # Head should reflect the modification\n    assert head == [0, 'bad', 2]",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "spy"
+        ],
+        "asserted_symbols": [
+          "spy"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "unzip"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "spy"
+    ],
+    "asserted_symbols": [
+      "spy"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "unzip"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:20:33.579Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (NameError: name 'spy' is not defined)",
+  "proven": false,
+  "base_sha": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+  "head_sha": "62411c1618493f94b16901746c34e72ad415061e",
+  "verdict_logs": {
+    "base": "============================================================ FAILURES ===============================================================================================\n_______________________________________________________________________________________ test_spy_head_immutable ________________________________________________________________________________________\nlatch_issue_test.py:6: in test_spy_head_immutable\n    head, it = spy(original, 3)\nE   NameError: name 'spy' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutable - NameError: name 'spy' is not defined\n1 failed in 0.41s\n",
+    "head": "============================================================ FAILURES ===============================================================================================\n_______________________________________________________________________________________ test_spy_head_immutable ________________________________________________________________________________________\nlatch_issue_test.py:6: in test_spy_head_immutable\n    head, it = spy(original, 3)\nE   NameError: name 'spy' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutable - NameError: name 'spy' is not defined\n1 failed in 0.27s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 542,
+      "completion_tokens": 1024,
+      "latency_ms": 7126,
+      "completion_id": "chatcmpl-4b08e85a",
+      "cost_usd": 0.000278,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1878,
+      "completion_tokens": 323,
+      "latency_ms": 1756,
+      "completion_id": "chatcmpl-8821eed833f23e5d",
+      "cost_usd": 0.002847,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.003125,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:20:18.645Z",
+      "detail": {
+        "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+        "head": "62411c1618493f94b16901746c34e72ad415061e"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:20:18.920Z",
+      "detail": {
+        "base": "c0465331cbc0",
+        "head": "62411c161849",
+        "changed_files": [
+          "more_itertools/more.py",
+          "tests/test_more.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:20:19.084Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:20:26.228Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:20:26.228Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:20:27.987Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-8821eed833f23e5d"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:20:27.988Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:20:29.040Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:20:29.040Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:20:33.579Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:20:33.579Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (NameError: name 'spy' is not defined)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

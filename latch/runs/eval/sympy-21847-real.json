@@ -1,0 +1,377 @@
+{
+  "run_id": "sympy21847.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-21847",
+  "base": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+  "head": "e5661cbec7497a49925d10b50ca3d33b3e76ec97",
+  "issue": "itermonomials returns incorrect monomials when using min_degrees argument\n`itermonomials` returns incorrect monomials when using optional `min_degrees` argument\r\n\r\nFor example, the following code introduces three symbolic variables and generates monomials with max and min degree of 3:\r\n\r\n\r\n```\r\nimport sympy as sp\r\nfrom sympy.polys.orderings import monomial_key\r\n\r\nx1, x2, x3 = sp.symbols('x1, x2, x3')\r\nstates = [x1, x2, x3]\r\nmax_degrees = 3\r\nmin_degrees = 3\r\nmonomials = sorted(sp.itermonomials(states, max_degrees, min_degrees=min_degrees), \r\n                   key=monomial_key('grlex', states))\r\nprint(monomials)\r\n```\r\nThe code returns `[x3**3, x2**3, x1**3]`, when it _should_ also return monomials such as `x1*x2**2, x2*x3**2, etc...` that also have total degree of 3. This behaviour is inconsistent with the documentation that states that \r\n\r\n> A generator of all monomials `monom` is returned, such that either `min_degree <= total_degree(monom) <= max_degree`...\r\n\r\nThe monomials are also missing when `max_degrees` is increased above `min_degrees`.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/polys/tests/test_monomials.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:24:36.365Z",
+  "proof_test": {
+    "name": "test_itermonomials_min_degrees",
+    "source": "import pytest\n\ndef test_itermonomials_min_degrees():\n    import sympy as sp\n    from sympy.polys.monomials import itermonomials\n    from sympy.polys.orderings import monomial_key\n    from itertools import product\n\n    # Test 1: commutative variables, min_degrees = max_degrees = 3\n    x1, x2, x3 = sp.symbols('x1 x2 x3')\n    states = [x1, x2, x3]\n    max_deg = 3\n    min_deg = 3\n    monomials = sorted(itermonomials(states, max_deg, min_degrees=min_deg), key=monomial_key('grlex', states))\n    expected = [\n        x1**3, x1**2*x2, x1**2*x3, x1*x2**2, x1*x2*x3, x1*x3**2,\n        x2**3, x2**2*x3, x2*x3**2, x3**3\n    ]\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted\n\n    # Test 2: commutative variables, min_degrees=2, max_degrees=4\n    max_deg = 4\n    min_deg = 2\n    monomials = list(itermonomials(states, max_deg, min_degrees=min_deg))\n    # Expected count: C(3+2-1,2) + C(3+3-1,3) + C(3+4-1,4) = 6 + 10 + 15 = 31\n    assert len(monomials) == 31\n    for monom in monomials:\n        powers = monom.as_powers_dict()\n        total_deg = sum(powers.get(var, 0) for var in states)\n        assert 2 <= total_deg <= 4\n\n    # Test 3: non-commutative variables, min_degrees = max_degrees = 3\n    a = sp.Symbol('a', commutative=False)\n    b = sp.Symbol('b', commutative=False)\n    states_nc = [a, b]\n    max_deg = 3\n    min_deg = 3\n    monomials_nc = list(itermonomials(states_nc, max_deg, min_degrees=min_deg))\n    expected_nc = [sp.Mul(*seq) for seq in product(states_nc, repeat=3)]\n    assert set(monomials_nc) == set(expected_nc)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-91048a7d5f427a6a"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "...........F                                                                                                                                                                                     [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________________ test_itermonomials_min_degrees ____________________________________________________________________________________\nlatch_issue_test.py:20: in test_itermonomials_min_degrees\n    assert monomials == expected_sorted\nE   assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\nE     \nE     At index 1 diff: x2**3 != x2*x3**2\nE     Right contains 7 more items, first extra item: x2**3\nE     Use -v to get more diff\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-usgdj_px/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\n1 failed, 11 passed, 1 warning in 0.90s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": "............                                                                                                                                                                                     [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-usgdj_px/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n12 passed, 1 warning in 0.60s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "...........                                                                                                                                                                                      [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-usgdj_px/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n11 passed, 1 warning in 0.79s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": true
+  },
+  "iterations": [],
+  "gate": "gate_open",
+  "verdict": "VALIDATED",
+  "reason": "the submitted fix already passes the proof test; no loop needed",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-51a733ba",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 675,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-91048a7d5f427a6a",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_itermonomials_min_degrees():\n    import sympy as sp\n    from sympy.polys.monomials import itermonomials\n    from sympy.polys.orderings import monomial_key\n    from itertools import product\n\n    # Test 1: commutative variables, min_degrees = max_degrees = 3\n    x1, x2, x3 = sp.symbols('x1 x2 x3')\n    states = [x1, x2, x3]\n    max_deg = 3\n    min_deg = 3\n    monomials = sorted(itermonomials(states, max_deg, min_degrees=min_deg), key=monomial_key('grlex', states))\n    expected = [\n        x1**3, x1**2*x2, x1**2*x3, x1*x2**2, x1*x2*x3, x1*x3**2,\n        x2**3, x2**2*x3, x2*x3**2, x3**3\n    ]\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted\n\n    # Test 2: commutative variables, min_degrees=2, max_degrees=4\n    max_deg = 4\n    min_deg = 2\n    monomials = list(itermonomials(states, max_deg, min_degrees=min_deg))\n    # Expected count: C(3+2-1,2) + C(3+3-1,3) + C(3+4-1,4) = 6 + 10 + 15 = 31\n    assert len(monomials) == 31\n    for monom in monomials:\n        powers = monom.as_powers_dict()\n        total_deg = sum(powers.get(var, 0) for var in states)\n        assert 2 <= total_deg <= 4\n\n    # Test 3: non-commutative variables, min_degrees = max_degrees = 3\n    a = sp.Symbol('a', commutative=False)\n    b = sp.Symbol('b', commutative=False)\n    states_nc = [a, b]\n    max_deg = 3\n    min_deg = 3\n    monomials_nc = list(itermonomials(states_nc, max_deg, min_degrees=min_deg))\n    expected_nc = [sp.Mul(*seq) for seq in product(states_nc, repeat=3)]\n    assert set(monomials_nc) == set(expected_nc)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "sympy/polys/monomials.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "issue_test.py:20: in test_itermonomials_min_degrees\n    assert monomials == expected_sorted\nE   assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\nE     \nE     At index 1 diff: x2**3 != x2*x3**2\nE     Right contains 7 more items, first extra item: x2**3\nE     Use -v to get more diff\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-usgdj_px/mutants/revert-fix/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\n1 failed, 11 passed, 1 warning in 0.84s\n",
+        "identical_to_base": true,
+        "note": "all non-test files the change touched were set back to base; the mutant equals the base revision"
+      }
+    ],
+    "tests_kept": [],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "compare_boundary",
+        "file": "sympy/polys/monomials.py",
+        "line": 130,
+        "what": "`>=` -> `>`",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -129,3 +129,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if sum(powers.values()) > min_degree:\n                     monomials_list_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "                                                               DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert {x} == {1, x}\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - assert [] == [x3**3, x2*x3...x1*x2*x3, ...]\n2 failed, 10 passed, 1 warning in 1.24s\n"
+      },
+      {
+        "id": "m2",
+        "operator": "negate_condition",
+        "file": "sympy/polys/monomials.py",
+        "line": 130,
+        "what": "negated the condition",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -129,3 +129,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if not (sum(powers.values()) >= min_degree):\n                     monomials_list_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "                                 DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert set() == {1, x}\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - assert [1, x3, x2, x...2, x2*x3, ...] == [x3**3, x2*x3...x1*x2*x3, ...]\n2 failed, 10 passed, 1 warning in 0.63s\n"
+      },
+      {
+        "id": "m3",
+        "operator": "compare_boundary",
+        "file": "sympy/polys/monomials.py",
+        "line": 142,
+        "what": "`>=` -> `>`",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -141,3 +141,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if sum(powers.values()) > min_degree:\n                     monomials_list_non_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "                                DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert {k, i, j} == {1, k, i, j}\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: assert set() == {a**2*b, b*a*..., a*b**2, ...}\n2 failed, 10 passed, 1 warning in 0.58s\n"
+      },
+      {
+        "id": "m4",
+        "operator": "negate_condition",
+        "file": "sympy/polys/monomials.py",
+        "line": 142,
+        "what": "negated the condition",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -141,3 +141,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if not (sum(powers.values()) >= min_degree):\n                     monomials_list_non_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "           DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert set() == {1, i, j, k}\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: assert {1, b*a, a, a...*2, a**2, ...} == {b**3, a**3, ..., a*b**2, ...}\n2 failed, 10 passed, 1 warning in 0.58s\n"
+      }
+    ],
+    "killed": 4,
+    "total": 4,
+    "kill_rate": 1.0,
+    "threshold": 0.6,
+    "not_run": 0,
+    "incomplete": false,
+    "ok": true,
+    "note": "4/4 mutants of the changed lines were killed by the frozen proof test (needs 60%)"
+  },
+  "inspection": {
+    "oracle_pass": true,
+    "oracle_summary": "11 passed, 1 warning in 0.47s",
+    "oracle_files": [
+      "sympy/polys/tests/test_monomials.py"
+    ],
+    "oracle_tests": [
+      "test_monomials"
+    ]
+  },
+  "finished_at": "2026-10-30T08:26:17.947Z",
+  "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 4/4 mutants",
+  "proven": true,
+  "base_sha": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+  "head_sha": "e5661cbec7497a49925d10b50ca3d33b3e76ec97",
+  "verdict_logs": {
+    "base": "e is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\n1 failed, 11 passed, 1 warning in 0.90s\n",
+    "head": "                                                                                                                                           [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-usgdj_px/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n12 passed, 1 warning in 0.60s\n",
+    "survivors": []
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2913,
+      "completion_tokens": 1024,
+      "latency_ms": 13411,
+      "completion_id": "chatcmpl-51a733ba",
+      "cost_usd": 0.000421,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1326,
+      "completion_tokens": 4514,
+      "latency_ms": 13184,
+      "completion_id": "chatcmpl-91048a7d5f427a6a",
+      "cost_usd": 0.014868,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.015289,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:24:36.366Z",
+      "detail": {
+        "base": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+        "head": "e5661cbec7497a49925d10b50ca3d33b3e76ec97"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:24:39.261Z",
+      "detail": {
+        "base": "d9b18c518d64",
+        "head": "e5661cbec749",
+        "changed_files": [
+          "sympy/polys/monomials.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:24:53.194Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:25:11.610Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:25:11.610Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:25:24.796Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-91048a7d5f427a6a"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:25:24.796Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:25:27.649Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:25:27.649Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:25:33.460Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": true
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T08:25:33.460Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T08:25:52.219Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T08:25:52.219Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T08:25:56.560Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T08:25:56.561Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "done",
+      "ts": "2026-10-30T08:26:15.384Z",
+      "detail": {
+        "killed": 4,
+        "total": 4,
+        "kill_rate": 1.0
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:26:17.947Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 4/4 mutants"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

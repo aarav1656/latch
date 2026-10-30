@@ -1,0 +1,279 @@
+{
+  "run_id": "sympy21627.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-21627",
+  "base": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "head": "d113186e81315755f2dbe3b78b9358fe894359e7",
+  "issue": "Bug: maximum recusion depth error when checking is_zero of cosh expression\nThe following code causes a `RecursionError: maximum recursion depth exceeded while calling a Python object` error when checked if it is zero:\r\n```\r\nexpr =sympify(\"cosh(acos(-i + acosh(-g + i)))\")\r\nexpr.is_zero\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/functions/elementary/tests/test_complexes.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:23:14.187Z",
+  "proof_test": {
+    "name": "test_cosh_acos_acosh_is_zero_recursion",
+    "source": "import pytest\n\ndef test_cosh_acos_acosh_is_zero_recursion():\n    import pytest\n    from sympy import cosh, acos, acosh, I, Symbol\n    g = Symbol('g')\n    expr = cosh(acos(-I + acosh(-g + I)))\n    try:\n        result = expr.is_zero\n    except RecursionError as e:\n        pytest.fail(f\"RecursionError occurred: {e}\")\n    assert result in (True, False, None)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-8ee39e018d4a06cd"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 0,
+      "output": "....x...................x.x.....                                                                                                                                                                 [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-dfspep53/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n29 passed, 3 xfailed, 2 warnings in 2.04s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": "....x...................x.x.....                                                                                                                                                                 [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-dfspep53/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n29 passed, 3 xfailed, 2 warnings in 1.97s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....x...................x.x....                                                                                                                                                                  [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-dfspep53/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n28 passed, 3 xfailed, 2 warnings in 2.38s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "NO_REGRESSION_FOUND",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-c273b4c2",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 667,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-928e23ca41f5250b",
+      "valid": false,
+      "rejection": "the test has no real check: it needs an `assert` on the observable result (not `assert True`), a `pytest.raises` block, or a `pytest.fail` call, so it cannot fail on the bug",
+      "source": "def test_cosh_acos_acosh_is_zero_recursion():\n    from sympy import sympify, I\n    expr = sympify(\"cosh(acos(-I + acosh(-g + I)))\")\n    # This should not raise RecursionError: maximum recursion depth exceeded\n    _ = expr.is_zero\n    assert True"
+    },
+    {
+      "attempt": 2,
+      "completion_id": "chatcmpl-8ee39e018d4a06cd",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_cosh_acos_acosh_is_zero_recursion():\n    import pytest\n    from sympy import cosh, acos, acosh, I, Symbol\n    g = Symbol('g')\n    expr = cosh(acos(-I + acosh(-g + I)))\n    try:\n        result = expr.is_zero\n    except RecursionError as e:\n        pytest.fail(f\"RecursionError occurred: {e}\")\n    assert result in (True, False, None)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 0.0,
+    "head_pass_rate": null,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "head_passed": []
+    },
+    "note": "consistent over 5 runs on base and on head; head was not rerun"
+  },
+  "finished_at": "2026-10-30T08:24:34.740Z",
+  "verdict_reason": "the proof test passes on base, so it does not detect the reported bug",
+  "proven": false,
+  "base_sha": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "head_sha": "d113186e81315755f2dbe3b78b9358fe894359e7",
+  "verdict_logs": {
+    "base": "l/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-dfspep53/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n29 passed, 3 xfailed, 2 warnings in 2.04s\n",
+    "head": "l/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-dfspep53/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n29 passed, 3 xfailed, 2 warnings in 1.97s\n",
+    "survivors": []
+  },
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2716,
+      "completion_tokens": 1024,
+      "latency_ms": 7849,
+      "completion_id": "chatcmpl-c273b4c2",
+      "cost_usd": 0.000409,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 939,
+      "completion_tokens": 993,
+      "latency_ms": 4700,
+      "completion_id": "chatcmpl-928e23ca41f5250b",
+      "cost_usd": 0.003918,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1200,
+      "completion_tokens": 3958,
+      "latency_ms": 11923,
+      "completion_id": "chatcmpl-8ee39e018d4a06cd",
+      "cost_usd": 0.013074,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.017401,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:23:14.187Z",
+      "detail": {
+        "base": "126f80578140e752ad5135aac77b8ff887eede3e",
+        "head": "d113186e81315755f2dbe3b78b9358fe894359e7"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:23:21.913Z",
+      "detail": {
+        "base": "126f80578140",
+        "head": "d113186e8131",
+        "changed_files": [
+          "sympy/functions/elementary/complexes.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:23:34.626Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:23:47.565Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:23:47.565Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:24:04.191Z",
+      "detail": {
+        "attempts": 2,
+        "completion_id": "chatcmpl-8ee39e018d4a06cd"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:24:04.192Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:24:08.299Z",
+      "detail": {
+        "returncode": 0,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:24:08.299Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:24:19.355Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T08:24:19.355Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T08:24:34.740Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 0.0,
+        "head_pass_rate": null
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:24:34.740Z",
+      "detail": {
+        "verdict": "NO_REGRESSION_FOUND",
+        "reason": "the proof test passes on base, so it does not detect the reported bug"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

@@ -1,0 +1,384 @@
+{
+  "run_id": "packaging810.wrong",
+  "provider": "nebius",
+  "repo": "pypa/packaging@16f5587226 + constructed wrong patch",
+  "base": "9edce4cfe5dc906c44e9bf92289a66b5b827100f",
+  "head": "8deda740b65248fe163059a58a3ce0a123fa8e41",
+  "issue": "`Specifier` Greater than comparison returns incorrect result for a version with dev+local parts\n\nWhen a using a `Specifier` with a `>` comparison, comparing returns an incorrect result for the following situation:\r\n- the base version of the specifier and compared version are equal\r\n- the compared version includes a `local` segment\r\n- the compared version differs in its `dev` segment.\r\n\r\nMy understanding from PEP440 is that the entire public portion of the version (including the dev segment) should be included in the comparison? I think this is due to this line: https://github.com/pypa/packaging/blob/main/src/packaging/specifiers.py#L489 where it should instead be:\r\n```python\r\n        if prospective.local is not None:\r\n            if Version(prospective.public) == Version(spec.public):\r\n                return False\r\n```\r\n\r\nThis is related, but not exactly the same as https://github.com/pypa/packaging/issues/519 (as this issue is specifically about comparing two dev versions).\r\n\r\nExample: \r\n```python\r\n>>> from pip._vendor.packaging.specifiers import Specifier\r\n>>> spec = Specifier(\">4.1.0a2.dev1234\")\r\n\r\n# Correct comparisons with no local segment\r\n>>> spec.contains(\"4.1.0a2.dev1234\", prereleases=True)\r\nFalse\r\n>>> spec.contains(\"4.1.0a2.dev1235\", prereleases=True)\r\nTrue\r\n\r\n# Incorrect comparison when including a local segment\r\n>>> spec.contains(\"4.1.0a2.dev1234+local\", prereleases=True)\r\nFalse\r\n>>> spec.contains(\"4.1.0a2.dev1235+local\", prereleases=True)\r\nFalse\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:19:42.547Z",
+  "proof_test": {
+    "name": "test_specifier_greater_than_with_dev_and_local",
+    "source": "import pytest\n\ndef test_specifier_greater_than_with_dev_and_local():\n    from packaging.specifiers import Specifier\n\n    spec = Specifier(\">4.1.0a2.dev1234\")\n\n    # Base version without local segment\n    assert spec.contains(\"4.1.0a2.dev1234\", prereleases=True) is False\n    assert spec.contains(\"4.1.0a2.dev1235\", prereleases=True) is True\n\n    # Versions with local segment\n    assert spec.contains(\"4.1.0a2.dev1234+local\", prereleases=True) is False\n    assert spec.contains(\"4.1.0a2.dev1235+local\", prereleases=True) is True\n\n    # Additional edge cases: different dev with local, and local on spec (if applicable)\n    # Specifier without local, prospective with local and higher dev\n    assert spec.contains(\"4.1.0a2.dev1236+foo\", prereleases=True) is True\n    # Specifier without local, prospective with local and lower dev (should be False because lower dev)\n    assert spec.contains(\"4.1.0a2.dev1233+bar\", prereleases=True) is False\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-93b4593a034409af"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_specifier_greater_than_with_dev_and_local ____________________________________________________________________________\nlatch_issue_test.py:14: in test_specifier_greater_than_with_dev_and_local\n    assert spec.contains(\"4.1.0a2.dev1235+local\", prereleases=True) is True\nE   AssertionError: assert False is True\nE    +  where False = contains('4.1.0a2.dev1235+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert False is True\n1 failed in 0.19s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.25s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".............................................................................................................................................................. [ 59%]\n................................................................................................................................................................................................ [ 59%]\n................................................................................................................................................................................................ [ 60%]\n................................................................................................................................................................................................ [ 61%]\n................................................................................................................................................................................................ [ 62%]\n................................................................................................................................................................................................ [ 62%]\n................................................................................................................................................................................................ [ 63%]\n................................................................................................................................................................................................ [ 64%]\n................................................................................................................................................................................................ [ 64%]\n................................................................................................................................................................................................ [ 65%]\n................................................................................................................................................................................................ [ 66%]\n................................................................................................................................................................................................ [ 66%]\n................................................................................................................................................................................................ [ 67%]\n................................................................................................................................................................................................ [ 68%]\n................................................................................................................................................................................................ [ 69%]\n................................................................................................................................................................................................ [ 69%]\n................................................................................................................................................................................................ [ 70%]\n................................................................................................................................................................................................ [ 71%]\n................................................................................................................................................................................................ [ 71%]\n................................................................................................................................................................................................ [ 72%]\n................................................................................................................................................................................................ [ 73%]\n................................................................................................................................................................................................ [ 73%]\n................................................................................................................................................................................................ [ 74%]\n................................................................................................................................................................................................ [ 75%]\n................................................................................................................................................................................................ [ 76%]\n................................................................................................................................................................................................ [ 76%]\n................................................................................................................................................................................................ [ 77%]\n................................................................................................................................................................................................ [ 78%]\n................................................................................................................................................................................................ [ 78%]\n................................................................................................................................................................................................ [ 79%]\n................................................................................................................................................................................................ [ 80%]\n................................................................................................................................................................................................ [ 80%]\n................................................................................................................................................................................................ [ 81%]\n................................................................................................................................................................................................ [ 82%]\n................................................................................................................................................................................................ [ 82%]\n................................................................................................................................................................................................ [ 83%]\n................................................................................................................................................................................................ [ 84%]\n................................................................................................................................................................................................ [ 85%]\n................................................................................................................................................................................................ [ 85%]\n................................................................................................................................................................................................ [ 86%]\n................................................................................................................................................................................................ [ 87%]\n................................................................................................................................................................................................ [ 87%]\n................................................................................................................................................................................................ [ 88%]\n................................................................................................................................................................................................ [ 89%]\n................................................................................................................................................................................................ [ 89%]\n................................................................................................................................................................................................ [ 90%]\n................................................................................................................................................................................................ [ 91%]\n................................................................................................................................................................................................ [ 92%]\n................................................................................................................................................................................................ [ 92%]\n................................................................................................................................................................................................ [ 93%]\n................................................................................................................................................................................................ [ 94%]\n................................................................................................................................................................................................ [ 94%]\n................................................................................................................................................................................................ [ 95%]\n................................................................................................................................................................................................ [ 96%]\n................................................................................................................................................................................................ [ 96%]\n................................................................................................................................................................................................ [ 97%]\n................................................................................................................................................................................................ [ 98%]\n................................................................................................................................................................................................ [ 99%]\n................................................................................................................................................................................................ [ 99%]\n...........................................................................                                                                                                                      [100%]\n27530 passed, 1 skipped in 28.69s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": true
+  },
+  "iterations": [],
+  "gate": "gate_open",
+  "verdict": "VALIDATED",
+  "reason": "the submitted fix already passes the proof test; no loop needed",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-8a429ca2",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 20,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-93b4593a034409af",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_specifier_greater_than_with_dev_and_local():\n    from packaging.specifiers import Specifier\n\n    spec = Specifier(\">4.1.0a2.dev1234\")\n\n    # Base version without local segment\n    assert spec.contains(\"4.1.0a2.dev1234\", prereleases=True) is False\n    assert spec.contains(\"4.1.0a2.dev1235\", prereleases=True) is True\n\n    # Versions with local segment\n    assert spec.contains(\"4.1.0a2.dev1234+local\", prereleases=True) is False\n    assert spec.contains(\"4.1.0a2.dev1235+local\", prereleases=True) is True\n\n    # Additional edge cases: different dev with local, and local on spec (if applicable)\n    # Specifier without local, prospective with local and higher dev\n    assert spec.contains(\"4.1.0a2.dev1236+foo\", prereleases=True) is True\n    # Specifier without local, prospective with local and lower dev (should be False because lower dev)\n    assert spec.contains(\"4.1.0a2.dev1233+bar\", prereleases=True) is False",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: src/packaging/._specifiers.py: cannot parse the changed file: source code string cannot contain null bytes",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: src/packaging/._specifiers.py: cannot parse the changed file: source code string cannot contain null bytes",
+    "affected_symbols": []
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "src/packaging/specifiers.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_specifier_greater_than_with_dev_and_local ____________________________________________________________________________\nlatch_issue_test.py:14: in test_specifier_greater_than_with_dev_and_local\n    assert spec.contains(\"4.1.0a2.dev1235+local\", prereleases=True) is True\nE   AssertionError: assert False is True\nE    +  where False = contains('4.1.0a2.dev1235+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert False is True\n1 failed in 0.17s\n",
+        "identical_to_base": true,
+        "note": "all non-test files the change touched were set back to base; the mutant equals the base revision"
+      }
+    ],
+    "tests_kept": [],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "compare_boundary",
+        "file": "src/packaging/specifiers.py",
+        "line": 593,
+        "what": "`==` -> `!=`",
+        "diff": "--- a/src/packaging/specifiers.py\n+++ b/src/packaging/specifiers.py\n@@ -592,3 +592,3 @@\n             prospective.local is not None\n-            and _base_version(prospective) == _base_version(spec)\n+            and _base_version(prospective) != _base_version(spec)\n             and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev)\n",
+        "killed": true,
+        "output_excerpt": "e is False\nE    +  where True = contains('4.1.0a2.dev1234+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert True is False\n1 failed in 0.28s\n"
+      },
+      {
+        "id": "m2",
+        "operator": "negate_condition",
+        "file": "src/packaging/specifiers.py",
+        "line": 591,
+        "what": "negated the condition",
+        "diff": "--- a/src/packaging/specifiers.py\n+++ b/src/packaging/specifiers.py\n@@ -591,5 +591,5 @@\n         if (\n-            prospective.local is not None\n+            not (prospective.local is not None\n             and _base_version(prospective) == _base_version(spec)\n-            and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev)\n+            and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev))\n         ):\n",
+        "killed": true,
+        "output_excerpt": "t False is True\nE    +  where False = contains('4.1.0a2.dev1235', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert False is True\n1 failed in 0.18s\n"
+      },
+      {
+        "id": "m3",
+        "operator": "bool_swap",
+        "file": "src/packaging/specifiers.py",
+        "line": 592,
+        "what": "`and` -> `or`",
+        "diff": "--- a/src/packaging/specifiers.py\n+++ b/src/packaging/specifiers.py\n@@ -592,3 +592,3 @@\n             prospective.local is not None\n-            and _base_version(prospective) == _base_version(spec)\n+            or _base_version(prospective) == _base_version(spec)\n             and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev)\n",
+        "killed": true,
+        "output_excerpt": "e is True\nE    +  where False = contains('4.1.0a2.dev1235+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert False is True\n1 failed in 0.18s\n"
+      },
+      {
+        "id": "m4",
+        "operator": "compare_boundary",
+        "file": "src/packaging/specifiers.py",
+        "line": 594,
+        "what": "`==` -> `!=`",
+        "diff": "--- a/src/packaging/specifiers.py\n+++ b/src/packaging/specifiers.py\n@@ -593,3 +593,3 @@\n             and _base_version(prospective) == _base_version(spec)\n-            and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev)\n+            and (prospective.dev is None or spec.dev is None or prospective.dev != spec.dev)\n         ):\n",
+        "killed": true,
+        "output_excerpt": "e is False\nE    +  where True = contains('4.1.0a2.dev1234+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert True is False\n1 failed in 0.21s\n"
+      },
+      {
+        "id": "m5",
+        "operator": "negate_condition",
+        "file": "src/packaging/specifiers.py",
+        "line": 592,
+        "what": "`is not` -> `is`",
+        "diff": "--- a/src/packaging/specifiers.py\n+++ b/src/packaging/specifiers.py\n@@ -591,3 +591,3 @@\n         if (\n-            prospective.local is not None\n+            prospective.local is None\n             and _base_version(prospective) == _base_version(spec)\n",
+        "killed": true,
+        "output_excerpt": "e is False\nE    +  where True = contains('4.1.0a2.dev1234+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert True is False\n1 failed in 0.16s\n"
+      }
+    ],
+    "killed": 5,
+    "total": 5,
+    "kill_rate": 1.0,
+    "threshold": 0.6,
+    "not_run": 0,
+    "incomplete": false,
+    "ok": true,
+    "note": "5/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)"
+  },
+  "inspection": {
+    "oracle_pass": false,
+    "oracle_summary": "5 failed, 1228 passed in 1.53s",
+    "oracle_files": [
+      "tests/test_specifiers.py"
+    ]
+  },
+  "finished_at": "2026-10-30T08:20:39.938Z",
+  "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 5/5 mutants",
+  "proven": true,
+  "base_sha": "9edce4cfe5dc906c44e9bf92289a66b5b827100f",
+  "head_sha": "8deda740b65248fe163059a58a3ce0a123fa8e41",
+  "verdict_logs": {
+    "base": "__________________\nlatch_issue_test.py:14: in test_specifier_greater_than_with_dev_and_local\n    assert spec.contains(\"4.1.0a2.dev1235+local\", prereleases=True) is True\nE   AssertionError: assert False is True\nE    +  where False = contains('4.1.0a2.dev1235+local', prereleases=True)\nE    +    where contains = <Specifier('>4.1.0a2.dev1234')>.contains\n        Specifier  = <class 'packaging.specifiers.Specifier'>\n        spec       = <Specifier('>4.1.0a2.dev1234')>\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_specifier_greater_than_with_dev_and_local - AssertionError: assert False is True\n1 failed in 0.19s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.25s\n",
+    "survivors": []
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2436,
+      "completion_tokens": 1024,
+      "latency_ms": 6209,
+      "completion_id": "chatcmpl-8a429ca2",
+      "cost_usd": 0.000392,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1436,
+      "completion_tokens": 2097,
+      "latency_ms": 5515,
+      "completion_id": "chatcmpl-93b4593a034409af",
+      "cost_usd": 0.007727,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.008119,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:19:42.547Z",
+      "detail": {
+        "base": "9edce4cfe5dc906c44e9bf92289a66b5b827100f",
+        "head": "8deda740b65248fe163059a58a3ce0a123fa8e41"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:19:42.923Z",
+      "detail": {
+        "base": "9edce4cfe5dc",
+        "head": "8deda740b652",
+        "changed_files": [
+          "src/packaging/._specifiers.py",
+          "src/packaging/specifiers.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:19:42.959Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:19:49.214Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:19:49.214Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:19:54.730Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-93b4593a034409af"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:19:54.730Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:19:55.173Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:19:55.173Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:20:26.677Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": true
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T08:20:26.677Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T08:20:34.653Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T08:20:34.653Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T08:20:35.099Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T08:20:35.099Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "done",
+      "ts": "2026-10-30T08:20:38.075Z",
+      "detail": {
+        "killed": 5,
+        "total": 5,
+        "kill_rate": 1.0
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:20:39.938Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 5/5 mutants"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

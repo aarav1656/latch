@@ -1,0 +1,278 @@
+{
+  "run_id": "tabulate180.wrong",
+  "provider": "nebius",
+  "repo": "astanin/python-tabulate@20c6370d5d + constructed wrong patch",
+  "base": "60f9d1c4c91044d1f92c10fc8ff6064311ef259c",
+  "head": "6087199060a1c2655b6416f47af75f3ecf444b68",
+  "issue": "Exception when tabulating empty data and using maxcolwidths\n\n```\r\nFile \"/usr/local/lib/python3.9/site-packages/tabulate.py\", line 1585, in tabulate\r\n   num_cols = len(list_of_lists[0])\r\n   IndexError: list index out of range\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:18:38.833Z",
+  "proof_test": {
+    "name": "test_empty_data_with_maxcolwidths",
+    "source": "import pytest\n\ndef test_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n\n    # Empty data with maxcolwidths (issue case)\n    result = tabulate([], maxcolwidths=[10, 20])\n    assert isinstance(result, str)\n\n    # Empty data with headers and maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 20])\n    assert isinstance(result, str)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-8d391b11b38b76f8"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.18s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\ntabulate/__init__.py:2072: in tabulate\n    list_of_lists = _wrap_text_to_colwidths(\ntabulate/__init__.py:1506: in _wrap_text_to_colwidths\n    numparses = _expand_iterable(numparses, len(list_of_lists[0]), True)\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.19s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s.............sss.....                                                                                                    [100%]\n248 passed, 37 skipped in 1.04s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "ok",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-fcab91ab",
+    "files": [
+      {
+        "path": "tabulate/__init__.py",
+        "symbols": [
+          "_is_file",
+          "_is_separating_line",
+          "_pipe_segment_with_colons",
+          "_pipe_line_with_colons",
+          "_mediawiki_row_with_attrs",
+          "_textile_row_with_attrs",
+          "_html_begin_table_without_header",
+          "_html_row_with_attrs",
+          "_moin_row_with_attrs",
+          "_latex_line_begin_tabular",
+          "_asciidoc_row",
+          "_latex_row"
+        ],
+        "changed": true
+      }
+    ],
+    "dropped": [],
+    "text": "tabulate/__init__.py  (touched by the submitted diff)\n  def _is_file(f)  L20\n  def _is_separating_line(row)  L104\n  def _pipe_segment_with_colons(align, colwidth)  L113  - Return a segment of a horizontal line with optional colons which\n  def _pipe_line_with_colons(colwidths, colaligns)  L127  - Return a horizontal line with optional colons to indicate column's\n  def _mediawiki_row_with_attrs(separator, cell_values, colwidths, colaligns)  L136\n  def _textile_row_with_attrs(cell_values, colwidths, colaligns)  L152\n  def _html_begin_table_without_header(colwidths_ignore, colaligns_ignore)  L159\n  def _html_row_with_attrs(celltag, unsafe, cell_values, colwidths, colaligns)  L164\n  def _moin_row_with_attrs(celltag, cell_values, colwidths, colaligns, header)  L187\n  def _latex_line_begin_tabular(colwidths, colaligns, booktabs, longtable)  L201\n  def _asciidoc_row(is_header, *args)  L214  - handle header and data rows for asciidoc format\n  def _latex_row(cell_values, colwidths, colaligns, escrules)  L283",
+    "files_indexed": 2
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-86c2261a7cb42aee",
+      "valid": false,
+      "rejection": "the test has no real check: it needs an `assert` on the observable result (not `assert True`), a `pytest.raises` block, or a `pytest.fail` call, so it cannot fail on the bug",
+      "source": "def test_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n\n    # Empty data with maxcolwidths (issue case)\n    tabulate([], maxcolwidths=[10, 20])\n\n    # Empty data with headers and maxheadercolwidths (same pattern)\n    tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=[5, 5])\n\n    # Empty data with both maxcolwidths and maxheadercolwidths\n    tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 20], maxheadercolwidths=[5, 5])"
+    },
+    {
+      "attempt": 2,
+      "completion_id": "chatcmpl-8d391b11b38b76f8",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n\n    # Empty data with maxcolwidths (issue case)\n    result = tabulate([], maxcolwidths=[10, 20])\n    assert isinstance(result, str)\n\n    # Empty data with headers and maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 20])\n    assert isinstance(result, str)",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "tabulate"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:19:10.105Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)",
+  "proven": false,
+  "base_sha": "60f9d1c4c91044d1f92c10fc8ff6064311ef259c",
+  "head_sha": "6087199060a1c2655b6416f47af75f3ecf444b68",
+  "verdict_logs": {
+    "base": "======================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.18s\n",
+    "head": "__ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\ntabulate/__init__.py:2072: in tabulate\n    list_of_lists = _wrap_text_to_colwidths(\ntabulate/__init__.py:1506: in _wrap_text_to_colwidths\n    numparses = _expand_iterable(numparses, len(list_of_lists[0]), True)\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.19s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 427,
+      "completion_tokens": 1024,
+      "latency_ms": 13748,
+      "completion_id": "chatcmpl-fcab91ab",
+      "cost_usd": 0.000271,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1375,
+      "completion_tokens": 2711,
+      "latency_ms": 8712,
+      "completion_id": "chatcmpl-86c2261a7cb42aee",
+      "cost_usd": 0.009508,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1702,
+      "completion_tokens": 2212,
+      "latency_ms": 6483,
+      "completion_id": "chatcmpl-8d391b11b38b76f8",
+      "cost_usd": 0.008338,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.018117,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:18:38.833Z",
+      "detail": {
+        "base": "60f9d1c4c91044d1f92c10fc8ff6064311ef259c",
+        "head": "6087199060a1c2655b6416f47af75f3ecf444b68"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:18:38.995Z",
+      "detail": {
+        "base": "60f9d1c4c910",
+        "head": "6087199060a1",
+        "changed_files": [
+          "tabulate/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:18:39.109Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "done",
+      "ts": "2026-10-30T08:18:52.867Z",
+      "detail": {
+        "files": [
+          "tabulate/__init__.py"
+        ],
+        "dropped": [],
+        "detail": null
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:18:52.867Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:19:08.064Z",
+      "detail": {
+        "attempts": 2,
+        "completion_id": "chatcmpl-8d391b11b38b76f8"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:19:08.064Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:19:08.467Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:19:08.467Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:19:10.105Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:19:10.105Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

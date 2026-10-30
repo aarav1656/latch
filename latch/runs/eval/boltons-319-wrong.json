@@ -1,0 +1,232 @@
+{
+  "run_id": "boltons319.wrong",
+  "provider": "nebius",
+  "repo": "mahmoud/boltons@8ba3a7fa0d + constructed wrong patch",
+  "base": "c31d1c67ac17dc35f59b42e35ed67212390130d1",
+  "head": "be8ff739fb9103fd0dc72eea169b5bee96c276f6",
+  "issue": "boltons.timeutils when start with 12 month and step=(1, 0, 0), result is wrong. because date.month start with 1, not 0\n\nstart_day = date(year=2012, month=12, day=25)\r\nend_day = date(year=2023, month=1,  day=1)\r\nfor day in daterange(start_day, end_day, step=(1, 0, 0), inclusive=False):\r\n    print(repr(day))",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:18:12.362Z",
+  "proof_test": {
+    "name": "test_daterange_step_year_with_december_start",
+    "source": "import pytest\n\ndef test_daterange_step_year_with_december_start():\n    start_day = date(year=2012, month=12, day=25)\n    end_day = date(year=2023, month=1, day=1)\n    result = list(daterange(start_day, end_day, step=(1, 0, 0), inclusive=False))\n    expected = [\n        date(2012, 12, 25),\n        date(2013, 12, 25),\n        date(2014, 12, 25),\n        date(2015, 12, 25),\n        date(2016, 12, 25),\n        date(2017, 12, 25),\n        date(2018, 12, 25),\n        date(2019, 12, 25),\n        date(2020, 12, 25),\n        date(2021, 12, 25),\n        date(2022, 12, 25),\n    ]\n    assert result == expected\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-acd88fd0953f22e7"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_____________________________________________________________________________ test_daterange_step_year_with_december_start _____________________________________________________________________________\nlatch_issue_test.py:4: in test_daterange_step_year_with_december_start\n    start_day = date(year=2012, month=12, day=25)\nE   NameError: name 'date' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_step_year_with_december_start - NameError: name 'date' is not defined\n1 failed in 0.14s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_____________________________________________________________________________ test_daterange_step_year_with_december_start _____________________________________________________________________________\nlatch_issue_test.py:4: in test_daterange_step_year_with_december_start\n    start_day = date(year=2012, month=12, day=25)\nE   NameError: name 'date' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_step_year_with_december_start - NameError: name 'date' is not defined\n1 failed in 0.15s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....................... [ 48%]\n................................................................................................................................................................................................ [ 96%]\n............                                                                                                                                                                                     [100%]\n=========================================================================================== warnings summary ===========================================================================================\ntests/conftest.py:8\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-ma3utpt3/work/tests/conftest.py:8: PytestRemovedIn9Warning: The (path: py.path.local) argument is deprecated, please use (collection_path: pathlib.Path)\n  see https://docs.pytest.org/en/latest/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path\n    def pytest_ignore_collect(path, config):\n\ntests/test_formatutils.py::test_get_fstr_args\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_formatutils.py::test_get_fstr_args returned [([], [('hello', <class 'str'>)]), ([], [('hello', <class 'str'>)]), ([], [('hello', <class 'str'>), ('width', <class 'str'>)]), ([], [('hello', <class 'str'>), ('fchar', <class 'str'>), ('width', <class 'str'>)]), ([(0, <class 'str'>), (1, <class 'int'>), (2, <class 'float'>)], []), ([(0, <class 'str'>), (1, <class 'str'>), (2, <class 'str'>)], [])], which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_formatutils.py::test_split_fstr\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_formatutils.py::test_split_fstr returned [[('example 1: ', '{hello}')], [('example 2: ', '{hello:*10}')], [('example 3: ', '{hello:*{width}}')], [('example 4: ', '{hello!r:{fchar}{width}}'), (', ', '{width}'), (', yes', None)], [('example 5: ', '{0}'), (', ', '{1:d}'), (', ', '{2:f}'), (', ', '{1}')], [('example 6: ', '{}'), (', ', '{}'), (', ', '{}'), (', ', '{1}')]], which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_formatutils.py::test_tokenize_format_str\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_formatutils.py::test_tokenize_format_str returned [['example 1: ', BaseFormatField('hello')], ['example 2: ', BaseFormatField('hello', '*10')], ['example 3: ', BaseFormatField('hello', '*{width}')], ['example 4: ', BaseFormatField('hello', '{fchar}{width}', 'r'), ', ', BaseFormatField('width'), ', yes'], ['example 5: ', BaseFormatField('0'), ', ', BaseFormatField('1', 'd'), ', ', BaseFormatField('2', 'f'), ', ', BaseFormatField('1')], ['example 6: ', BaseFormatField('0'), ', ', BaseFormatField('1'), ', ', BaseFormatField('2'), ', ', BaseFormatField('1')]], which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://googlewebsite.com/e-shops.aspx]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://googlewebsite.com/e-shops.aspx] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[https://xn--bcher-kva.ch]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[https://xn--bcher-kva.ch] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://xn--ggbla1c4e.xn--ngbc5azd/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://xn--ggbla1c4e.xn--ngbc5azd/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://tools.ietf.org/html/rfc3986#section-3.4]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://tools.ietf.org/html/rfc3986#section-3.4] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://wiki:pedia@hatnote.com]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://wiki:pedia@hatnote.com] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[ftp://ftp.rfc-editor.org/in-notes/tar/RFCs0001-0500.tar.gz]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[ftp://ftp.rfc-editor.org/in-notes/tar/RFCs0001-0500.tar.gz] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://[1080:0:0:0:8:800:200C:417A]/index.html]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://[1080:0:0:0:8:800:200C:417A]/index.html] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[ssh://192.0.2.16:2222/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[ssh://192.0.2.16:2222/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[news:alt.rec.motorcycle]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[news:alt.rec.motorcycle] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[tel:+1-800-867-5309]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[tel:+1-800-867-5309] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[urn:oasis:member:A00024:x]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[urn:oasis:member:A00024:x] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo!!bar/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo!!bar/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo%20bar/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo%20bar/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo%2Fbar/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo%2Fbar/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://(%2525)/(%2525)?(%2525)&(%2525)=(%2525)#(%2525)]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://(%2525)/(%2525)?(%2525)&(%2525)=(%2525)#(%2525)] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://(%C3%A9)/(%C3%A9)?(%C3%A9)&(%C3%A9)=(%C3%A9)#(%C3%A9)]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://(%C3%A9)/(%C3%A9)?(%C3%A9)&(%C3%A9)=(%C3%A9)#(%C3%A9)] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n396 passed, 24 warnings in 2.03s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-b0c39549",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 32,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-acd88fd0953f22e7",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_daterange_step_year_with_december_start():\n    start_day = date(year=2012, month=12, day=25)\n    end_day = date(year=2023, month=1, day=1)\n    result = list(daterange(start_day, end_day, step=(1, 0, 0), inclusive=False))\n    expected = [\n        date(2012, 12, 25),\n        date(2013, 12, 25),\n        date(2014, 12, 25),\n        date(2015, 12, 25),\n        date(2016, 12, 25),\n        date(2017, 12, 25),\n        date(2018, 12, 25),\n        date(2019, 12, 25),\n        date(2020, 12, 25),\n        date(2021, 12, 25),\n        date(2022, 12, 25),\n    ]\n    assert result == expected",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "daterange"
+        ],
+        "asserted_symbols": [
+          "daterange"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "daterange"
+    ],
+    "asserted_symbols": [
+      "daterange"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:18:35.047Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (NameError: name 'date' is not defined)",
+  "proven": false,
+  "base_sha": "c31d1c67ac17dc35f59b42e35ed67212390130d1",
+  "head_sha": "be8ff739fb9103fd0dc72eea169b5bee96c276f6",
+  "verdict_logs": {
+    "base": "AILURES ===============================================================================================\n_____________________________________________________________________________ test_daterange_step_year_with_december_start _____________________________________________________________________________\nlatch_issue_test.py:4: in test_daterange_step_year_with_december_start\n    start_day = date(year=2012, month=12, day=25)\nE   NameError: name 'date' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_step_year_with_december_start - NameError: name 'date' is not defined\n1 failed in 0.14s\n",
+    "head": "AILURES ===============================================================================================\n_____________________________________________________________________________ test_daterange_step_year_with_december_start _____________________________________________________________________________\nlatch_issue_test.py:4: in test_daterange_step_year_with_december_start\n    start_day = date(year=2012, month=12, day=25)\nE   NameError: name 'date' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_step_year_with_december_start - NameError: name 'date' is not defined\n1 failed in 0.15s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2594,
+      "completion_tokens": 1024,
+      "latency_ms": 13006,
+      "completion_id": "chatcmpl-b0c39549",
+      "cost_usd": 0.000401,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 883,
+      "completion_tokens": 1987,
+      "latency_ms": 5991,
+      "completion_id": "chatcmpl-acd88fd0953f22e7",
+      "cost_usd": 0.006844,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.007245,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:18:12.362Z",
+      "detail": {
+        "base": "c31d1c67ac17dc35f59b42e35ed67212390130d1",
+        "head": "be8ff739fb9103fd0dc72eea169b5bee96c276f6"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:18:12.678Z",
+      "detail": {
+        "base": "c31d1c67ac17",
+        "head": "be8ff739fb91",
+        "changed_files": [
+          "boltons/timeutils.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:18:12.936Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:18:26.017Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:18:26.017Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:18:32.009Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-acd88fd0953f22e7"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:32.010Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:32.366Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:32.366Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:35.047Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:18:35.047Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (NameError: name 'date' is not defined)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

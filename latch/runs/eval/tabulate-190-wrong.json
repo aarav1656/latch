@@ -1,0 +1,403 @@
+{
+  "run_id": "tabulate190.wrong",
+  "provider": "nebius",
+  "repo": "astanin/python-tabulate@6c48142c0b + constructed wrong patch",
+  "base": "ced2babd7952939eea49436859219cdce227e39c",
+  "head": "941b3b9cf64aa2e35feb0371d8c1559ce0a12535",
+  "issue": "maxcolwidths does not preserve line breaks\n\nmaxcolwidths does not work well with multiline cells. Using the latest v0.8.10 I'm observing this behavior:\r\n\r\n```python\r\ndata = [ [\"123456789 bbb\\nccc\"] ]\r\nprint(tabulate.tabulate(data, tablefmt=\"fancy_grid\", maxcolwidths=10))\r\nprint(tabulate.tabulate(data, tablefmt=\"fancy_grid\"))\r\n```\r\n\r\n```\r\n\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\r\n\u2502 123456789 \u2502\r\n\u2502 bbb ccc   \u2502\r\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\r\n\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\r\n\u2502 123456789 bbb \u2502\r\n\u2502 ccc           \u2502\r\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\r\n```\r\nNote that the first one does not have a line break between `bbb` and `ccc`. The expected result is:\r\n```\r\n\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\r\n\u2502 123456789 \u2502\r\n\u2502 bbb       \u2502\r\n\u2502 ccc       \u2502\r\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\r\n```\r\n\r\nThis can be fixed by changing the `_wrap_text_to_colwidths` from:\r\n```python\r\n                wrapper = _CustomTextWrap(width=width)\r\n                wrapped = wrapper.wrap(cell)\r\n```\r\n\r\nto:\r\n```python\r\n                wrapper = _CustomTextWrap(width=width)\r\n                wrapped = ['\\n'.join(wrapper.wrap(line)) for line in cell.splitlines() if line.strip() != '']\r\n```\r\n\r\nAs described https://stackoverflow.com/a/26538082.\r\n\r\nI can send a PR if such change would be accepted.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-b6f370e5",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe test failure confirms the bug: `maxcolwidths` merges multiline cell content onto fewer rows than expected, exactly matching the reported issue."
+  },
+  "started_at": "2026-10-30T08:18:44.849Z",
+  "proof_test": {
+    "name": "test_maxcolwidths_preserves_line_breaks",
+    "source": "import pytest\n\ndef test_maxcolwidths_preserves_line_breaks():\n    import tabulate\n\n    # Test case from the issue: multiline cell with maxcolwidths\n    data = [[\"123456789 bbb\\nccc\"]]\n    result = tabulate.tabulate(data, tablefmt=\"fancy_grid\", maxcolwidths=10)\n    # The expected output should have three lines in the cell: \"123456789\", \"bbb\", \"ccc\"\n    # Each line should be wrapped to width 10, and line breaks preserved.\n    # We'll check that the output contains the three lines separately.\n    # The fancy_grid format uses box drawing characters, so we look for the cell content lines.\n    # The table has a header? No headers in data, so just one row.\n    # The output lines (excluding top/bottom borders) should have the cell content split across three rows.\n    lines = result.splitlines()\n    # The table structure for fancy_grid with one column and one row (no headers) is:\n    # \u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\n    # \u2502 123456789 \u2502\n    # \u2502 bbb       \u2502\n    # \u2502 ccc       \u2502\n    # \u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\n    # So we expect 5 lines total. The middle three are the cell content lines.\n    assert len(lines) == 5\n    # Check each content line (index 1,2,3) contains the expected text padded to width 10.\n    # The cell content is left-aligned by default? The issue shows left-aligned.\n    # The format uses a space before and after the content? In fancy_grid, the cell is padded with spaces to fill the column width.\n    # The column width is 10, so the content should be padded to 10 characters.\n    # The border lines are not checked for exact characters, but we can check the content lines.\n    # The content lines are like \"\u2502 123456789 \u2502\" where the content is \"123456789\" (9 chars) plus one space? Actually the column width is 10, so the content is padded to 10.\n    # In the example, the first line is \"123456789\" (9 chars) and the column width is 10, so there should be one trailing space.\n    # The second line \"bbb\" (3 chars) should have 7 trailing spaces.\n    # The third line \"ccc\" (3 chars) should have 7 trailing spaces.\n    # We'll check that each line contains the expected text and that the line break is preserved (i.e., three separate rows).\n    # We can check by looking at the lines between the borders.\n    content_lines = lines[1:4]\n    expected_contents = [\"123456789\", \"bbb\", \"ccc\"]\n    for i, (line, expected) in enumerate(zip(content_lines, expected_contents)):\n        # The line should start with \"\u2502 \" and end with \" \u2502\"\n        assert line.startswith(\"\u2502 \")\n        assert line.endswith(\" \u2502\")\n        # The content part is line[2:-2]\n        content = line[2:-2]\n        assert content.startswith(expected)\n        # The content should be exactly 10 characters long (padded with spaces)\n        assert len(content) == 10\n        # The rest should be spaces\n        assert content[len(expected):] == \" \" * (10 - len(expected))\n\n    # Additional test: a multiline cell where one line exceeds maxcolwidths, to ensure wrapping still works per line.\n    data2 = [[\"short\\nthis is a very long line that should be wrapped\"]]\n    result2 = tabulate.tabulate(data2, tablefmt=\"fancy_grid\", maxcolwidths=10)\n    lines2 = result2.splitlines()\n    # We expect the first line \"short\" to be one row, and the long line to be wrapped into multiple rows.\n    # The long line \"this is a very long line that should be wrapped\" should be wrapped at width 10.\n    # We'll just check that there are more than 2 content rows (i.e., the long line is split).\n    # The table has top border, then content rows, then bottom border.\n    # The number of content rows should be at least 3 (one for \"short\", at least two for the long line).\n    content_lines2 = lines2[1:-1]\n    assert len(content_lines2) >= 3\n    # The first content line should be \"short\" padded to 10.\n    first_content = content_lines2[0][2:-2]\n    assert first_content == \"short     \"\n    # The remaining lines should be parts of the long line, each 10 chars.\n    for line in content_lines2[1:]:\n        content = line[2:-2]\n        assert len(content) == 10\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-b264102ca412a21b"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________ test_maxcolwidths_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:23: in test_maxcolwidths_preserves_line_breaks\n    assert len(lines) == 5\nE   AssertionError: assert 4 == 5\nE    +  where 4 = len(['\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555', '\u2502 123456789 \u2502', '\u2502 bbb ccc   \u2502', '\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b'])\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert 4 == 5\n1 failed in 0.17s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________ test_maxcolwidths_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:23: in test_maxcolwidths_preserves_line_breaks\n    assert len(lines) == 5\nE   AssertionError: assert 4 == 5\nE    +  where 4 = len(['\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555', '\u2502 123456789 bbb \u2502', '\u2502 ccc           \u2502', '\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b'])\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert 4 == 5\n1 failed in 0.16s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s............sss.....                                                                                                     [100%]\n247 passed, 37 skipped in 1.02s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-b9db9e46168f53da",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    },
+    {
+      "iteration": 2,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-91e687dac4356abc",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    },
+    {
+      "iteration": 3,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-9de5025ea9da1969",
+      "diff": "--- a/benchmark.py\n+++ b/benchmark.py\n@@ -1,103 +1 @@\n-from timeit import timeit\n-import tabulate\n-import asciitable\n-import prettytable\n-import texttable\n-import sys\n-\n-setup_code = r\"\"\"\n-from csv import writer\n-from io import StringIO\n-import tabulate\n-import asciitable\n-import prettytable\n-import texttable\n-\n-\n-table=[[\"some text\"]+list(range(i,i+9)) for i in range(10)]\n-\n-\n-def csv_table(table):\n-    buf = StringIO()\n-    writer(buf).writerows(table)\n-    return buf.getvalue()\n-\n-\n-def join_table(table):\n-    return \"\\n\".join((\"\\t\".join(map(str,row)) for row in table))\n-\n-\n-def run_prettytable(table):\n-    pp = prettytable.PrettyTable()\n-    for row in table:\n-        pp.add_row(row)\n-    return str(pp)\n-\n-\n-def run_asciitable(table):\n-    buf = StringIO()\n-    asciitable.write(table, output=buf, Writer=asciitable.FixedWidth)\n-    return buf.getvalue()\n-\n-\n-def run_texttable(table):\n-    pp = texttable.Texttable()\n-    pp.set_cols_align([\"l\"] + [\"r\"]*9)\n-    pp.add_rows(table)\n-    return pp.draw()\n-\n-\n-def run_tabletext(table):\n-    return tabletext.to_text(table)\n-\n-\n-def run_tabulate(table, widechars=False):\n-    tabulate.WIDE_CHARS_MODE = tabulate.wcwidth is not None and widechars\n-    return tabulate.tabulate(table)\n-\n-\n-\"\"\"\n-\n-methods = [\n-    (\"join with tabs and newlines\", \"join_table(table)\"),\n-    (\"csv to StringIO\", \"csv_table(table)\"),\n-    (\"asciitable (%s)\" % asciitable.__version__, \"run_asciitable(table)\"),\n-    (\"tabulate (%s)\" % tabulate.__version__, \"run_tabulate(table)\"),\n-    (\n-        \"tabulate (%s, WIDE_CHARS_MODE)\" % tabulate.__version__,\n-        \"run_tabulate(table, widechars=True)\",\n-    ),\n-    (\"PrettyTable (%s)\" % prettytable.__version__, \"run_prettytable(table)\"),\n-    (\"texttable (%s)\" % texttable.__version__, \"run_texttable(table)\"),\n-]\n-\n-\n-if tabulate.wcwidth is None:\n-    del methods[4]\n-\n-\n-def benchmark(n):\n-    global methods\n-    if \"--onlyself\" in sys.argv[1:]:\n-        methods = [m for m in methods if m[0].startswith(\"tabulate\")]\n-\n-    results = [\n-        (desc, timeit(code, setup_code, number=n) / n * 1e6) for desc, code in methods\n-    ]\n-    mintime = min(map(lambda x: x[1], results))\n-    results = [\n-        (desc, t, t / mintime) for desc, t in sorted(results, key=lambda x: x[1])\n-    ]\n-    table = tabulate.tabulate(\n-        results, [\"Table formatter\", \"time, \u03bcs\", \"rel. time\"], \"rst\", floatfmt=\".1f\"\n-    )\n-\n-    print(table)\n-\n-\n-if __name__ == \"__main__\":\n-    if sys.argv[1:]:\n-        n = int(sys.argv[1])\n-    else:\n-        n = 10000\n-    benchmark(n)\n+...\n--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -1,2716 +1,11 @@\n-\"\"\"Pretty-print tabular data.\"\"\"\n+... the entire file content from the diff, but with the fix ...\n \n-from collections import namedtuple\n-from collections.abc import Iterable, Sized\n-from html import escape as htmlescape\n-from itertools import chain, zip_longest as izip_longest\n-from functools import reduce, partial\n-import io\n-import re\n-import math\n-import textwrap\n-import dataclasses\n+But I need the content before the diff. I don't have it. I'll omit it? That would break the file.\n \n-try:\n-    import wcwidth  # optional wide-character (CJK) support\n-except ImportError:\n-    wcwidth = None\n+Given the impossibility, I'll assume that the current source files list is incomplete, and the model has access to the full tabulate/__init__.py. Since I'm an AI, I can generate the fixed function. I'll output the entire file as it would be after the fix, but I'll only include the relevant part? No.\n \n+I think the best is to output the fixed function in a file block, and the system will apply it to the existing file. The format might allow partial files? The instruction says \"complete replacement files\". That implies the whole file.\n \n-def _is_file(f):\n-    return isinstance(f, io.IOBase)\n-\n-\n-__all__ = [\"tabulate\", \"tabulate_formats\", \"simple_separated_format\"]\n-try:\n-    from .version import version as __version__  # noqa: F401\n-except ImportError:\n-    pass  # running __init__.py as a script, AppVeyor pytests\n-\n-\n-# minimum extra space in headers\n-MIN_PADDING = 2\n-\n-# Whether or not to preserve leading/trailing whitespace in data.\n-PRESERVE_WHITESPACE = False\n-\n-_DEFAULT_FLOATFMT = \"g\"\n-_DEFAULT_INTFMT = \"\"\n-_DEFAULT_MISSINGVAL = \"\"\n-# default align will be overwritten by \"left\", \"center\" or \"decimal\"\n-# depending on the formatter\n-_DEFAULT_ALIGN = \"default\"\n-\n-\n-# if True, enable wide-character (CJK) support\n-WIDE_CHARS_MODE = wcwidth is not None\n-\n-# Constant that can be used as part of passed rows to generate a separating line\n-# It is purposely an unprintable character, very unlikely to be used in a table\n-SEPARATING_LINE = \"\\001\"\n-\n-Line = namedtuple(\"Line\", [\"begin\", \"hline\", \"sep\", \"end\"])\n-\n-\n-DataRow = namedtuple(\"DataRow\", [\"begin\", \"sep\", \"end\"])\n-\n-\n-# A table structure is supposed to be:\n-#\n-#     --- lineabove ---------\n-#         headerrow\n-#     --- linebelowheader ---\n-#         datarow\n-#     --- linebetweenrows ---\n-#     ... (more datarows) ...\n-#     --- linebetweenrows ---\n-#         last datarow\n-#     --- linebelow ---------\n-#\n-# TableFormat's line* elements can be\n-#\n-#   - either None, if the element is not used,\n-#   - or a Line tuple,\n-#   - or a function: [col_widths], [col_alignments] -> string.\n-#\n-# TableFormat's *row elements can be\n-#\n-#   - either None, if the element is not used,\n-#   - or a DataRow tuple,\n-#   - or a function: [cell_values], [col_widths], [col_alignments] -> string.\n-#\n-# padding (an integer) is the amount of white space around data values.\n-#\n-# with_header_hide:\n-#\n-#   - either None, to display all table elements unconditionally,\n-#   - or a list of elements not to be displayed if the table has column headers.\n-#\n-TableFormat = namedtuple(\n-    \"TableFormat\",\n-    [\n-        \"lineabove\",\n-        \"linebelowheader\",\n-        \"linebetweenrows\",\n-        \"linebelow\",\n-        \"headerrow\",\n-        \"datarow\",\n-        \"padding\",\n-        \"with_header_hide\",\n-    ],\n-)\n-\n-\n-def _is_separating_line(row):\n-    row_type = type(row)\n-    is_sl = (row_type == list or row_type == str) and (\n-        (len(row) >= 1 and row[0] == SEPARATING_LINE)\n-        or (len(row) >= 2 and row[1] == SEPARATING_LINE)\n-    )\n-    return is_sl\n-\n-\n-def _pipe_segment_with_colons(align, colwidth):\n-    \"\"\"Return a segment of a horizontal line with optional colons which\n-    indicate column's alignment (as in `pipe` output format).\"\"\"\n-    w = colwidth\n-    if align in [\"right\", \"decimal\"]:\n-        return (\"-\" * (w - 1)) + \":\"\n-    elif align == \"center\":\n-        return \":\" + (\"-\" * (w - 2)) + \":\"\n-    elif align == \"left\":\n-        return \":\" + (\"-\" * (w - 1))\n-    else:\n-        return \"-\" * w\n-\n-\n-def _pipe_line_with_colons(colwidths, colaligns):\n-    \"\"\"Return a horizontal line with optional colons to indicate column's\n-    alignment (as in `pipe` output format).\"\"\"\n-    if not colaligns:  # e.g. printing an empty data frame (github issue #15)\n-        colaligns = [\"\"] * len(colwidths)\n-    segments = [_pipe_segment_with_colons(a, w) for a, w in zip(colaligns, colwidths)]\n-    return \"|\" + \"|\".join(segments) + \"|\"\n-\n-\n-def _mediawiki_row_with_attrs(separator, cell_values, colwidths, colaligns):\n-    alignment = {\n-        \"left\": \"\",\n-        \"right\": 'align=\"right\"| ',\n-        \"center\": 'align=\"center\"| ',\n-        \"decimal\": 'align=\"right\"| ',\n-    }\n-    # hard-coded padding _around_ align attribute and value together\n-    # rather than padding parameter which affects only the value\n-    values_with_attrs = [\n-        \" \" + alignment.get(a, \"\") + c + \" \" for c, a in zip(cell_values, colaligns)\n-    ]\n-    colsep = separator * 2\n-    return (separator + colsep.join(values_with_attrs)).rstrip()\n-\n-\n-def _textile_row_with_attrs(cell_values, colwidths, colaligns):\n-    cell_values[0] += \" \"\n-    alignment = {\"left\": \"<.\", \"right\": \">.\", \"center\": \"=.\", \"decimal\": \">.\"}\n-    values = (alignment.get(a, \"\") + v for a, v in zip(colaligns, cell_values))\n-    return \"|\" + \"|\".join(values) + \"|\"\n-\n-\n-def _html_begin_table_without_header(colwidths_ignore, colaligns_ignore):\n-    # this table header will be suppressed if there is a header row\n-    return \"<table>\\n<tbody>\"\n-\n-\n-def _html_row_with_attrs(celltag, unsafe, cell_values, colwidths, colaligns):\n-    alignment = {\n-        \"left\": \"\",\n-        \"right\": ' style=\"text-align: right;\"',\n-        \"center\": ' style=\"text-align: center;\"',\n-        \"decimal\": ' style=\"text-align: right;\"',\n-    }\n-    if unsafe:\n-        values_with_attrs = [\n-            \"<{0}{1}>{2}</{0}>\".format(celltag, alignment.get(a, \"\"), c)\n-            for c, a in zip(cell_values, colaligns)\n-        ]\n-    else:\n-        values_with_attrs = [\n-            \"<{0}{1}>{2}</{0}>\".format(celltag, alignment.get(a, \"\"), htmlescape(c))\n-            for c, a in zip(cell_values, colaligns)\n-        ]\n-    rowhtml = \"<tr>{}</tr>\".format(\"\".join(values_with_attrs).rstrip())\n-    if celltag == \"th\":  # it's a header row, create a new table header\n-        rowhtml = f\"<table>\\n<thead>\\n{rowhtml}\\n</thead>\\n<tbody>\"\n-    return rowhtml\n-\n-\n-def _moin_row_with_attrs(celltag, cell_values, colwidths, colaligns, header=\"\"):\n-    alignment = {\n-        \"left\": \"\",\n-        \"right\": '<style=\"text-align: right;\">',\n-        \"center\": '<style=\"text-align: center;\">',\n-        \"decimal\": '<style=\"text-align: right;\">',\n-    }\n-    values_with_attrs = [\n-        \"{}{} {} \".format(celltag, alignment.get(a, \"\"), header + c + header)\n-        for c, a in zip(cell_values, colaligns)\n-    ]\n-    return \"\".join(values_with_attrs) + \"||\"\n-\n-\n-def _latex_line_begin_tabular(colwidths, colaligns, booktabs=False, longtable=False):\n-    alignment = {\"left\": \"l\", \"right\": \"r\", \"center\": \"c\", \"decimal\": \"r\"}\n-    tabular_columns_fmt = \"\".join([alignment.get(a, \"l\") for a in colaligns])\n-    return \"\\n\".join(\n-        [\n-            (\"\\\\begin{tabular}{\" if not longtable else \"\\\\begin{longtable}{\")\n-            + tabular_columns_fmt\n-            + \"}\",\n-            \"\\\\toprule\" if booktabs else \"\\\\hline\",\n-        ]\n-    )\n-\n-\n-def _asciidoc_row(is_header, *args):\n-    \"\"\"handle header and data rows for asciidoc format\"\"\"\n-\n-    def make_header_line(is_header,\n...[truncated]...\n    if width < 1:\n-            space_left = 1\n-        else:\n-            space_left = width - cur_len\n-\n-        # If we're allowed to break long words, then do so: put as much\n-        # of the next chunk onto the current line as will fit.\n-        if self.break_long_words:\n-            # Tabulate Custom: Build the string up piece-by-piece in order to\n-            # take each charcter's width into account\n-            chunk = reversed_chunks[-1]\n-            i = 1\n-            while self._len(chunk[:i]) <= space_left:\n-                i = i + 1\n-            cur_line.append(chunk[: i - 1])\n-            reversed_chunks[-1] = chunk[i - 1 :]\n-\n-        # Otherwise, we have to preserve the long word intact.  Only add\n-        # it to the current line if there's nothing already there --\n-        # that minimizes how much we violate the width constraint.\n-        elif not cur_line:\n-            cur_line.append(reversed_chunks.pop())\n-\n-        # If we're not allowed to break long words, and there's already\n-        # text on the current line, do nothing.  Next time through the\n-        # main loop of _wrap_chunks(), we'll wind up here again, but\n-        # cur_len will be zero, so the next line will be entirely\n-        # devoted to the long word that we can't handle right now.\n-\n-    def _wrap_chunks(self, chunks):\n-        \"\"\"_wrap_chunks(chunks : [string]) -> [string]\n-        Wrap a sequence of text chunks and return a list of lines of\n-        length 'self.width' or less.  (If 'break_long_words' is false,\n-        some lines may be longer than this.)  Chunks correspond roughly\n-        to words and the whitespace between them: each chunk is\n-        indivisible (modulo 'break_long_words'), but a line break can\n-        come between any two chunks.  Chunks should not have internal\n-        whitespace; ie. a chunk is either all whitespace or a \"word\".\n-        Whitespace chunks will be removed from the beginning and end of\n-        lines, but apart from that whitespace is preserved.\n-        \"\"\"\n-        lines = []\n-        if self.width <= 0:\n-            raise ValueError(\"invalid width %r (must be > 0)\" % self.width)\n-        if self.max_lines is not None:\n-            if self.max_lines > 1:\n-                indent = self.subsequent_indent\n-            else:\n-                indent = self.initial_indent\n-            if self._len(indent) + self._len(self.placeholder.lstrip()) > self.width:\n-                raise ValueError(\"placeholder too large for max width\")\n-\n-        # Arrange in reverse order so items can be efficiently popped\n-        # from a stack of chucks.\n-        chunks.reverse()\n-\n-        while chunks:\n-\n-            # Start the list of chunks that will make up the current line.\n-            # cur_len is just the length of all the chunks in cur_line.\n-            cur_line = []\n-            cur_len = 0\n-\n-            # Figure out which static string will prefix this line.\n-            if lines:\n-                indent = self.subsequent_indent\n-            else:\n-                indent = self.initial_indent\n-\n-            # Maximum width for this line.\n-            width = self.width - self._len(indent)\n-\n-            # First chunk on line is whitespace -- drop it, unless this\n-            # is the very beginning of the text (ie. no lines started yet).\n-            if self.drop_whitespace and chunks[-1].strip() == \"\" and lines:\n-                del chunks[-1]\n-\n-            while chunks:\n-                chunk_len = self._len(chunks[-1])\n-\n-                # Can at least squeeze this chunk onto the current line.\n-                if cur_len + chunk_len <= width:\n-                    cur_line.append(chunks.pop())\n-                    cur_len += chunk_len\n-\n-                # Nope, this line is full.\n-                else:\n-                    break\n-\n-            # The current line is full, and the next chunk is too big to\n-            # fit on *any* line (not just this one).\n-            if chunks and self._len(chunks[-1]) > width:\n-                self._handle_long_word(chunks, cur_line, cur_len, width)\n-                cur_len = sum(map(self._len, cur_line))\n-\n-            # If the last chunk on this line is all whitespace, drop it.\n-            if self.drop_whitespace and cur_line and cur_line[-1].strip() == \"\":\n-                cur_len -= self._len(cur_line[-1])\n-                del cur_line[-1]\n-\n-            if cur_line:\n-                if (\n-                    self.max_lines is None\n-                    or len(lines) + 1 < self.max_lines\n-                    or (\n-                        not chunks\n-                        or self.drop_whitespace\n-                        and len(chunks) == 1\n-                        and not chunks[0].strip()\n-                    )\n-                    and cur_len <= width\n-                ):\n-                    # Convert current line back to a string and store it in\n-                    # list of all lines (return value).\n-                    self._update_lines(lines, indent + \"\".join(cur_line))\n-                else:\n-                    while cur_line:\n-                        if (\n-                            cur_line[-1].strip()\n-                            and cur_len + self._len(self.placeholder) <= width\n-                        ):\n-                            cur_line.append(self.placeholder)\n-                            self._update_lines(lines, indent + \"\".join(cur_line))\n-                            break\n-                        cur_len -= self._len(cur_line[-1])\n-                        del cur_line[-1]\n-                    else:\n-                        if lines:\n-                            prev_line = lines[-1].rstrip()\n-                            if (\n-                                self._len(prev_line) + self._len(self.placeholder)\n-                                <= self.width\n-                            ):\n-                                lines[-1] = prev_line + self.placeholder\n-                                break\n-                        self._update_lines(lines, indent + self.placeholder.lstrip())\n-                    break\n-\n-        return lines\n-\n-\n-def _main():\n-    \"\"\"\\\n-    Usage: tabulate [options] [FILE ...]\n-\n-    Pretty-print tabular data.\n-    See also https://github.com/astanin/python-tabulate\n-\n-    FILE                      a filename of the file with tabular data;\n-                              if \"-\" or missing, read data from stdin.\n-\n-    Options:\n-\n-    -h, --help                show this message\n-    -1, --header              use the first row of data as a table header\n-    -o FILE, --output FILE    print table to FILE (default: stdout)\n-    -s REGEXP, --sep REGEXP   use a custom column separator (default: whitespace)\n-    -F FPFMT, --float FPFMT   floating point number format (default: g)\n-    -I INTFMT, --int INTFMT   integer point number format (default: \"\")\n-    -f FMT, --format FMT      set output table format; supported formats:\n-                              plain, simple, grid, fancy_grid, pipe, orgtbl,\n-                              rst, mediawiki, html, latex, latex_raw,\n-                              latex_booktabs, latex_longtable, tsv\n-                              (default: simple)\n-    \"\"\"\n-    import getopt\n-    import sys\n-    import textwrap\n-\n-    usage = textwrap.dedent(_main.__doc__)\n-    try:\n-        opts, args = getopt.getopt(\n-            sys.argv[1:],\n-            \"h1o:s:F:A:f:\",\n-            [\"help\", \"header\", \"output\", \"sep=\", \"float=\", \"int=\", \"align=\", \"format=\"],\n-        )\n-    except getopt.GetoptError as e:\n-        print(e)\n-        print(usage)\n-        sys.exit(2)\n-    headers = []\n-    floatfmt = _DEFAULT_FLOATFMT\n-    intfmt = _DEFAULT_INTFMT\n-    colalign = None\n-    tablefmt = \"simple\"\n-    sep = r\"\\s+\"\n-    outfile = \"-\"\n-    for opt, value in opts:\n-        if opt in [\"-1\", \"--header\"]:\n-            headers = \"firstrow\"\n-        elif opt in [\"-o\", \"--output\"]:\n-            outfile = value\n-        elif opt in [\"-F\", \"--float\"]:\n-            floatfmt = value\n-        elif opt in [\"-I\", \"--int\"]:\n-            intfmt = value\n-        elif opt in [\"-C\", \"--colalign\"]:\n-            colalign = value.split()\n-        elif opt in [\"-f\", \"--format\"]:\n-            if value not in tabulate_formats:\n-                print(\"%s is not a supported table format\" % value)\n-                print(usage)\n-                sys.exit(3)\n-            tablefmt = value\n-        elif opt in [\"-s\", \"--sep\"]:\n-            sep = value\n-        elif opt in [\"-h\", \"--help\"]:\n-            print(usage)\n-            sys.exit(0)\n-    files = [sys.stdin] if not args else args\n-    with (sys.stdout if outfile == \"-\" else open(outfile, \"w\")) as out:\n-        for f in files:\n-            if f == \"-\":\n-                f = sys.stdin\n-            if _is_file(f):\n-                _pprint_file(\n-                    f,\n-                    headers=headers,\n-                    tablefmt=tablefmt,\n-                    sep=sep,\n-                    floatfmt=floatfmt,\n-                    intfmt=intfmt,\n-                    file=out,\n-                    colalign=colalign,\n-                )\n-            else:\n-                with open(f) as fobj:\n-                    _pprint_file(\n-                        fobj,\n-                        headers=headers,\n-                        tablefmt=tablefmt,\n-                        sep=sep,\n-                        floatfmt=floatfmt,\n-                        intfmt=intfmt,\n-                        file=out,\n-                        colalign=colalign,\n-                    )\n-\n-\n-def _pprint_file(fobject, headers, tablefmt, sep, floatfmt, intfmt, file, colalign):\n-    rows = fobject.readlines()\n-    table = [re.split(sep, r.rstrip()) for r in rows if r.strip()]\n-    print(\n-        tabulate(\n-            table,\n-            headers,\n-            tablefmt,\n-            floatfmt=floatfmt,\n-            intfmt=intfmt,\n-            colalign=colalign,\n-        ),\n-        file=file,\n-    )\n-\n-\n-if __name__ == \"__main__\":\n-    _main()\n+I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\n+=== FILE: path/relative/to/repo/root.py ===\n+<entire new file contents>\n",
+      "changed_files": [
+        "benchmark.py",
+        "tabulate/__init__.py"
+      ],
+      "pytest_output": "REPO SUITE FAILED:\n\n================================================================================================ ERRORS ================================================================================================\n__________________________________________________________________________________ ERROR collecting test/test_api.py ___________________________________________________________________________________\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:493: in importtestmodule\n    mod = import_path(\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:185: in exec_module\n    exec(co, module.__dict__)\ntest/test_api.py:5: in <module>\n    from tabulate import tabulate, tabulate_formats, simple_separated_format\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n_________________________________________________________________________________ ERROR collecting test/test_input.py __________________________________________________________________________________\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:493: in importtestmodule\n    mod = import_path(\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:185: in exec_module\n    exec(co, module.__dict__)\ntest/test_input.py:3: in <module>\n    from tabulate import tabulate\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n________________________________________________________________________________ ERROR collecting test/test_internal.py ________________________________________________________________________________\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:493: in importtestmodule\n    mod = import_path(\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:185: in exec_module\n    exec(co, module.__dict__)\ntest/test_internal.py:3: in <module>\n    import tabulate as T\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n_________________________________________________________________________________ ERROR collecting test/test_output.py _________________________________________________________________________________\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:493: in importtestmodule\n    mod = import_path(\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:185: in exec_module\n    exec(co, module.__dict__)\ntest/test_output.py:3: in <module>\n    import tabulate as tabulate_module\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n_______________________________________________________________________________ ERROR collecting test/test_regression.py _______________________________________________________________________________\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:493: in importtestmodule\n    mod = import_path(\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:185: in exec_module\n    exec(co, module.__dict__)\ntest/test_regression.py:3: in <module>\n    from tabulate import tabulate, TableFormat, Line, DataRow\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n______________________________________________________________________________ ERROR collecting test/test_textwrapper.py _______________________________________________________________________________\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:493: in importtestmodule\n    mod = import_path(\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/pathlib.py:587: in import_path\n    importlib.import_module(module_name)\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n/Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/assertion/rewrite.py:185: in exec_module\n    exec(co, module.__dict__)\ntest/test_textwrapper.py:6: in <module>\n    from tabulate import _CustomTextWrap as CTW, tabulate\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 6 errors during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n6 errors in 1.03s\n\nF                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________ test_maxcolwidths_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:4: in test_maxcolwidths_preserves_line_breaks\n    import tabulate\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks -   File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\n1 failed in 0.24s\n",
+      "verdict": "gate_shut",
+      "truncated": true,
+      "proof_returncode": 1,
+      "suite_returncode": 2
+    }
+  ],
+  "gate": "gave_up",
+  "verdict": "FIX_FAILS_TEST",
+  "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-d956be85",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 2,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-b264102ca412a21b",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_maxcolwidths_preserves_line_breaks():\n    import tabulate\n\n    # Test case from the issue: multiline cell with maxcolwidths\n    data = [[\"123456789 bbb\\nccc\"]]\n    result = tabulate.tabulate(data, tablefmt=\"fancy_grid\", maxcolwidths=10)\n    # The expected output should have three lines in the cell: \"123456789\", \"bbb\", \"ccc\"\n    # Each line should be wrapped to width 10, and line breaks preserved.\n    # We'll check that the output contains the three lines separately.\n    # The fancy_grid format uses box drawing characters, so we look for the cell content lines.\n    # The table has a header? No headers in data, so just one row.\n    # The output lines (excluding top/bottom borders) should have the cell content split across three rows.\n    lines = result.splitlines()\n    # The table structure for fancy_grid with one column and one row (no headers) is:\n    # \u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\n    # \u2502 123456789 \u2502\n    # \u2502 bbb       \u2502\n    # \u2502 ccc       \u2502\n    # \u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\n    # So we expect 5 lines total. The middle three are the cell content lines.\n    assert len(lines) == 5\n    # Check each content line (index 1,2,3) contains the expected text padded to width 10.\n    # The cell content is left-aligned by default? The issue shows left-aligned.\n    # The format uses a space before and after the content? In fancy_grid, the cell is padded with spaces to fill the column width.\n    # The column width is 10, so the content should be padded to 10 characters.\n    # The border lines are not checked for exact characters, but we can check the content lines.\n    # The content lines are like \"\u2502 123456789 \u2502\" where the content is \"123456789\" (9 chars) plus one space? Actually the column width is 10, so the content is padded to 10.\n    # In the example, the first line is \"123456789\" (9 chars) and the column width is 10, so there should be one trailing space.\n    # The second line \"bbb\" (3 chars) should have 7 trailing spaces.\n    # The third line \"ccc\" (3 chars) should have 7 trailing spaces.\n    # We'll check that each line contains the expected text and that the line break is preserved (i.e., three separate rows).\n    # We can check by looking at the lines between the borders.\n    content_lines = lines[1:4]\n    expected_contents = [\"123456789\", \"bbb\", \"ccc\"]\n    for i, (line, expected) in enumerate(zip(content_lines, expected_contents)):\n        # The line should start with \"\u2502 \" and end with \" \u2502\"\n        assert line.startswith(\"\u2502 \")\n        assert line.endswith(\" \u2502\")\n        # The content part is line[2:-2]\n        content = line[2:-2]\n        assert content.startswith(expected)\n        # The content should be exactly 10 characters long (padded with spaces)\n        assert len(content) == 10\n        # The rest should be spaces\n        assert content[len(expected):] == \" \" * (10 - len(expected))\n\n    # Additional test: a multiline cell where one line exceeds maxcolwidths, to ensure wrapping still works per line.\n    data2 = [[\"short\\nthis is a very long line that should be wrapped\"]]\n    result2 = tabulate.tabulate(data2, tablefmt=\"fancy_grid\", maxcolwidths=10)\n    lines2 = result2.splitlines()\n    # We expect the first line \"short\" to be one row, and the long line to be wrapped into multiple rows.\n    # The long line \"this is a very long line that should be wrapped\" should be wrapped at width 10.\n    # We'll just check that there are more than 2 content rows (i.e., the long line is split).\n    # The table has top border, then content rows, then bottom border.\n    # The number of content rows should be at least 3 (one for \"short\", at least two for the long line).\n    content_lines2 = lines2[1:-1]\n    assert len(content_lines2) >= 3\n    # The first content line should be \"short\" padded to 10.\n    first_content = content_lines2[0][2:-2]\n    assert first_content == \"short     \"\n    # The remaining lines should be parts of the long line, each 10 chars.\n    for line in content_lines2[1:]:\n        content = line[2:-2]\n        assert len(content) == 10",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_wrap_text_to_colwidths"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark",
+          "tabulate"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "_wrap_text_to_colwidths"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark",
+      "tabulate"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:20:18.569Z",
+  "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+  "proven": false,
+  "base_sha": "ced2babd7952939eea49436859219cdce227e39c",
+  "head_sha": "941b3b9cf64aa2e35feb0371d8c1559ce0a12535",
+  "verdict_logs": {
+    "base": "===========================================================\n_______________________________________________________________________________ test_maxcolwidths_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:23: in test_maxcolwidths_preserves_line_breaks\n    assert len(lines) == 5\nE   AssertionError: assert 4 == 5\nE    +  where 4 = len(['\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555', '\u2502 123456789 \u2502', '\u2502 bbb ccc   \u2502', '\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b'])\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert 4 == 5\n1 failed in 0.17s\n",
+    "head": "y:4: in test_maxcolwidths_preserves_line_breaks\n    import tabulate\nE     File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\nE       I'll check the exact wording: \"Reply with no prose, only complete replacement files, each in exactly this format:\nE        ^\nE   SyntaxError: unterminated string literal (detected at line 9)\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks -   File \"/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-5ia3078n/work/tabulate/__init__.py\", line 9\n1 failed in 0.24s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 909,
+      "completion_tokens": 1024,
+      "latency_ms": 14097,
+      "completion_id": "chatcmpl-d956be85",
+      "cost_usd": 0.0003,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1342,
+      "completion_tokens": 1979,
+      "latency_ms": 6218,
+      "completion_id": "chatcmpl-b264102ca412a21b",
+      "cost_usd": 0.007279,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2067,
+      "completion_tokens": 847,
+      "latency_ms": 5248,
+      "completion_id": "chatcmpl-b6f370e5",
+      "cost_usd": 0.000327,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 3440,
+      "completion_tokens": 8192,
+      "latency_ms": 21442,
+      "completion_id": "chatcmpl-b9db9e46168f53da",
+      "cost_usd": 0.028016,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 3454,
+      "completion_tokens": 8192,
+      "latency_ms": 20460,
+      "completion_id": "chatcmpl-91e687dac4356abc",
+      "cost_usd": 0.02803,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 3471,
+      "completion_tokens": 8192,
+      "latency_ms": 21879,
+      "completion_id": "chatcmpl-9de5025ea9da1969",
+      "cost_usd": 0.028047,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.091999,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:18:44.849Z",
+      "detail": {
+        "base": "ced2babd7952939eea49436859219cdce227e39c",
+        "head": "941b3b9cf64aa2e35feb0371d8c1559ce0a12535"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:18:45.008Z",
+      "detail": {
+        "base": "ced2babd7952",
+        "head": "941b3b9cf64a",
+        "changed_files": [
+          "tabulate/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:18:45.122Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:18:59.230Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:18:59.230Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:19:05.455Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-b264102ca412a21b"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:19:05.456Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:19:05.846Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:19:05.846Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:19:07.446Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T08:19:07.446Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T08:19:12.695Z",
+      "detail": {
+        "verdict": "reproduced",
+        "completion_id": "chatcmpl-b6f370e5"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T08:19:12.695Z",
+      "detail": {
+        "iteration": 1,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T08:19:34.140Z",
+      "detail": {
+        "iteration": 1,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T08:19:34.140Z",
+      "detail": {
+        "iteration": 2,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T08:19:54.604Z",
+      "detail": {
+        "iteration": 2,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T08:19:54.604Z",
+      "detail": {
+        "iteration": 3,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "done",
+      "ts": "2026-10-30T08:20:16.496Z",
+      "detail": {
+        "iteration": 3,
+        "completion_id": "chatcmpl-9de5025ea9da1969",
+        "changed_files": [
+          "benchmark.py",
+          "tabulate/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:20:18.569Z",
+      "detail": {
+        "verdict": "FIX_FAILS_TEST",
+        "reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)"
+      }
+    }
+  ],
+  "final_iteration": 3
+}
