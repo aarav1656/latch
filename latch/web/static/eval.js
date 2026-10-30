@@ -263,17 +263,25 @@
     const s = data.summary;
     const wf = s.wrong_fixes || {};
     const wo = wf.without_contested || {};
-    const hero = el("section", "eval-hero " + (isNum(wf.n) && wf.n > 0 && wf.caught === wf.n ? "is-pass" : ""));
+    const b = s.benchmark || {};
+    const rv = b.real_validated || {};
+    const accepted = Array.isArray(wf.false_accepts) ? wf.false_accepts.length : null;
+    const hero = el("section", "eval-hero " + (accepted === 0 && isNum(wf.n) && wf.n > 0 ? "is-pass" : ""));
     hero.append(
-      el("p", "hero-num", isNum(wf.caught) && isNum(wf.n) ? wf.caught + " of " + wf.n : NR),
-      el("p", null, "constructed wrong patches stopped by the gate before any repair."),
-      el("p", "eval-sub", "Without the contested cases: " + frac(wo.caught, wo.n) + ". Wrong patches accepted: " + (Array.isArray(wf.false_accepts) ? wf.false_accepts.length : NR) + "."),
+      el("p", "hero-num", isNum(accepted) && isNum(wf.n) ? accepted + " of " + wf.n : NR),
+      el("p", null, "constructed wrong patches accepted by the gate."),
     );
-    if (wf.rule) hero.appendChild(el("p", "hint", wf.rule));
-    if (wf.contested_note) hero.appendChild(el("p", "hint", wf.contested_note));
-    const cases = Array.isArray(s.cases) ? s.cases : [];
     const vt = wf.caught_by_valid_test;
-    if (vt && isNum(vt.caught)) hero.appendChild(el("p", "eval-sub", frac(vt.caught, vt.n) + " were failed by a valid proof test; the rest never got a usable test, so the gate stayed shut by default."));
+    const lines = [];
+    if (isNum(rv.k) && isNum(rv.n)) lines.push(rv.k + " of " + rv.n + " real bug fixes proven (" + pct(rv.rate) + ").");
+    if (vt && isNum(vt.caught)) lines.push(frac(vt.caught, vt.n) + " wrong patches failed by a valid proof test; the rest never got a usable test, so the gate stayed shut by default.");
+    lines.forEach((t) => hero.appendChild(el("p", "eval-sub", t)));
+    const notes = el("details", "eval-notes");
+    notes.appendChild(el("summary", null, "How wrong patches are counted"));
+    if (wf.rule) notes.appendChild(el("p", "hint", wf.rule));
+    if (wo && isNum(wo.n)) notes.appendChild(el("p", "hint", "Two wrong patches are contested (a second reviewer judged them equivalent to the real fix). Without them: " + frac(wo.caught, wo.n) + " stopped."));
+    hero.appendChild(notes);
+    const cases = Array.isArray(s.cases) ? s.cases : [];
     const out = [hero, sideBySide(data), featured(data), verdictSummary(s, cases)].filter(Boolean);
     const bsec = benchmarkSection(s);
     if (bsec) out.push(bsec);

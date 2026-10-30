@@ -429,6 +429,12 @@ class TwoRunTests(unittest.TestCase):
         self.assertIn("data.previous", js)
         self.assertIn("First run and repair run", js)
 
+    def test_the_hero_leads_with_wrong_patches_accepted_and_real_fixes_proven(self):
+        js = (STATIC / "eval.js").read_text()
+        self.assertIn("constructed wrong patches accepted by the gate.", js)
+        self.assertIn("real bug fixes proven", js)
+        self.assertNotIn("wf.contested_note", js)
+
     def test_the_featured_box_reads_fix_loop_receipts_too(self):
         js = (STATIC / "eval.js").read_text()
         for needle in ("init.base_proof", "init.head_proof", "r.proof_test && r.proof_test.name", "Failure on the wrong patch"):
