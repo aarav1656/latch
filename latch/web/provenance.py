@@ -45,8 +45,15 @@ def is_dev_output(obj):
         if _marked(obj.get(key)):
             return True
     receipt = obj.get("receipt") if isinstance(obj.get("receipt"), dict) else obj
-    for key in ("model_calls", "cases"):
-        items = receipt.get(key) if key == "model_calls" else obj.get(key)
-        if isinstance(items, list) and any(_marked(i) for i in items):
-            return True
+    calls = receipt.get("model_calls")
+    if isinstance(calls, list) and any(_marked(i) for i in calls):
+        return True
+    cases = obj.get("cases")
+    if isinstance(cases, list):
+        for case in cases:
+            if _marked(case):
+                return True
+            inner = case.get("model_calls") if isinstance(case, dict) else None
+            if isinstance(inner, list) and any(_marked(i) for i in inner):
+                return True
     return False

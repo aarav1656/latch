@@ -245,6 +245,110 @@ class ProviderTests(unittest.TestCase):
             self.assertIsNone(h.service.loop_example())
 
 
+def openrouter_receipt(code="VALIDATED", strip_markers=True, **over):
+    """The shape of the receipts under latch/runs/dev/: the top-level model is still the canonical Nemotron id, the
+    resolved ':free' id and the provider sit in model_calls[]. With strip_markers there is no top-level provider or
+    dev_only either, so only model_calls[].provider gives it away."""
+    r = verdict_receipt(code, **over)
+    r["model"] = "nvidia/Nemotron-3-Ultra-550b-a55b"
+    r["test_model"] = None
+    r["model_calls"] = [
+        {"role": "repo_map", "provider": "openrouter", "model": "nvidia/nemotron-3.5-lightning:free", "cost_usd": None, "status": 200},
+        {"role": "test_writer", "provider": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free", "cost_usd": None, "status": 200},
+    ]
+    if not strip_markers:
+        r.update(provider="openrouter", dev_only=True)
+    return r
+
+
+class DevReceiptShapeTests(unittest.TestCase):
+    """latch/runs/dev/ receipts are told apart by provider, never by model name: the gallery, /r/, /eval and the cache all refuse them."""
+
+    SHAPES = (False, True)
+
+    def test_only_model_calls_naming_openrouter_is_enough_to_reject(self):
+        for strip in self.SHAPES:
+            r = openrouter_receipt(strip_markers=strip)
+            self.assertEqual(r["model"], "nvidia/Nemotron-3-Ultra-550b-a55b")
+            self.assertTrue(provenance.is_dev_output(r))
+            self.assertTrue(provenance.is_dev_output({"receipt": r}))
+            self.assertTrue(provenance.is_dev_output(store.make_envelope(r, "live", started=1.0, finished=2.0)))
+        # the model name alone decides nothing: a ':free' id with an allowed provider is not rejected here
+        ok = openrouter_receipt()
+        ok["model_calls"] = [dict(c, provider="nebius") for c in ok["model_calls"]]
+        self.assertFalse(provenance.is_dev_output(ok))
+
+    def test_the_real_dev_receipts_are_rejected_when_the_repo_has_them(self):
+        dev = WEB.parent / "runs" / "dev"
+        found = [p for p in (dev / "prove-demo-openrouter.json", dev / "loop-demo-openrouter.json") if p.is_file()]
+        for path in found:
+            data = json.loads(path.read_text())
+            self.assertTrue(provenance.is_dev_output(data), path.name)
+            for call in data.get("model_calls") or []:
+                self.assertEqual(call.get("provider"), "openrouter")
+            if isinstance(data.get("receipt"), dict):
+                data = data["receipt"]
+            data.pop("provider", None)
+            data.pop("dev_only", None)
+            self.assertTrue(provenance.is_dev_output(data), path.name + " without its top-level markers")
+
+    def test_the_gallery_and_the_receipt_page_never_serve_it(self):
+        h = Harness(self)
+        seed(h, 71)
+        for number, strip in ((72, True), (73, False)):
+            r = openrouter_receipt(strip_markers=strip, head_sha=f"{number:040x}")
+            r["head"] = f"{number:040x}"
+            h.service.store.put("acme/widgets", number, store.make_envelope(r, "live", started=1.0, finished=2.0))
+        listed = {i["number"] for i in h.get_json("/api/recent")[1]["items"]}
+        self.assertIn(71, listed)
+        self.assertFalse({72, 73} & listed)
+        for number in (72, 73):
+            self.assertEqual(h.get_json(f"/api/receipt/acme/widgets/{number}")[0], 404)
+            status, _, page = h.request("GET", f"/r/acme/widgets/{number}")
+            self.assertNotIn(b"openrouter", page)
+            self.assertNotIn(b":free", page)
+        self.assertEqual(h.get_json("/api/receipt/acme/widgets/71")[0], 200)
+
+    def test_a_cached_dev_receipt_is_not_returned_as_a_cache_hit_by_post(self):
+        for strip in self.SHAPES:
+            h = Harness(self)
+            url = h.add_pr(74)
+            r = openrouter_receipt(strip_markers=strip, head_sha=f"{74:040x}")
+            r["head"] = f"{74:040x}"
+            h.service.store.put("acme/widgets", 74, store.make_envelope(r, "live", started=1.0, finished=2.0))
+            status, _, body = h.post(url)
+            self.assertFalse(body.get("cached"), body)
+            self.assertNotIn("openrouter", json.dumps(body))
+            self.assertNotEqual(body.get("receipt"), r)
+
+    def test_eval_refuses_it_as_the_featured_receipt_and_the_loop_demo_refuses_it_in_events(self):
+        for strip in self.SHAPES:
+            RunsRoot(self, v2_summary(), openrouter_receipt("FIX_FAILS_TEST", strip_markers=strip))
+            body = Harness(self).get_json("/api/eval")[1]
+            self.assertIsNone(body["featured"], strip)
+            self.assertNotIn("openrouter", json.dumps(body))
+            h = Harness(self)
+            events = [{"type": "start"}, {"type": "gate_open", "receipt": openrouter_receipt("VALIDATED", strip_markers=strip)}]
+            text = "\n".join(json.dumps(e) for e in events)
+            with mock.patch.object(Path, "read_text", lambda self, *a, **k: text):
+                self.assertIsNone(h.service.loop_example(), strip)
+
+    def test_eval_refuses_a_summary_whose_case_carries_openrouter_model_calls(self):
+        summary = v2_summary()
+        summary["cases"][0]["model_calls"] = openrouter_receipt()["model_calls"]
+        RunsRoot(self, summary, verdict_receipt("FIX_FAILS_TEST"))
+        self.assertEqual(Harness(self).get_json("/api/eval")[1]["available"], False)
+
+    def test_the_image_never_carries_the_dev_directory_and_the_readme_says_so(self):
+        ignore = (WEB / "Dockerfile.dockerignore").read_text().splitlines()
+        self.assertIn("latch/runs/dev", ignore)
+        self.assertIn("latch/runs/dev/**", ignore)
+        readme = (WEB.parent.parent / "README.md").read_text()
+        self.assertIn("latch/runs/dev/", readme)
+        self.assertIn("never serves", readme)
+        self.assertIn("not hackathon results", readme)
+
+
 class PathsTests(unittest.TestCase):
     """HARD RULE 3: every read of latch/runs/ is a fixed path. Nothing globs, lists or walks it."""
 
