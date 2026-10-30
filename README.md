@@ -130,6 +130,12 @@ Mutation testing is old. [mutmut](https://github.com/boxed/mutmut) (BSD-3-Clause
 
 The fixture gate demonstrates the mutation loop. The real issue path uses a maintainer report as an independent behavior oracle, then checks whether the same generated regression test distinguishes the actual buggy and fixed commits.
 
+## Outside evidence: mutation-guided test generation at Meta
+
+Meta describes the same core idea running in production. In [Mutation-Guided LLM-based Test Generation at Meta](https://arxiv.org/abs/2501.12862) (Foster et al., 2025), the ACH system uses an LLM (Llama 3.1 70B) to propose a small number of simulated faults (mutants) that no existing test catches, then asks an LLM to write a test that kills each one. ACH was applied to 10,795 Android Kotlin classes across 7 Meta platforms and produced 571 tests. Engineers at two test-a-thons accepted 73% of the 191 tests they reviewed, and judged 36% relevant to the privacy concern ACH targeted. The paper also finds that about half of the tests that killed a new mutant added no line coverage, so judging tests on coverage alone would have discarded them.
+
+That is evidence that a test earns its place by failing on a deliberate fault, which is Latch's rule. It is not evidence about Latch. ACH is Meta's internal tool for Kotlin, and it was not evaluated on pull requests or on patches from coding agents. Latch applies the principle at pull-request time for Python repositories: a generated test must fail on the bug and pass on the fix, the harness reverts the fix to confirm, and it ships as an open command and a GitHub Action that works on any repository.
+
 ## Run it
 
 Python 3.10 or newer, no dependencies. Put `NEBIUS_API_KEY` in the environment, or as an `export` line in `~/.zshrc`.
