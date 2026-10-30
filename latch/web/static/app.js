@@ -20,11 +20,13 @@
     ["base_run", "Run on base, expect it to fail", true],
     ["head_run", "Run on head, expect it to pass", true],
     ["triage", "Triage the base failure (Lightning)", false],
+    ["fix", "Fix the change (agent loop)", false],
     ["flake_check", "Rerun the test, expect the same result (harness)", false],
     ["revert_check", "Revert the fix, expect it to fail again", false],
-    ["mutation", "Mutation check (harness)", false],
+    ["mutation_check", "Mutation check (harness)", false],
     ["verdict", "Decide the verdict (harness)", true],
   ];
+  const STEP_ALIAS = { "mutation": "mutation_check" };  // the draft contract's step name
   const LEGACY = { "fetching": "fetch", "fetching-commits": "fetch", "generating-test": "test_writer", "model": "test_writer", "base-test": "base_run", "head-test": "head_run", "receipt": "verdict" };
   let config = boot.config || {};
   let source = null, poll = null, busy = false;
@@ -155,16 +157,24 @@
     });
     return pre;
   }
+  // A mutant is killed, survived, timed out (counted as killed by the harness) or errored (never counted as killed).
+  function mutantState(mu) {
+    if (mu.timed_out === true) return "timed out";
+    if (mu.killed !== true && typeof mu.error === "string" && mu.error.trim()) return "error";
+    return mu.killed === true ? "killed" : "survived";
+  }
   function mutantItem(mu) {
     const killed = mu.killed === true;
-    const li = el("li", "mutant " + (killed ? "is-killed" : "is-survived"), null, { "data-killed": String(killed) });
+    const state = mutantState(mu);
+    const li = el("li", "mutant " + (killed ? "is-killed" : "is-survived"), null, { "data-killed": String(killed), "data-state": state.replace(" ", "-") });
     const head = el("div", "mutant-head");
     head.append(
       el("span", "mutant-op", mu.operator || NR),
       el("span", "mutant-where", mutantFile(mu)),
-      pill(killed, killed ? "killed" : "survived"),
+      pill(killed, state),
     );
     li.appendChild(head);
+    if (state === "error") li.appendChild(el("p", "mutant-what", "error: " + String(mu.error).trim()));
     if (mu.what) li.appendChild(el("p", "mutant-what", String(mu.what)));
     if (mu.diff && !killed) li.appendChild(diffPre(mu.diff));  // survivors show the change; killed mutants fold it away
     if (mu.diff && killed) {
@@ -195,8 +205,10 @@
     const killed = isNum(mu.killed) ? mu.killed : list.filter((x) => x.killed === true).length;
     const total = isNum(mu.total) ? mu.total : list.length;
     const survived = list.filter((x) => x.killed !== true);
-    const failed = survived.length > 0 || mu.ok === false;
-    sec.setAttribute("data-mutation", total === 0 && !failed ? "empty" : failed ? "survived" : "killed");
+    const errored = survived.filter((x) => mutantState(x) === "error");
+    const notRun = mu.ran === false;  // the harness could not run the check: fail closed, never a pass
+    const failed = survived.length > 0 || mu.ok === false || notRun;
+    sec.setAttribute("data-mutation", notRun ? "not-run" : total === 0 && !failed ? "empty" : failed ? "survived" : "killed");
     const score = el("p", "mutation-score");
     score.append(el("span", "mutation-frac num", killed + "/" + total), el("span", null, " mutants killed"));
     if (isNum(mu.kill_rate)) score.appendChild(el("span", "mutation-rate num", Math.round(mu.kill_rate * 100) + "%"));
@@ -207,12 +219,16 @@
     facts.appendChild(row("Result", mu.ok === true ? "met the threshold" : mu.ok === false ? "below the threshold or could not complete" : NR));
     sec.appendChild(facts);
     if (typeof mu.note === "string" && mu.note.trim()) sec.appendChild(el("p", "hint mutation-note", mu.note.trim()));
-    sec.appendChild(el("p", "hint", total === 0 && !list.length
+    const passedMutants = survived.length - errored.length;
+    sec.appendChild(el("p", "hint", notRun
+      ? "The mutation check did not run, so how hard the test is to fool is " + NR + ". This is not a pass."
+      : total === 0 && !list.length
       ? "No mutants were generated, so this check says nothing about the test."
       : survived.length
-        ? survived.length + " changed version" + (survived.length === 1 ? "" : "s") + " of the fix still passed the test. Survivors are listed first."
+        ? (passedMutants ? passedMutants + " changed version" + (passedMutants === 1 ? "" : "s") + " of the fix still passed the test. " : "")
+          + (errored.length ? errored.length + " mutant" + (errored.length === 1 ? "" : "s") + " could not be run and " + (errored.length === 1 ? "is" : "are") + " not counted as killed. " : "") + "These are listed first."
         : mu.ok === false ? "The check did not reach its threshold." : "Every changed version of the fix was caught by the test."));
-    if (list.length) {
+    if (list.length && !notRun) {  // a check that did not run has no mutants worth listing
       const ordered = survived.concat(list.filter((x) => x.killed === true));
       const ul = el("ol", "mutants");
       ordered.forEach((x) => ul.appendChild(mutantItem(x)));
@@ -485,6 +501,7 @@
     });
   }
   function applyEvent(d) {
+    if (STEP_ALIAS[d.step]) d = Object.assign({}, d, { step: STEP_ALIAS[d.step] });
     const s = steps[d.step];
     if (!s) return;
     if (!eventMode) LEDGER.forEach(([k]) => { steps[k].state = "pending"; });  // legacy hints ran ahead of the engine's own events
