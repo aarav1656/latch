@@ -265,7 +265,7 @@ class Service:
     # -- status ------------------------------------------------------------
     def live_state(self):
         if not self.config.live:
-            return {"enabled": False, "reason": "Live runs are switched off on this server (LATCH_LIVE=0). Cached receipts still work."}
+            return {"enabled": False, "reason": "This site serves recorded proofs. Prove any pull request live with `latch prove` or the GitHub Action on the Use in CI page."}
         if not self.key_present():
             return {"enabled": False, "reason": "Live runs are not configured on this server. Cached receipts still work."}
         if self.config.credits_exhausted or self.credits_paused():

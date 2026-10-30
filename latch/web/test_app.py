@@ -271,7 +271,7 @@ class LimitTests(unittest.TestCase):
         self.assertEqual((status, body["cached"]), (200, True))
         status, _, body = h.post(CLICK, live=True)
         self.assertEqual(status, 200)
-        self.assertIn("LATCH_LIVE=0", body["note"])
+        self.assertIn("serves recorded proofs", body["note"])
         status, _, body = h.post(h.add_pr(3))
         self.assertEqual(status, 503)
         self.assertEqual(body["error"]["code"], "live_disabled")
