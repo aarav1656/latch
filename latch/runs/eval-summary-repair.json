@@ -2,7 +2,7 @@
   "schema_version": 2,
   "mode": "live",
   "fixture": false,
-  "latch_git_sha": "b4924a53212190bea971bfcb0001e5451dd16c33",
+  "latch_git_sha": "632918e5b72959885839458db3937149c1b38312",
   "verdicts": {
     "INVALID_TEST": 14,
     "FLAKY": 0,
@@ -747,7 +747,7 @@
       "n_instances": 12
     }
   },
-  "generated_at": "2026-10-30T10:52:23Z",
+  "generated_at": "2026-10-30T10:54:35Z",
   "run": {
     "date": "2026-10-30",
     "tag": "repair",
@@ -1333,7 +1333,7 @@
   ],
   "comparison": "On real fixes Latch proved 10/21 (47.6%) against Otter's 31.4% (TDD-Bench-Verified) and AssertFlip's 43.6% (SWT-Bench-Verified) fail-to-pass rates, but with only 21 cases, on different benchmarks and a different pass condition (proof test plus repo suite plus revert check), so treat it as a small-sample indication, not a like-for-like comparison.",
   "caveat": "Small sample: the cases here are few, single runs, with an LLM that is not deterministic, so the rates carry wide uncertainty. The wrong patches are constructed by hand (not agent output). The baselines use different benchmarks and a different, weaker success condition (fail-to-pass only, no revert check, no wrong-patch test), so the numbers are not directly comparable.",
-  "featured_wrong_fix_receipt": "latch/runs/eval-repair/boltons-319-wrong.json",
+  "featured_wrong_fix_receipt": "latch/runs/eval-repair/tabulate-190-wrong.json",
   "featured_wrong_fix_note": "NOT PROVEN: a valid proof test failed on the wrong patch",
   "cases": [
     {

@@ -429,6 +429,17 @@ class TwoRunTests(unittest.TestCase):
         self.assertIn("data.previous", js)
         self.assertIn("First run and repair run", js)
 
+    def test_the_featured_box_reads_fix_loop_receipts_too(self):
+        js = (STATIC / "eval.js").read_text()
+        for needle in ("init.base_proof", "init.head_proof", "r.proof_test && r.proof_test.name", "Failure on the wrong patch"):
+            self.assertIn(needle, js)
+
+    def test_the_committed_repair_runs_featured_exhibit_is_a_valid_test_rejection(self):
+        summary = json.loads((WEB.parent / "runs" / "eval-summary-repair.json").read_text())
+        row = next(c for c in summary["cases"] if c.get("receipt") == summary["featured_wrong_fix_receipt"])
+        self.assertEqual((row["variant"], row["verdict"]), ("wrong", "FIX_FAILS_TEST"))
+        self.assertIn("proof test fails on the change", row["verdict_reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
