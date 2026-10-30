@@ -300,7 +300,7 @@ def run_triage(ask, key, issue, test_source, failure_text, where="the submitted 
 
 def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None,
           on_step_event=None, revert=True, triage=True, repo_map=True, flake_runs=FLAKE_RUNS,
-          mutation=True):
+          mutation=True, strengthen=True):
     """Prove that a change fixes an issue: a generated test must fail on base and pass on head.
 
     on_step(name): legacy string callback (fetching ... receipt), unchanged.
@@ -311,6 +311,9 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     revert: after the gate looks open, revert the fix and require the proof test to fail again (fail closed).
     mutation: after the revert check, run the proof test against up to 5 AST mutants of the changed lines; a kill rate
         below 60% is MUTATION_SURVIVED (fail closed). False skips it.
+    strengthen: when the mutation check really fails (MUTATION_SURVIVED), the test writer gets ONE retry with the
+        surviving mutants' diffs; the new test goes through the whole gate again (the bar stays at 60%, the harness
+        decides). Recorded as mutation.strengthened and as a `strengthen` step. False skips the retry.
     flake_runs: run the proof test this many times on base and on head (default 5, at most 10, 1 turns the check
         off). Any inconsistent side gives the FLAKY verdict. No model calls.
     triage / repo_map: the Lightning calls (an advisory read of the base failure; the repo map that feeds the
@@ -318,6 +321,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     """
     from .modelcalls import PRICES_SOURCE_URL, ModelCalls, total_cost
     from .repomap import build_repo_map
+    from . import strengthen as strengthening
     from .revert import changed_files, is_test_path, revert_check
     from .steps import StepLog
     from .tautology import safe_changed_symbols
@@ -534,6 +538,99 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
                 mutation_result = {"ran": False, "mutants": [], "killed": 0, "total": 0, "kill_rate": None, "ok": False,
                                    "threshold": 0.6, "note": f"{type(error).__name__}: {error}"}
             (steps.done if mutation_result["ok"] else steps.failed)("mutation_check", mutation_detail(mutation_result))
+
+        if mutation_result is not None and strengthen and gate_ok and strengthening.eligible(mutation_result):
+            first_mutation = mutation_result
+            found = strengthening.survivors(first_mutation)
+            record = strengthening.new_record(first_mutation, found, test_name)
+            steps.started("strengthen", {"survivors": len(found), "killed": first_mutation["killed"],
+                                         "total": first_mutation["total"], "kill_rate_before": first_mutation["kill_rate"]})
+
+            def settle(outcome, reason, after=None, new_completion_id=None):
+                target = after if after is not None else first_mutation
+                target["strengthened"] = strengthening.finish(record, outcome, reason, after, new_completion_id)
+                (steps.done if outcome == "adopted" else steps.failed)("strengthen", {
+                    "outcome": outcome, "reason": reason, "kill_rate_before": first_mutation["kill_rate"],
+                    "kill_rate_after": after["kill_rate"] if after is not None else None})
+                return target
+
+            try:
+                new_function, new_attempts = generate_proof_test(
+                    calls.ask("test_writer"), key, prompt + strengthening.addendum(test_source, first_mutation, found),
+                    system, MODEL, 2048, extra_check=tautology_check_for(changed_syms))
+            except ModelRequestError as error:
+                new_function, new_attempts = None, [{"completion_id": None, "rejection": f"HTTP {error.status}"}]
+            new_completion_id = new_attempts[-1]["completion_id"]
+            record["completion_id"] = new_completion_id
+            new_name_match = re.match(r"\s*def\s+(test_\w+)", new_function) if new_function else None
+            if not new_name_match:
+                settle("kept_original", "the stronger test was not produced: " + str(new_attempts[-1].get("rejection")))
+            else:
+                new_name = new_name_match.group(1)
+                new_source = f"import pytest\n\n{new_function.rstrip()}\n"
+                for snapshot in (base_dir, head_dir):
+                    (snapshot / "latch_issue_test.py").write_text(new_source, encoding="utf-8")
+                steps.started("base_run")
+                new_base = execute(base_dir, command)
+                new_kind = expected_base_failure(new_base, new_name)
+                steps.done("base_run", {"returncode": new_base["returncode"], "failure_type": new_kind})
+                steps.started("head_run")
+                new_head = execute(head_dir, command)
+                steps.done("head_run", {"returncode": new_head["returncode"]})
+                refusal = None
+                if not proven(new_base, new_head, new_name):
+                    refusal = "the stronger test is not red on base and green on head"
+                new_flake = None
+                if refusal is None and (flake_runs is None or flake_runs > 1):
+                    steps.started("flake_check", {"runs": flake_runs})
+                    rerun = lambda snapshot: (lambda: (clean_snapshot(snapshot), execute(snapshot, command))[1])
+                    new_flake = flake_check(rerun(base_dir), rerun(head_dir), new_base["returncode"] == 0,
+                                            new_head["returncode"] == 0, flake_runs)
+                    (steps.failed if new_flake["flaky"] else steps.done)(
+                        "flake_check", {k: new_flake[k] for k in ("runs", "flaky", "flake_rate", "base_fail_rate", "head_pass_rate")})
+                    if new_flake["flaky"]:
+                        refusal = "the stronger test is flaky"
+                new_revert = {"ran": False, "skipped": "revert check disabled"}
+                if refusal is None and revert:
+                    steps.started("revert_check")
+                    try:
+                        new_revert = revert_check(
+                            lambda directory: execute(directory, command), new_name, new_source, "latch_issue_test.py",
+                            head_dir, base_dir, changed_files(repo, base_commit, head_commit), root / "mutants-strengthened",
+                            is_test_path)
+                    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                        new_revert = {"ran": False, "ok": False, "mutants": [], "error": f"{type(error).__name__}: {error}",
+                                      "summary": "the revert check could not run, so the gate stays shut"}
+                    (steps.done if new_revert["ok"] else steps.failed)("revert_check", new_revert["summary"])
+                    if not new_revert["ok"]:
+                        refusal = "the stronger test does not isolate the fix: " + str(new_revert["summary"])
+                if refusal is not None:
+                    for snapshot in (base_dir, head_dir):  # back to the original test; its verdict stands
+                        (snapshot / "latch_issue_test.py").write_text(test_source, encoding="utf-8")
+                    settle("kept_original", refusal)
+                else:
+                    steps.started("mutation_check")
+                    try:
+                        new_mutation = run_mutation(mutant_run, head_dir, base_dir, mutation_changes, new_source,
+                                                    "latch_issue_test.py", root / "mutations-strengthened", is_test_path,
+                                                    time_budget=time_budget_for(runner is not None))
+                    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                        new_mutation = {"ran": False, "mutants": [], "killed": 0, "total": 0, "kill_rate": None, "ok": False,
+                                        "threshold": 0.6, "note": f"{type(error).__name__}: {error}"}
+                    (steps.done if new_mutation["ok"] else steps.failed)("mutation_check", mutation_detail(new_mutation))
+                    # The new test went through every stage, so it (and its evidence) is the one the harness judges.
+                    test_source, test_name, base_result, head_result, base_kind = new_source, new_name, new_base, new_head, new_kind
+                    flake_result, revert_result, completion_id = new_flake, new_revert, new_completion_id
+                    test_attempts = test_attempts + [{**item, "strengthening": True} for item in new_attempts]
+                    is_proven = new_mutation["ok"]
+                    mutation_result = settle("adopted" if new_mutation["ok"] else "still_surviving",
+                                             None if new_mutation["ok"] else "the stronger test still killed too few mutants",
+                                             new_mutation, new_completion_id)
+        elif mutation_result is not None and not mutation_result["ok"]:
+            mutation_result["strengthened"] = strengthening.not_attempted(
+                "strengthening is off" if not strengthen
+                else "the proof test is flaky, which decides the verdict before the mutation check does" if not gate_ok
+                else "no measured kill rate with a surviving mutant to learn from")
 
     decided = verdict_fields(
         {"base": base_result, "head": head_result, "test_name": test_name, "revert": revert_result,

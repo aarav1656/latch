@@ -25,6 +25,7 @@ from ..prove import (PYTEST_ENV, TRIAGE_SYSTEM, ModelRequestError, archive, expe
 from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
 from .. import provider as providers
+from .. import strengthen as strengthening
 from ..run import LIGHTNING, MODEL, call_model, load_key
 from ..steps import StepLog
 from ..flake import clamp_runs, flake_check
@@ -215,6 +216,7 @@ def run_loop(
     repo_map=True,
     flake_runs=FLAKE_RUNS,
     mutation=True,
+    strengthen=True,
 ):
     """Run the fix loop and return the receipt dict (`receipt["gate"]` is "gate_open", "gave_up" or "error";
     `receipt["verdict"]` is the named verdict from latch.verdict, or None on an infrastructure error).
@@ -239,6 +241,9 @@ def run_loop(
     repo_map: Nemotron Lightning builds a compact repo map that goes into Ultra's test-writing prompt.
     mutation: after the revert check, run the proof test against up to 5 AST mutants of the changed lines (kill rate
         below 60% shuts the gate: MUTATION_SURVIVED). False skips it.
+    strengthen: when the mutation check really fails (MUTATION_SURVIVED), the test writer gets ONE retry with the surviving
+        mutants' diffs; the new test then goes through the whole gate again (the 0.6 bar is unchanged, the harness
+        decides). Recorded as mutation.strengthened in the receipt and as a `strengthen` step. False skips the retry.
     flake_runs: rerun the proof test this many times on base and on the final code (default 5, at most 10, 1 turns it
         off) before the revert check. Any inconsistent side gives the FLAKY verdict and the gate stays shut.
     model_fn: optional replacement for latch.run.call_model(key, user, model=, system=, max_tokens=)
@@ -261,7 +266,9 @@ def run_loop(
     events = []
 
     def emit(type_, **fields):
-        event = _clip_fields({"type": type_, "ts": now(), "run_id": run_id, **fields},
+        # A dev (non-Nebius) run labels EVERY event, so any single line of its events file is self-describing.
+        label = {"provider": providers.current(), "dev_only": True} if providers.is_dev() else {}
+        event = _clip_fields({"type": type_, "ts": now(), "run_id": run_id, **label, **fields},
                              ("issue", "diff", "pytest_output", "test", "output", "reason", "model_text"))
         events.append(event)
         if on_event:
@@ -565,8 +572,10 @@ def run_loop(
                          base_red=True, head_suite_green=True)
                 return result["ok"]
 
-            def mutation_gate(loop_files=None):
-                """Mutate the changed lines of the final code; the proof test must kill enough mutants, or the gate stays shut."""
+            def mutation_gate(loop_files=None, final=True):
+                """Mutate the changed lines of the final code; the proof test must kill enough mutants, or the gate stays shut.
+
+                final=False defers the gate_shut event to the caller (a strengthening retry may still follow)."""
                 if not mutation:
                     return True
                 from ..mutate import RUN_TIMEOUT, mutation_detail, run_mutation, time_budget_for
@@ -576,10 +585,116 @@ def run_loop(
                                       loop_files=loop_files, time_budget=time_budget_for(False))
                 receipt["mutation"] = ev["mutation"] = result
                 (steps.done if result["ok"] else steps.failed)("mutation_check", mutation_detail(result))
-                if not result["ok"]:
+                if not result["ok"] and final:
                     emit("gate_shut", iteration=len(receipt["iterations"]), reason="mutation check failed: " + result["note"],
                          base_red=True, head_suite_green=True)
                 return result["ok"]
+
+            def strengthen_round(loop_files, first):
+                """ONE test-writer retry with the surviving mutants' diffs, then the whole gate again on the new test.
+
+                True when the new test passes every stage. Anything short of that restores the original test and its
+                MUTATION_SURVIVED failure (the harness never keeps a test that did not clear the gate)."""
+                nonlocal test_source, test_name, base_result, base_red, base_kind
+                found = strengthening.survivors(first)
+                record = strengthening.new_record(first, found, test_name)
+                steps.started("strengthen", {"survivors": len(found), "killed": first["killed"], "total": first["total"],
+                                             "kill_rate_before": first["kill_rate"]})
+                keys = ("proof_test", "proof_test_attempts", "tautology", "flaky", "revert_check", "mutation")
+                saved_receipt = {k: receipt[k] for k in keys if k in receipt}
+                saved_ev, saved_tests = dict(ev), (test_source, test_name, base_result, base_red, base_kind)
+
+                def settle(outcome, reason, after=None, completion_id=None, ok=False):
+                    target = after if after is not None else first
+                    target["strengthened"] = strengthening.finish(record, outcome, reason, after, completion_id)
+                    receipt["mutation"] = ev["mutation"] = target
+                    (steps.done if ok else steps.failed)("strengthen", {
+                        "outcome": outcome, "reason": reason, "kill_rate_before": first["kill_rate"],
+                        "kill_rate_after": after["kill_rate"] if after is not None else None})
+                    if not ok:
+                        emit("gate_shut", iteration=len(receipt["iterations"]),
+                             reason="mutation check failed: " + target["note"], base_red=True, head_suite_green=True)
+                    return ok
+
+                def restore(reason):
+                    nonlocal test_source, test_name, base_result, base_red, base_kind
+                    for k in keys:
+                        if k in saved_receipt:
+                            receipt[k] = saved_receipt[k]
+                    ev.clear()
+                    ev.update(saved_ev)
+                    test_source, test_name, base_result, base_red, base_kind = saved_tests
+                    (base_dir / TEST_FILE).write_text(test_source, encoding="utf-8")
+                    return settle("kept_original", reason)
+
+                try:
+                    new_function, new_attempts = generate_proof_test(
+                        calls.ask("test_writer"), key, prompt + strengthening.addendum(test_source, first, found),
+                        TEST_SYSTEM, test_model, 8192, extra_check=taut_check)
+                except ModelRequestError as error:
+                    return restore(f"the stronger-test request failed: HTTP {error.status}")
+                for item in new_attempts:
+                    if not item["valid"]:
+                        emit("proof_test_attempt", **{k: item[k] for k in ("attempt", "completion_id", "valid", "rejection")})
+                completion_id = new_attempts[-1]["completion_id"]
+                record["completion_id"] = completion_id
+                if new_function is None:
+                    return restore("the stronger test was rejected: " + str(new_attempts[-1]["rejection"]))
+                name_match = re.match(r"\s*def\s+(test_\w+)", new_function)
+                if not name_match:
+                    return restore("the stronger test has no test_ function")
+                test_name = name_match.group(1)
+                test_source = f"import pytest\n\n{new_function.rstrip()}\n"
+                ev["test_name"] = test_name
+                receipt["proof_test_attempts"] = list(receipt.get("proof_test_attempts") or []) + [
+                    {**item, "strengthening": True} for item in new_attempts]
+                receipt["tautology"] = ev["tautology"] = new_attempts[-1].get("tautology") or saved_ev["tautology"]
+                steps.started("base_run")
+                (base_dir / TEST_FILE).write_text(test_source, encoding="utf-8")
+                base_result = _run_proof(base_dir, command)
+                base_kind = expected_base_failure(base_result, test_name)
+                base_red = base_result["returncode"] != 0 and base_kind is not None
+                steps.done("base_run", {"returncode": base_result["returncode"], "failure_type": base_kind, "red": base_red})
+                if not base_red:
+                    return restore("the stronger test does not fail on the base revision with an assertion")
+                steps.started("head_run")
+                _clean(work)
+                (work / TEST_FILE).write_text(test_source, encoding="utf-8")
+                head_result_new = _run_proof(work, command)
+                (work / TEST_FILE).unlink()
+                head_ok_new = proven(base_result, head_result_new, test_name)
+                ev.update(base=base_result, head=head_result_new)
+                steps.done("head_run", {"proof_returncode": head_result_new["returncode"], "gate_open": head_ok_new})
+                if not head_ok_new:
+                    return restore("the stronger test does not pass on the fixed code")
+                if not flake_gate(work):
+                    return restore("the stronger test is flaky: " + receipt["flaky"]["note"])
+                if not revert_gate(loop_files):
+                    return restore("the stronger test does not isolate the fix: " + receipt["revert_check"]["summary"])
+                ok = mutation_gate(loop_files, final=False)
+                after = receipt["mutation"]
+                receipt["proof_test"] = {"name": test_name, "source": clip(test_source)[0], "generated_by": test_model,
+                                         "completion_id": completion_id, "strengthened": True}
+                emit("proof_test", name=test_name, test=test_source, generated_by=test_model, completion_id=completion_id,
+                     strengthened=True)
+                return settle("adopted" if ok else "still_surviving",
+                              None if ok else "the stronger test still killed too few mutants", after, completion_id, ok)
+
+            def gate_mutation(loop_files=None):
+                """mutation_gate plus at most one survivor-driven strengthening round (only on an actual failure)."""
+                if not mutation:
+                    return True
+                if mutation_gate(loop_files, final=False):
+                    return True
+                first = receipt["mutation"]
+                if strengthen and not proof_test and strengthening.eligible(first):
+                    return strengthen_round(loop_files, first)
+                first["strengthened"] = strengthening.not_attempted(
+                    "strengthening is off" if not strengthen else "the proof test was supplied, not generated" if proof_test
+                    else "no measured kill rate with a surviving mutant to learn from")
+                emit("gate_shut", iteration=len(receipt["iterations"]), reason="mutation check failed: " + first["note"],
+                     base_red=True, head_suite_green=True)
+                return False
 
             if head_ok and suite_green:
                 emit("gate_check", iteration=0, base_red=True, head_suite_green=True)
@@ -588,7 +703,7 @@ def run_loop(
                 if not revert_gate():
                     return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
                                              "isolate the fix: " + receipt["revert_check"]["summary"])
-                if not mutation_gate():
+                if not gate_mutation():
                     return finish("gave_up", "the proof test does not pin the fix down: " + receipt["mutation"]["note"])
                 inspect(work)
                 return finish("gate_open", "the submitted fix already passes the proof test; no loop needed")
@@ -701,7 +816,7 @@ def run_loop(
                     if not revert_gate(loop_files):
                         return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
                                                  "isolate the fix: " + receipt["revert_check"]["summary"])
-                    if not mutation_gate(loop_files):
+                    if not gate_mutation(loop_files):
                         return finish("gave_up", "the proof test does not pin the fix down: " + receipt["mutation"]["note"])
                     inspect(work)
                     return finish("gate_open", f"harness watched the proof test go red on base and green after iteration {i}, with the repo suite green")

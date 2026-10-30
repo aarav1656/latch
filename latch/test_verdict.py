@@ -107,5 +107,22 @@ class FieldsTests(unittest.TestCase):
         self.assertEqual(f["verdict_logs"]["survivors"][0]["id"], "m1")
 
 
+class ErrorExcerptTests(unittest.TestCase):
+    """An INVALID_TEST for a non-assertion error names the exception, so it is clear whether the code under test raised it."""
+
+    RAISED = {"returncode": 1, "stderr": "", "stdout": "____ test_x ____\nt.py:7: in test_x\n    f([])\nE   IndexError: list index out of range\n"}
+
+    def test_reason_names_the_exception_that_ended_the_test_on_base(self):
+        verdict, reason = v.decide_verdict(ev(base=self.RAISED))
+        self.assertEqual(verdict, v.INVALID_TEST)
+        self.assertIn("instead of failing an assertion (IndexError: list index out of range)", reason)
+
+    def test_reason_names_it_on_head_too_and_collection_errors_still_read_fine(self):
+        self.assertIn("errored on head", v.decide_verdict(ev(head=self.RAISED))[1])
+        self.assertIn("(IndexError", v.decide_verdict(ev(head=self.RAISED))[1])
+        verdict, reason = v.decide_verdict(ev(base=ERR))
+        self.assertEqual(verdict, v.INVALID_TEST)
+        self.assertTrue(reason.endswith("instead of failing an assertion"))
+
 if __name__ == "__main__":
     unittest.main()
