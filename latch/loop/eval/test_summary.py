@@ -66,6 +66,10 @@ class SummaryTests(unittest.TestCase):
         w = build()["wrong_fixes"]
         self.assertEqual((w["n"], w["caught"]), (3, 2))                      # errors are not counted as caught
         self.assertEqual((w["without_contested"]["n"], w["without_contested"]["caught"]), (2, 2))
+        v = w["caught_by_valid_test"]
+        self.assertEqual(v["n"], 3)
+        self.assertLessEqual(v["caught"], w["caught"])                       # a valid-test rejection is a subset of "gate shut"
+        self.assertLessEqual(v["without_contested"]["caught"], w["without_contested"]["caught"])
         self.assertEqual(w["false_accepts"], ["cachetools-423"])
         self.assertEqual(w["contested_cases"], ["cachetools-423"])           # click-3360's wrong run errored, so it is not in the count
         self.assertEqual(w["errors"], 1)

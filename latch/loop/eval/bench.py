@@ -150,7 +150,12 @@ def totals(rows):
         "real_fail_on_base": _ratio(sum(1 for r in real if r.get("fail_on_base")), len([r for r in real if r.get("fail_on_base") is not None])),
         "wrong_patch_rejection": {**_ratio(sum(1 for r in wrong if r.get("wrong_patch_rejected")), len(wrong)),
                                   "without_contested": _ratio(sum(1 for r in wrong if r.get("wrong_patch_rejected") and r["case"] not in CONTESTED),
-                                                              len([r for r in wrong if r["case"] not in CONTESTED]))},
+                                                              len([r for r in wrong if r["case"] not in CONTESTED])),
+                                  # the gate shut for any reason counts above; this counts only wrong patches a VALID proof test failed
+                                  "by_valid_test": _ratio(sum(1 for r in wrong if r.get("verdict") == "FIX_FAILS_TEST"), len(wrong)),
+                                  "by_valid_test_without_contested": _ratio(
+                                      sum(1 for r in wrong if r.get("verdict") == "FIX_FAILS_TEST" and r["case"] not in CONTESTED),
+                                      len([r for r in wrong if r["case"] not in CONTESTED]))},
         "nofix_gate_open": _ratio(sum(1 for r in nofix if r["outcome"] in ("nemotron_fix_correct", "green_but_wrong")), len(nofix)),
         "gate_accepted_but_oracle_fails": {"n": len(accepted_wrong), "cases": accepted_wrong,
                                            "note": "gate opened (at iteration 0, or after repair) on code the oracle rejects; listed, never hidden"},
