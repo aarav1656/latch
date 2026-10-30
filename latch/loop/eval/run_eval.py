@@ -18,7 +18,7 @@ Per case, Latch (latch.loop.run_loop with Lightning triage, Ultra for the proof 
 False accept = the gate is open at iteration 0 on the wrong patch (no loop needed). Repair = the gate was shut,
 the loop patched, and the gate opened; the repaired code is then checked against the oracle (the model never sees it).
 
-Clones, wrong-patch repos and caches live under $LATCH_EVAL_ROOT (default /mnt/data/nvdia/loop);
+Clones, wrong-patch repos and caches live under $LATCH_EVAL_ROOT (default ~/.cache/latch/eval; set it to a large disk for the full eval);
 the venv (pytest, hypothesis, ... but none of the projects) lives at $LATCH_EVAL_VENV (default ~/.cache/latch-eval/venv).
 """
 import argparse
@@ -42,7 +42,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from latch.loop.core import LoopError, run_loop  # noqa: E402
 from latch.loop.eval.cases import CASES, DROPPED  # noqa: E402
 
-ROOT = Path(os.environ.get("LATCH_EVAL_ROOT", "/mnt/data/nvdia/loop"))
+ROOT = Path(os.environ.get("LATCH_EVAL_ROOT") or (Path.home() / ".cache" / "latch" / "eval")).expanduser()
 VENV = Path(os.environ.get("LATCH_EVAL_VENV", "~/.cache/latch-eval/venv")).expanduser()
 PY = str(VENV / "bin" / "python")
 GIT = ["git", "-c", "core.hooksPath=/dev/null", "-c", "user.name=latch-eval", "-c", "user.email=eval@latch.invalid"]
