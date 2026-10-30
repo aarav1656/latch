@@ -56,32 +56,61 @@ def _load_object(path):
     return data if isinstance(data, dict) else None
 
 
+def _eval_runs(root):
+    """The committed live runs, newest first: the repair run (when committed) is the headline, the first run is shown beside it."""
+    return [
+        {"tag": "repair", "summary": root / "latch" / "runs" / "eval-summary-repair.json",
+         "receipts": root / "latch" / "runs" / "eval-repair", "diff": root / "latch" / "runs" / "eval-diff-repair.json"},
+        {"tag": None, "summary": root / "latch" / "runs" / "eval-summary.json", "receipts": root / "latch" / "runs" / "eval", "diff": None},
+    ]
+
+
+def _live_summary(summary):
+    return not (is_dev_output(summary) or summary.get("fixture") is True or summary.get("mode") not in (None, "live"))
+
+
+def _featured(root, summary, receipts_dir):
+    ref = summary.get("featured_wrong_fix_receipt")
+    if not (isinstance(ref, str) and ref and "\x00" not in ref and not is_dev_path(ref)):
+        return None
+    allowed = Path(receipts_dir).resolve()
+    try:
+        target = (root / ref).resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
+    if allowed not in target.parents or not target.is_file() or is_dev_path(target):
+        return None
+    loaded = _load_object(target)
+    if loaded is None or is_dev_output(loaded):
+        return None
+    if isinstance(loaded.get("receipt"), dict) and isinstance(loaded.get("meta"), dict):
+        return loaded
+    return make_envelope(loaded, "recorded", extra={"recorded_run": ref})
+
+
+PREVIOUS_FIELDS = ("run", "generated_at", "latch_git_sha", "verdicts", "benchmark", "wrong_fixes", "test_repair")
+
+
 def eval_payload():
-    """The eval page's data: the committed summary plus the featured wrong-fix receipt, or an honest 'pending'."""
+    """The eval page's data: the newest committed live summary, its featured wrong-fix receipt, and the earlier run beside it
+    (its headline fields and the per-case diff), or an honest 'pending'."""
     root = eval_root()
-    summary = _load_object(root / "latch" / "runs" / "eval-summary.json")
-    if summary is None:
+    present = [(run, s) for run in _eval_runs(root) for s in [_load_object(run["summary"])] if s is not None]
+    if not present:
         return {"available": False, "reason": EVAL_PENDING}
-    if is_dev_output(summary) or summary.get("fixture") is True or summary.get("mode") not in (None, "live"):
+    live = [(run, s) for run, s in present if _live_summary(s)]
+    if not live:
         return {"available": False, "reason": EVAL_DEV}
+    (run, summary), earlier = live[0], live[1:]
     for key in EVAL_WITHHELD:
         summary.pop(key, None)
-    featured = None
-    ref = summary.get("featured_wrong_fix_receipt")
-    if isinstance(ref, str) and ref and "\x00" not in ref and not is_dev_path(ref):
-        allowed = (root / "latch" / "runs" / "eval").resolve()
-        try:
-            target = (root / ref).resolve()
-        except (OSError, RuntimeError, ValueError):
-            target = None
-        if target is not None and allowed in target.parents and target.is_file() and not is_dev_path(target):
-            loaded = _load_object(target)
-            if loaded is not None and not is_dev_output(loaded):
-                if isinstance(loaded.get("receipt"), dict) and isinstance(loaded.get("meta"), dict):
-                    featured = loaded
-                else:
-                    featured = make_envelope(loaded, "recorded", extra={"recorded_run": ref})
-    return {"available": True, "summary": summary, "featured": featured}
+    payload = {"available": True, "summary": summary, "featured": _featured(root, summary, run["receipts"])}
+    if earlier:
+        payload["previous"] = {k: earlier[0][1].get(k) for k in PREVIOUS_FIELDS}
+        diff = _load_object(run["diff"]) if run["diff"] else None
+        if diff is not None and not is_dev_output(diff):
+            payload["diff"] = diff
+    return payload
 
 
 def build_service(data_dir=None, **kwargs):

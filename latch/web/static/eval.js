@@ -220,6 +220,37 @@
     return section("Run details", ...nodes);
   }
 
+  function sideBySide(data) {
+    const p = data.previous, d = data.diff;
+    if (!p) return null;
+    const s = data.summary;
+    const h = (d && d.headline) || {};
+    const pair = (x) => (x && x.before != null ? [String(x.before), String(x.after)] : [NR, NR]);
+    const count = (x) => (Array.isArray(x) ? String(x.length) : int(x));
+    const accepts = h.false_accepts ? [count(h.false_accepts.before), count(h.false_accepts.after)] : [NR, NR];
+    const cost = h.cost_usd ? [usd(h.cost_usd.before), usd(h.cost_usd.after)] : [NR, NR];
+    const body = [
+      ["Real fixes validated", ...pair(h.real_validated)],
+      ["Wrong patches failed by a valid proof test", ...pair(h.wrong_patches_failed_by_valid_test)],
+      ["Wrong patches accepted", ...accepts],
+      ["Proof tests that errored instead of asserting", ...pair(h.invalid_test)],
+      ["Model cost, all runs", ...cost],
+    ];
+    const kids = [
+      el("p", null, "The same 42 runs, twice. The repair run adds one round where the test writer sees its own test's error output and rewrites the test. The first run is kept exactly as it ran."),
+      table(["Measure", "First run", "Repair run"], body, 1),
+    ];
+    const changed = d && Array.isArray(d.cases) ? d.cases.filter((c) => c.changed) : [];
+    if (changed.length) {
+      kids.push(el("h3", "section-sub", "Verdicts that changed"));
+      kids.push(table(["Case", "Variant", "First run", "Repair run", "Test repaired"],
+        changed.map((c) => [c.case || NR, c.variant || NR, c.verdict_before || NR, c.verdict_after || NR, c.test_repair ? "yes" : "no"]), 0));
+    }
+    if (d && d.note) kids.push(el("p", "hint", d.note));
+    kids.push(el("p", "hint", "First run: Latch " + String(p.latch_git_sha || NR).slice(0, 7) + ". Repair run: Latch " + String(s.latch_git_sha || NR).slice(0, 7) + "."));
+    return section("First run and repair run, side by side", ...kids);
+  }
+
   function fullView(data) {
     const s = data.summary;
     const wf = s.wrong_fixes || {};
@@ -233,7 +264,9 @@
     if (wf.rule) hero.appendChild(el("p", "hint", wf.rule));
     if (wf.contested_note) hero.appendChild(el("p", "hint", wf.contested_note));
     const cases = Array.isArray(s.cases) ? s.cases : [];
-    const out = [hero, featured(data), verdictSummary(s, cases)];
+    const vt = wf.caught_by_valid_test;
+    if (vt && isNum(vt.caught)) hero.appendChild(el("p", "eval-sub", frac(vt.caught, vt.n) + " were failed by a valid proof test; the rest never got a usable test, so the gate stayed shut by default."));
+    const out = [hero, sideBySide(data), featured(data), verdictSummary(s, cases)].filter(Boolean);
     const bsec = benchmarkSection(s);
     if (bsec) out.push(bsec);
 
