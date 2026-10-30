@@ -1,0 +1,298 @@
+{
+  "repo": "demo-bookings",
+  "base": "7118182e14162dce30ae88971d4b7da0c0c957e2",
+  "head": "1b774fb6cac181bb8d7a6739f5a81914f99b941c",
+  "issue": "Back-to-back bookings are treated as double-booked\n\nA booking that ends at 10:00 and the next one that starts at 10:00 do not share any time, but the booking helpers treat them as a clash. Example with times in minutes since midnight:\n\n    find_conflicts([(540, 600), (600, 660)])   # returns [((540, 600), (600, 660))], should be []\n    merge_bookings([(540, 600), (600, 660)])   # returns [(540, 660)], should stay [(540, 600), (600, 660)]\n\nBack-to-back bookings must not be reported as conflicts and must not be merged into one block. Bookings that really overlap (for example (540, 600) and (570, 630)) must keep behaving as before.",
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "repo_map": {
+    "status": "ok",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793339674-SFsgXHXwqG8fLmike2ct",
+    "files": [
+      {
+        "path": "bookings.py",
+        "symbols": [
+          "overlaps",
+          "find_conflicts",
+          "merge_bookings"
+        ],
+        "changed": true
+      }
+    ],
+    "dropped": [],
+    "text": "bookings.py  (touched by the submitted diff)\n  def overlaps(a, b)  L4  - True when two bookings clash.\n  def find_conflicts(bookings)  L9  - Return every pair of bookings that clash, in input order.\n  def merge_bookings(bookings)  L19  - Collapse clashing bookings into blocks, e.g. for a room utilisation report.",
+    "files_indexed": 1
+  },
+  "verdict": "VALIDATED",
+  "verdict_reason": "red on base with an assertion, green on head, killed the revert (mutation check was not run)",
+  "proven": true,
+  "base_sha": "7118182e14162dce30ae88971d4b7da0c0c957e2",
+  "head_sha": "1b774fb6cac181bb8d7a6739f5a81914f99b941c",
+  "verdict_logs": {
+    "base": "st.py::test_back_to_back_bookings_not_treated_as_conflicts - Failed: Latch expected the issue operation to succeed: assert not True\n1 failed in 0.09s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+    "head": "                                                                                                                             [100%]\n1 passed in 0.01s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "overlaps"
+    ],
+    "asserted_symbols": [
+      "find_conflicts",
+      "overlaps"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "find_conflicts"
+    ],
+    "mode": "changed"
+  },
+  "completion_id": "gen-1793339687-JSvHUvZwjZEjEexTX4Fs",
+  "test": "import pytest\n\ndef test_back_to_back_bookings_not_treated_as_conflicts():\n    import pytest\n    from bookings import overlaps, find_conflicts\n\n    try:\n        # Back-to-back bookings should not overlap\n        assert not overlaps((540, 600), (600, 660))\n        # Back-to-back bookings should not be reported as conflicts\n        assert find_conflicts([(540, 600), (600, 660)]) == []\n        # Overlapping bookings should still be detected\n        assert overlaps((540, 600), (570, 630))\n        assert find_conflicts([(540, 600), (570, 630)]) == [((540, 600), (570, 630))]\n    except Exception as e:\n        pytest.fail(f\"Latch expected the issue operation to succeed: {e}\")\n",
+  "base_result": {
+    "returncode": 1,
+    "stdout": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_________________________________________________________________________ test_back_to_back_bookings_not_treated_as_conflicts __________________________________________________________________________\nlatch_issue_test.py:9: in test_back_to_back_bookings_not_treated_as_conflicts\n    assert not overlaps((540, 600), (600, 660))\nE   assert not True\nE    +  where True = <function overlaps at 0x10866de10>((540, 600), (600, 660))\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:16: in test_back_to_back_bookings_not_treated_as_conflicts\n    pytest.fail(f\"Latch expected the issue operation to succeed: {e}\")\nE   Failed: Latch expected the issue operation to succeed: assert not True\nE    +  where True = <function overlaps at 0x10866de10>((540, 600), (600, 660))\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings_not_treated_as_conflicts - Failed: Latch expected the issue operation to succeed: assert not True\n1 failed in 0.09s\n",
+    "stderr": "/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+  },
+  "head_result": {
+    "returncode": 0,
+    "stdout": ".                                                                                                                                                                                                [100%]\n1 passed in 0.01s\n",
+    "stderr": "/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+  },
+  "test_name": "test_back_to_back_bookings_not_treated_as_conflicts",
+  "base_failure_type": "unexpected-operation",
+  "base_failure_is_expected": true,
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "bookings.py"
+        ],
+        "returncode": 1,
+        "failure_type": "unexpected-operation",
+        "failed_as_expected": true,
+        "output": "0))\nE   assert not True\nE    +  where True = <function overlaps at 0x10cb21d80>((540, 600), (600, 660))\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:16: in test_back_to_back_bookings_not_treated_as_conflicts\n    pytest.fail(f\"Latch expected the issue operation to succeed: {e}\")\nE   Failed: Latch expected the issue operation to succeed: assert not True\nE    +  where True = <function overlaps at 0x10cb21d80>((540, 600), (600, 660))\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings_not_treated_as_conflicts - Failed: Latch expected the issue operation to succeed: assert not True\n1 failed in 0.07s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+        "identical_to_base": false,
+        "note": "all non-test files the change touched were set back to base"
+      }
+    ],
+    "tests_kept": [
+      "test_bookings.py"
+    ],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793339752-38BrfdjsF5A52NBl6caV",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe `overlaps` function incorrectly returns `True` for back-to-back intervals (540,600) and (600,660), confirming the reported bug.",
+    "advisory": true
+  },
+  "test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "gen-1793339687-JSvHUvZwjZEjEexTX4Fs",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_back_to_back_bookings_not_treated_as_conflicts():\n    import pytest\n    from bookings import overlaps, find_conflicts\n\n    try:\n        # Back-to-back bookings should not overlap\n        assert not overlaps((540, 600), (600, 660))\n        # Back-to-back bookings should not be reported as conflicts\n        assert find_conflicts([(540, 600), (600, 660)]) == []\n        # Overlapping bookings should still be detected\n        assert overlaps((540, 600), (570, 630))\n        assert find_conflicts([(540, 600), (570, 630)]) == [((540, 600), (570, 630))]\n    except Exception as e:\n        pytest.fail(f\"Latch expected the issue operation to succeed: {e}\")",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "overlaps"
+        ],
+        "asserted_symbols": [
+          "find_conflicts",
+          "overlaps"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "find_conflicts"
+        ],
+        "mode": "changed"
+      }
+    }
+  ],
+  "model_retries": [],
+  "dev_only": true,
+  "note": "Dev-only run via OpenRouter free tier; not Nebius Token Factory numbers.",
+  "provider": "openrouter",
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 370,
+      "completion_tokens": 1881,
+      "latency_ms": 13422,
+      "completion_id": "gen-1793339674-SFsgXHXwqG8fLmike2ct",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "prompt_tokens": 1235,
+      "completion_tokens": 4830,
+      "latency_ms": 61057,
+      "completion_id": "gen-1793339687-JSvHUvZwjZEjEexTX4Fs",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 1063,
+      "completion_tokens": 827,
+      "latency_ms": 10505,
+      "completion_id": "gen-1793339752-38BrfdjsF5A52NBl6caV",
+      "cost_usd": null,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": null,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T05:54:33.316Z",
+      "detail": {
+        "base": "latch-demo-base",
+        "head": "latch-demo-head"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T05:54:33.508Z",
+      "detail": {
+        "base": "7118182e1416",
+        "head": "1b774fb6cac1",
+        "changed_python_files": [
+          "bookings.py",
+          "test_bookings.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T05:54:33.713Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "done",
+      "ts": "2026-10-30T05:54:47.135Z",
+      "detail": {
+        "files": [
+          "bookings.py"
+        ],
+        "dropped": [],
+        "detail": null
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T05:54:47.135Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T05:55:48.186Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "gen-1793339687-JSvHUvZwjZEjEexTX4Fs"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T05:55:48.186Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T05:55:50.865Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "unexpected-operation"
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T05:55:50.865Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T05:55:52.023Z",
+      "detail": {
+        "returncode": 0
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T05:55:52.023Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T05:56:02.529Z",
+      "detail": {
+        "verdict": "reproduced",
+        "completion_id": "gen-1793339752-38BrfdjsF5A52NBl6caV"
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T05:56:02.529Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T05:56:03.835Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T05:56:03.842Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, killed the revert (mutation check was not run)"
+      }
+    }
+  ]
+}
