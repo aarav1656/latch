@@ -18,6 +18,7 @@ from unittest import mock
 from latch import tautology as taut
 from latch import verdict as harness
 from latch.web import store
+from latch.web.service import Config
 from latch.web.test_app import Harness, receipt
 
 STATIC = Path(__file__).parent / "static"
@@ -213,8 +214,8 @@ class ServedTests(unittest.TestCase):
     def test_the_mutation_and_verdict_step_events_are_relayed_like_any_other(self):
         def run(url, path, command, on_step=None, runner=None, on_step_event=None):
             on_step("fetching")
-            on_step_event({"step": "mutation", "status": "started", "ts": "2026-10-30T04:00:00.000Z", "detail": None})
-            on_step_event({"step": "mutation", "status": "done", "ts": "2026-10-30T04:00:09.000Z", "detail": {"killed": 3, "total": 8, "kill_rate": 0.375}})
+            on_step_event({"step": "mutation_check", "status": "started", "ts": "2026-10-30T04:00:00.000Z", "detail": None})
+            on_step_event({"step": "mutation_check", "status": "done", "ts": "2026-10-30T04:00:09.000Z", "detail": {"killed": 3, "total": 8, "kill_rate": 0.375}})
             on_step_event({"step": "verdict", "status": "done", "ts": "2026-10-30T04:00:10.000Z",
                            "detail": {"verdict": "MUTATION_SURVIVED", "reason": "mutation kill rate 38% is below the 60% threshold"}})
             return verdict_receipt("MUTATION_SURVIVED", head_sha="7" * 40, head="7" * 40)
@@ -222,7 +223,7 @@ class ServedTests(unittest.TestCase):
         h = Harness(self, run_pr=run)
         events = h.events(h.post(h.add_pr(7))[2]["job_id"])
         relayed = [e["data"] for e in events if e["event"] == "step_event"]
-        self.assertEqual([(e["step"], e["status"]) for e in relayed], [("mutation", "started"), ("mutation", "done"), ("verdict", "done")])
+        self.assertEqual([(e["step"], e["status"]) for e in relayed], [("mutation_check", "started"), ("mutation_check", "done"), ("verdict", "done")])
         self.assertEqual(relayed[1]["detail"], {"killed": 3, "total": 8, "kill_rate": 0.375})
         self.assertEqual(relayed[2]["detail"]["verdict"], "MUTATION_SURVIVED")
         self.assertIn("threshold", relayed[2]["detail"]["reason"])
@@ -261,7 +262,7 @@ class ServedTests(unittest.TestCase):
 
     def test_the_receipt_page_script_renders_every_section_the_contract_has(self):
         js = (STATIC / "app.js").read_text()
-        self.assertIn('["mutation", "Mutation check (harness)", false]', js)
+        self.assertIn('["mutation_check", "Mutation check (harness)", false]', js)
         self.assertIn('["flake_check", "Rerun the test, expect the same result (harness)", false]', js)
         self.assertIn('["verdict", "Decide the verdict (harness)", true]', js)
         for needle in ("flakySection(r)", "mutationSection(r)", "Rerun check", "Mutation check", "verdict_logs", "base_fail_rate", "head_pass_rate", "flake_rate", "kill_rate", "threshold", "mu.what"):
@@ -347,6 +348,84 @@ class VerdictModuleTests(unittest.TestCase):
         self.assertEqual((got["none"], got["total"]), (3, 7))
         self.assertEqual(list(got["counts"]), list(CODES))
         self.assertEqual(self.call("window.LatchVerdict.breakdown(undefined)")["total"], 0)
+
+
+class StepNamesAndMutantStateTests(unittest.TestCase):
+    """The harness step names (fix, flake_check, mutation_check) and the mutant states it can report."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (STATIC / "app.js").read_text()
+        cls.loop = (STATIC / "loop.js").read_text()
+
+    def test_the_ledger_lists_the_harness_steps_in_pipeline_order(self):
+        order = ["fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "flake_check", "revert_check", "mutation_check", "verdict"]
+        at = [self.app.index('["%s",' % name) for name in order]
+        self.assertEqual(at, sorted(at), "the ledger rows are out of pipeline order")
+        self.assertIn('["flake_check", "Rerun the test, expect the same result (harness)", false]', self.app)
+        self.assertIn('["fix", "Fix the change (agent loop)", false]', self.app)
+
+    def test_the_old_mutation_step_name_is_mapped_to_mutation_check(self):
+        self.assertIn('"mutation": "mutation_check"', self.app)
+        self.assertIn("STEP_ALIAS", self.app)
+
+    def test_the_flake_check_detail_fields_are_read_when_shown(self):
+        for field in ("flake_rate", "base_fail_rate", "head_pass_rate"):
+            self.assertIn(field, self.app)
+
+    def test_timed_out_and_errored_mutants_are_not_labelled_survived(self):
+        self.assertIn("function mutantState", self.app)
+        for needle in ('"timed out"', '"error"', "timed_out", "mu.error"):
+            self.assertIn(needle, self.app)
+        self.assertIn("data-state", self.app.replace("setAttribute(\"data-state\"", "data-state"))
+
+    def test_a_mutation_check_that_did_not_run_fails_closed(self):
+        self.assertIn("mu.ran === false", self.app)
+        self.assertIn('"not-run"', self.app)
+        self.assertIn("This is not a pass.", self.app)
+        self.assertIn("a check that did not run has no mutants worth listing", self.app)
+
+    def test_the_gate_and_the_named_verdict_are_read_separately_for_loop_receipts(self):
+        for needle in ("function gateHolds", "function finalVerdict", "No verdict: infrastructure error", "Gate open, not validated"):
+            self.assertIn(needle, self.loop)
+
+    def test_a_final_event_with_a_new_receipt_shows_only_the_receipts_verdict(self):
+        self.assertIn('Object.prototype.hasOwnProperty.call(ev.receipt, "gate")', self.loop)
+        self.assertIn("a final event shows its receipt's verdict instead", self.loop)
+
+    def test_the_recorded_loop_demo_with_the_old_receipt_shape_still_loads(self):
+        h = Harness(self)
+        status, body = h.get_json("/api/loop/example")
+        if status == 404:
+            self.skipTest("no recorded loop run is installed")
+        self.assertEqual(status, 200)
+        events = body["events"]
+        self.assertTrue(events and events[-1].get("receipt"))
+        self.assertNotIn("gate", events[-1]["receipt"], "the recorded demo predates the gate field")
+
+
+class TimeoutAndEnvReuseTests(unittest.TestCase):
+    def test_the_loop_timeout_covers_reruns_and_mutants_and_can_be_overridden(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("LATCH_LOOP_TIMEOUT", None)
+            self.assertGreaterEqual(Config().loop_timeout, 900)
+        with mock.patch.dict(os.environ, {"LATCH_LOOP_TIMEOUT": "123"}):
+            self.assertEqual(Config().loop_timeout, 123)
+
+    def test_a_prepared_environment_is_reused_by_the_next_run_in_the_same_snapshot(self):
+        from latch.web.sandbox import SandboxConfig, SandboxRunner
+        with tempfile.TemporaryDirectory() as temp:
+            snapshot = Path(temp)
+            python = snapshot / ".latch-venv" / "bin" / "python"
+            python.parent.mkdir(parents=True)
+            python.write_text("")
+            runner = SandboxRunner(SandboxConfig(install="auto", net_isolation="off"))
+            with mock.patch.object(SandboxRunner, "_run", side_effect=AssertionError("setup must not run again")):
+                # not marked ready: the setup runs (and would call _run)
+                with self.assertRaises(AssertionError):
+                    runner._setup(snapshot, snapshot / ".latch-home", "head")
+                (snapshot / ".latch-venv" / ".latch-ready").write_text("ok\n")
+                self.assertEqual(runner._setup(snapshot, snapshot / ".latch-home", "head"), snapshot / ".latch-venv")
 
 
 if __name__ == "__main__":

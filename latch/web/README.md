@@ -57,7 +57,7 @@ closed: if it cannot prove something it says so and never shows a made-up result
 | `LATCH_SANDBOX_NET` | `auto` | `auto` runs the test phase under `unshare --net` when the host allows it; `off` disables. |
 | `LATCH_INSTALL_DEPS` | `1` | `0` skips installing the PR's own requirements. |
 | `LATCH_UV_CACHE` | `/opt/latch/uv-cache` | Prewarmed uv cache, copied per run. |
-| `LATCH_LOOP` / `LATCH_LOOP_TIMEOUT` / `LATCH_LOOP_CACHE` | `1` / `240` / `$LATCH_DATA/loop-cache` | Fix loop live runs. |
+| `LATCH_LOOP` / `LATCH_LOOP_TIMEOUT` / `LATCH_LOOP_CACHE` | `1` / `900` / `$LATCH_DATA/loop-cache` | Fix loop live runs. |
 | `LATCH_TRUST_PROXY` | `1` | Use the last `X-Forwarded-For` entry as the client IP (set `0` if not behind a proxy). |
 | `LATCH_LOCAL_KEY_FALLBACK` | `1` locally, `0` in the image | `1` lets `latch.run.load_key` fall back to an `export NEBIUS_API_KEY=` line in `~/.zshrc`. |
 

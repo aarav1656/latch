@@ -82,7 +82,8 @@
     c.appendChild(head);
     // The harness verdict, when the loop recorded one on this event. Only VALIDATED reads as a pass.
     const code = [ev.verdict_code, ev.verdict].find((x) => typeof x === "string" && window.LatchVerdict && window.LatchVerdict.VERDICTS[x]);
-    if (code) {
+    const final = ev.receipt && typeof ev.receipt === "object" && (ev.type === "error" || Object.prototype.hasOwnProperty.call(ev.receipt, "gate"));
+    if (code && !final) {  // a final event shows its receipt's verdict instead (finalVerdict), never both
       const v = window.LatchVerdict.VERDICTS[code];
       const line = el("p", "tl-verdict");
       line.append(el("span", "pill " + (v.pass ? "pass" : "fail"), v.label, { "data-verdict": code }), el("span", "tl-text", v.meaning));
@@ -92,6 +93,34 @@
     if (ev.truncated) c.appendChild(el("p", "tl-meta", "Long text was clipped to 20 KB (head and tail kept)."));
     li.appendChild(c);
     return li;
+  }
+  // A finished loop receipt (the nested `receipt` of the gate_open / gave_up / error event).
+  // New receipts: `gate` is gate_open | gave_up | error and `verdict` is one of the six named verdicts, or null on an
+  // infrastructure error. Old receipts put the gate in `verdict` and have no `gate`. Only VALIDATED is a pass, and a
+  // gate that says open next to a verdict that is not VALIDATED is shown as not validated.
+  function gateHolds(ev) {  // false when a gate_open event sits next to a receipt that is not VALIDATED
+    const r = ev.receipt;
+    if (!r || typeof r !== "object" || !window.LatchVerdict) return true;
+    const v = window.LatchVerdict.VERDICTS[r.verdict];
+    if (typeof r.verdict === "string" && v) return v.pass && (r.proven === undefined || r.proven === true);
+    return !(Object.prototype.hasOwnProperty.call(r, "gate") && r.verdict !== undefined);  // new receipt, no named verdict
+  }
+  function finalVerdict(c, ev) {
+    const r = ev.receipt;
+    if (!r || typeof r !== "object" || !window.LatchVerdict) return;
+    const V = window.LatchVerdict.VERDICTS;
+    const line = el("p", "tl-verdict");
+    if (typeof r.verdict === "string" && V[r.verdict]) {
+      const v = V[r.verdict];
+      const agrees = r.proven === undefined || (r.proven === true) === v.pass;
+      line.append(el("span", "pill " + (v.pass && agrees ? "pass" : "fail"), v.label, { "data-verdict": r.verdict }),
+        el("span", "tl-text", agrees ? v.meaning : "This receipt contradicts itself: the verdict and the proven flag disagree, so it is not treated as a pass."));
+      c.appendChild(line);
+      if (typeof r.verdict_reason === "string" && r.verdict_reason.trim()) c.appendChild(el("p", "tl-meta", r.verdict_reason.trim()));
+    } else if (r.verdict === null && (Object.prototype.hasOwnProperty.call(r, "gate") || ev.type === "error")) {
+      line.append(el("span", "pill fail", "No verdict", { "data-verdict": "none" }), el("span", "tl-text", "No verdict: infrastructure error. Nothing was proven."));
+      c.appendChild(line);
+    }
   }
   function meta(c, ...parts) {
     const text = parts.filter(Boolean).join(" · ");
@@ -170,16 +199,24 @@
           c.appendChild(fold("pytest output", ev.pytest_output));
         });
       }
-      case "gate_open":
-        return card(ev, "open", "Gate open", (c) => {
+      case "gate_open": {
+        const li = card(ev, "open", "Gate open", (c) => {
+          finalVerdict(c, ev);
           c.appendChild(el("p", "tl-text", ev.reason || "The proof test is green and the repository suite is green."));
         });
+        if (!gateHolds(ev)) { li.dataset.tone = "shut"; li.querySelector(".tl-title").textContent = "Gate open, not validated"; }
+        return li;
+      }
       case "gave_up":
         return card(ev, "shut", "Gave up", (c) => {
+          finalVerdict(c, ev);
           c.appendChild(el("p", "tl-text", ev.reason || "The loop stopped without opening the gate."));
         });
       case "error":
-        return card(ev, "shut", "Error", (c) => c.appendChild(el("p", "tl-text", ev.reason || "The run failed.")));
+        return card(ev, "shut", "Error", (c) => {
+          finalVerdict(c, ev);
+          c.appendChild(el("p", "tl-text", ev.reason || "The run failed."));
+        });
       default:
         return null;
     }
@@ -191,7 +228,7 @@
       case "gate_shut": return ["shut", "Gate: shut"];
       case "iteration_started": case "model_response": case "patch_applied": return ["working", "Gate: shut, agent patching"];
       case "iteration_result": return ev.verdict === "gate_open" ? ["open", "Gate: open"] : ["shut", "Gate: shut"];
-      case "gate_open": return ["open", "Gate: open"];
+      case "gate_open": return gateHolds(ev) ? ["open", "Gate: open"] : ["shut", "Gate: open, not validated"];
       case "gate_check": return ["info", "Gate: checking"];
       case "model_retry": return ["working", ev.will_retry === false ? "Model error" : "Gate: retrying model call"];
       case "proof_test_attempt": return ["working", "Gate: rewriting proof test"];

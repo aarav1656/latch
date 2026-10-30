@@ -262,6 +262,12 @@ class SandboxRunner:
         cfg = self.config
         deadline = time.monotonic() + cfg.setup_timeout
         venv = snapshot / ".latch-venv"
+        ready = venv / ".latch-ready"
+        if ready.is_file() and (venv / "bin" / "python").exists():
+            # The rerun and mutation checks run the test again in the same snapshot: reuse its environment
+            # instead of paying for the install on every run.
+            self.progress(f"Reusing the test environment on {label}")
+            return venv
         env = self._env(snapshot, home, setup=True)
         if cfg.uv_cache:
             shutil.copytree(cfg.uv_cache, home / "uv-cache", symlinks=True, dirs_exist_ok=True)
@@ -297,6 +303,10 @@ class SandboxRunner:
         if any((snapshot / name).exists() for name in ("pyproject.toml", "setup.py", "setup.cfg")):
             flags = [] if cfg.install_deps else ["--no-deps"]
             step([*install, *flags, "-e", "."], "install project", False)
+        try:
+            ready.write_text("ok\n")
+        except OSError:
+            pass
         return venv
 
     # -- the runner contract ---------------------------------------------

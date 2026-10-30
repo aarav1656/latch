@@ -136,7 +136,7 @@ class Config:
         self.queue_max = _env_int("LATCH_QUEUE_MAX", 5)
         self.job_ttl = _env_int("LATCH_JOB_TTL", 3600)
         self.loop = os.environ.get("LATCH_LOOP", "1") != "0"
-        self.loop_timeout = _env_int("LATCH_LOOP_TIMEOUT", 240)
+        self.loop_timeout = _env_int("LATCH_LOOP_TIMEOUT", 900)
         self.submit_rate = _env_int("LATCH_SUBMIT_RATE_PER_MIN", 20)
         # LATCH_CREDITS_EXHAUSTED=1: the model account is known to be out of credits (HTTP 402). Live runs stay
         # off from the first request, with the calm credits note, and every saved receipt keeps working.

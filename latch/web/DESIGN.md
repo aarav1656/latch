@@ -97,8 +97,24 @@ Receipts without `verdict` render as before (Proven / Not proven), with the reru
 - Never shown on /eval: `oracle_baseline` (the no-model answer key, 100% by construction; the API strips it),
   `slopgate_comparison` (third-party numbers on a different task), and any summary with `mode` other than
   `live`, `fixture: true`, `dev_only: true` or a provider other than Token Factory / Nebius.
-- The `mutation` step event detail is `{killed, total, kill_rate}`; the `verdict` step event is
-  `{verdict, reason}`. Fix-loop events carrying `verdict` or `verdict_code` get a verdict pill.
+- Fix-loop events carrying `verdict` or `verdict_code` get a verdict pill.
+- Mutant states: `killed`, `survived`, `timed out` (the harness counts it as killed, so it keeps the pass colour)
+  and `error` (the mutant could not be run: never counted as killed, listed first with its error line, and the
+  hint says so). `mutation.ran` false means the check did not run: the section reads "This is not a pass.",
+  lists no mutants, and a null `kill_rate` is "not recorded".
+- Ledger steps, in order: fetch, repo_map, test_writer, base_run, head_run, triage, fix, flake_check, revert_check,
+  mutation_check, verdict. `flake_check` detail is `{runs, flaky, flake_rate, base_fail_rate, head_pass_rate}`;
+  `mutation_check` detail is `{killed, total, kill_rate}` and its status is `failed` when the gate shuts; the
+  `verdict` detail is `{verdict, reason}`. The old step name `mutation` is mapped to `mutation_check` (`STEP_ALIAS`).
+  Unknown step names are ignored, never fatal.
+- Fix-loop final events (`gate_open`, `gave_up`, `error`): `receipt.gate` holds the gate and `receipt.verdict` the
+  named verdict. A null verdict (infrastructure error) reads "No verdict: infrastructure error. Nothing was
+  proven." and fails closed; `gate_open` next to a verdict other than VALIDATED reads "Gate open, not validated"
+  in the fail colour. Old receipts (verdict equal to the gate string, no `gate`) render as before.
+- Timeouts (live runs): `LATCH_SETUP_TIMEOUT` 240 s and `LATCH_TEST_TIMEOUT` 120 s apply per sandbox call, and the
+  rerun and mutation checks make many calls, so `LATCH_LOOP_TIMEOUT` is 900 s. The sandbox reuses a snapshot's
+  prepared virtualenv (`.latch-venv/.latch-ready`) instead of reinstalling for every rerun. The SSE stream sends a
+  keepalive every 5 s. There is no overall proof-job timeout.
 - Fixtures for all of this are built from the real `latch.verdict` in `test_verdict.py`.
 
 ## What the site reads from `latch/runs/`
