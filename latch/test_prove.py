@@ -129,7 +129,7 @@ class ProveRunnerTests(unittest.TestCase):
 
         def runner(snapshot, command):
             calls.append((snapshot.name, list(command), (snapshot / "latch_issue_test.py").exists()))
-            if snapshot.name == "base":
+            if snapshot.name in ("base", "revert-fix"):  # the revert check runs the proof test on the unfixed tree
                 return {"returncode": 1, "stdout": fail, "stderr": ""}
             return {"returncode": 0, "stdout": "1 passed", "stderr": ""}
 
@@ -143,11 +143,12 @@ class ProveRunnerTests(unittest.TestCase):
             ), mock.patch("latch.prove.run_test", side_effect=AssertionError("default runner used")):
                 result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, on_step=steps.append, runner=runner)
             saved = json.loads(receipt.read_text())
-        self.assertEqual([c[0] for c in calls], ["base", "head"])
+        self.assertEqual([c[0] for c in calls], ["base", "head", "revert-fix"])
         self.assertTrue(all(c[1] == ["python3", "-m", "pytest", "-q"] and c[2] for c in calls))
         self.assertTrue(result["proven"])
         self.assertEqual(saved["test_runner"], "unit-test runner")
-        self.assertEqual(steps, ["model", "base-test", "head-test", "receipt"])
+        self.assertEqual(steps, ["model", "base-test", "head-test", "receipt"])  # legacy string callback unchanged
+        self.assertTrue(saved["revert_check"]["ok"])
 
     def test_default_behaviour_is_unchanged_without_a_runner(self):
         generated = "def test_double():\n    from app import double\n    assert double(2) == 4\n"
@@ -235,11 +236,17 @@ class GenerationRetryTests(unittest.TestCase):
 
     def test_prove_records_both_attempts_and_fails_closed_without_running_tests(self):
         replies = iter([(200, "def test_x():\n    ...\n", "c1"), (200, "def test_x():\n    pass\n", "c2")])
+
+        def scripted(key, user, model=None, system=None, **kw):
+            if "map a Python repository" in (system or ""):
+                return 503, None, None  # the repo map is context only; its failure must not block the run
+            return next(replies)
+
         with tempfile.TemporaryDirectory() as temp:
             repo = ProveRunnerTests().make_repo(temp)
             receipt = Path(temp) / "r.json"
             with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
-                "latch.prove.call_model", side_effect=lambda *a, **k: next(replies)
+                "latch.prove.call_model", side_effect=scripted
             ), mock.patch("latch.prove.run_test", side_effect=AssertionError("nothing may run")):
                 result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt)
             saved = json.loads(receipt.read_text())

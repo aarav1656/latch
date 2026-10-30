@@ -18,9 +18,13 @@ import uuid
 from pathlib import Path
 
 from ..harness.parse import extract_test_function
-from ..prove import (PYTEST_ENV, ModelRequestError, archive, expected_base_failure, generate_proof_test, git,
-                     limit_resources, proven, run_test, validate_proof_test)
+from ..modelcalls import PRICES_SOURCE_URL, ModelCalls, total_cost
+from ..prove import (PYTEST_ENV, TRIAGE_SYSTEM, ModelRequestError, archive, expected_base_failure,
+                     generate_proof_test, git, limit_resources, proven, run_test, run_triage, validate_proof_test)
+from ..repomap import build_repo_map
+from ..revert import changed_files, is_test_path, revert_check
 from ..run import LIGHTNING, MODEL, call_model, load_key
+from ..steps import StepLog
 
 ULTRA = MODEL
 DEFAULT_MODEL = ULTRA
@@ -35,7 +39,6 @@ TEST_SYSTEM = (
     "issue's expected behavior. Put imports inside it. Output no prose. It must fail on the "
     "buggy base and pass on a correct fix."
 )
-TRIAGE_SYSTEM = "You triage test failures. Reply with REPRODUCES or NOT_REPRODUCES on the first line, then one short sentence."
 FIX_SYSTEM = (
     "You are a careful coding agent repairing a bug fix that is wrong. A frozen regression "
     "test written from the issue fails on the current code. Rewrite the non-test source files "
@@ -83,17 +86,6 @@ def _clip_result(result):
     if flag:
         out["truncated"] = True
     return out
-
-
-def is_test_path(rel):
-    parts = Path(rel).parts
-    name = parts[-1]
-    return (
-        name.startswith("test_")
-        or name.endswith("_test.py")
-        or name == "conftest.py"
-        or any(part in ("tests", "test") for part in parts[:-1])
-    )
 
 
 def _run_suite(snapshot, command):
@@ -213,6 +205,9 @@ def run_loop(
     case_note=None,
     triage=True,
     inspect_final=None,
+    on_step_event=None,
+    revert=True,
+    repo_map=True,
 ):
     """Run the fix loop and return the receipt dict (`receipt["verdict"]` is "gate_open" or "gave_up").
 
@@ -229,6 +224,11 @@ def run_loop(
     inspect_final(dir): optional read-only hook called with the final code directory when the gate
         opens; its return value is stored in receipt["inspection"] (the eval uses it as an oracle).
         It never influences the verdict.
+    on_step_event(dict): {step, status: started|done|failed, ts, detail} for fetch, repo_map, test_writer, base_run,
+        head_run, triage, fix, revert_check and verdict; the same dicts are emitted as `step` events.
+    revert: after the gate opens, revert the fix (and, if the loop rewrote files, restore the submitted patch) and
+        require the proof test to fail again; if it does not, the gate stays shut (gave_up).
+    repo_map: Nemotron Lightning builds a compact repo map that goes into Ultra's test-writing prompt.
     model_fn: optional replacement for latch.run.call_model(key, user, model=, system=, max_tokens=)
         returning (status, content, completion_id). Used by the offline tests.
     Raises ValueError for bad arguments (before any event) and LoopError for infra failure
@@ -255,6 +255,20 @@ def run_loop(
             on_event(event)
         return event
 
+    def step_sink(event):
+        emit("step", **{k: v for k, v in event.items() if k != "ts"})
+        if on_step_event:
+            on_step_event(event)
+
+    steps = StepLog(step_sink)
+
+    def on_retry(info):
+        receipt.setdefault("model_retries", []).append({**info, "ts": now()})
+        emit("model_retry", **info)
+
+    calls = ModelCalls(model_fn or call_model, on_retry=on_retry, uses_meta=model_fn is None,
+                       on_call=lambda entry: emit("model_call", **entry))
+
     receipt = {
         "run_id": run_id,
         "repo": str(source_label or Path(repo).name),
@@ -279,6 +293,12 @@ def run_loop(
         receipt["verdict"] = verdict
         receipt["reason"] = reason
         receipt["finished_at"] = now()
+        if not steps.has("verdict"):
+            steps.done("verdict", {"verdict": verdict, "reason": reason})
+        receipt["model_calls"] = list(calls.calls)
+        receipt["model_cost_usd"] = total_cost(calls.calls)
+        receipt["model_prices_source"] = PRICES_SOURCE_URL
+        receipt["steps"] = steps.events
         receipt["final_iteration"] = len(receipt["iterations"])
         path = None
         if receipt_path:
@@ -324,18 +344,16 @@ def run_loop(
             key = load_key()
             if not key:
                 fail("NEBIUS_API_KEY is not configured")
-        def on_retry(info):
-            receipt.setdefault("model_retries", []).append({**info, "ts": now()})
-            emit("model_retry", **info)
-
-        ask = model_fn or (lambda *args, **kwargs: call_model(*args, on_retry=on_retry, **kwargs))
+        steps.started("fetch", {"base": base, "head": head})
         repo = Path(repo).resolve()
         if not repo.is_dir():
+            steps.failed("fetch", "repo is not a directory")
             fail(f"repo is not a directory: {repo}")
         commits = []
         for ref in (base, head):
             checked = git(repo, "rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}")
             if checked.returncode:
+                steps.failed("fetch", f"unknown commit ref: {ref}")
                 fail(f"unknown commit ref: {ref}")
             commits.append(checked.stdout.strip())
         base_commit, head_commit = commits
@@ -347,14 +365,19 @@ def run_loop(
 
         with tempfile.TemporaryDirectory(prefix="latch-loop-") as temp:
             root = Path(temp)
-            base_dir, work = root / "base", root / "work"
-            base_dir.mkdir()
-            work.mkdir()
+            base_dir, work, submitted_dir = root / "base", root / "work", root / "submitted"
+            for directory in (base_dir, work, submitted_dir):
+                directory.mkdir()
             try:
                 archive(repo, base_commit, base_dir)
                 archive(repo, head_commit, work)
-            except (OSError, subprocess.SubprocessError) as error:
+                archive(repo, head_commit, submitted_dir)  # pristine copy of the submitted code for the revert check
+                source_changes = changed_files(repo, base_commit, head_commit)
+            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                steps.failed("fetch", str(error))
                 fail(f"could not archive revisions: {error}")
+            steps.done("fetch", {"base": base_commit[:12], "head": head_commit[:12],
+                                 "changed_files": [p for _, p in source_changes][:20]})
 
             # 1. The proof test: generated once from the issue, then frozen.
             if proof_test:
@@ -366,22 +389,43 @@ def run_loop(
                     function = None
                 generated = {"generated_by": "provided", "completion_id": None}
             else:
+                map_result = {"status": "skipped"}
+                if repo_map:
+                    steps.started("repo_map", {"model": LIGHTNING})
+                    try:
+                        map_result = build_repo_map(calls.ask("repo_map"), key, base_dir, receipt["issue"],
+                                                    [p for _, p in source_changes if p.endswith(".py")])
+                    except (OSError, ValueError) as error:  # context only: never blocks the run
+                        map_result = {"status": "unavailable", "detail": f"{type(error).__name__}: {error}"}
+                    (steps.done if map_result["status"] == "ok" else steps.failed)(
+                        "repo_map", {"files": [f["path"] for f in map_result.get("files", [])],
+                                     "dropped": map_result.get("dropped", []), "detail": map_result.get("detail")})
+                    receipt["repo_map"] = {k: v for k, v in map_result.items() if k != "reply"}
+                map_text = map_result.get("text") or ""
+                steps.started("test_writer", {"model": test_model})
                 prompt = (
                     "Create exactly one self-contained pytest test function named test_... and no prose. "
                     "Put every import inside the test function. Use the issue report as the independent "
                     "expected behavior and cover every case the issue names, not only what the diff touches: "
                     "the diff is a submitted fix that may be incomplete. The test must fail on the buggy base "
                     "revision and pass on a correct fix. Do not test the diff mechanically.\n\n"
-                    f"Issue report:\n{receipt['issue']}\n\nSubmitted diff (base -> head):\n{clip(agent_diff)[0]}"
+                    + (f"Repo map (files and symbols that exist in the base revision, picked by Nemotron Lightning "
+                       f"and checked against the code; import only names listed here or from the issue):\n{map_text}\n\n"
+                       if map_text else "")
+                    + f"Issue report:\n{receipt['issue']}\n\nSubmitted diff (base -> head):\n{clip(agent_diff)[0]}"
                 )
                 try:
                     function, attempts = generate_proof_test(
-                        ask, key, prompt, TEST_SYSTEM, test_model, 8192)
+                        calls.ask("test_writer"), key, prompt, TEST_SYSTEM, test_model, 8192)
                 except ModelRequestError as error:
                     receipt["proof_test_attempts"] = error.attempts
+                    steps.failed("test_writer", f"HTTP {error.status}")
                     fail(f"Nebius test-generation request failed: HTTP {error.status}")
                 generated = {"generated_by": test_model, "completion_id": attempts[-1]["completion_id"]}
             receipt["proof_test_attempts"] = attempts
+            if not proof_test:
+                (steps.done if function is not None else steps.failed)(
+                    "test_writer", {"attempts": len(attempts), "completion_id": attempts[-1]["completion_id"]})
             for item in attempts:
                 if not item["valid"]:  # the normal event sequence is unchanged; only rejections add an event
                     emit("proof_test_attempt", **{k: item[k] for k in ("attempt", "completion_id", "valid", "rejection")})
@@ -402,9 +446,13 @@ def run_loop(
 
             # 2. The proof test must go red on the bug (base). Otherwise it proves nothing.
             (base_dir / TEST_FILE).write_text(test_source, encoding="utf-8")
+            steps.started("base_run")
             base_result = _run_proof(base_dir, command)
             base_kind = expected_base_failure(base_result, test_name)
             base_red = base_result["returncode"] != 0 and base_kind is not None
+            steps.done("base_run", {"returncode": base_result["returncode"], "failure_type": base_kind,
+                                    "red": base_red})
+            steps.started("head_run")
             suite_before = _run_suite(work, command)
             _clean(work)
             (work / TEST_FILE).write_text(test_source, encoding="utf-8")
@@ -412,6 +460,8 @@ def run_loop(
             (work / TEST_FILE).unlink()
             head_ok = proven(base_result, head_result, test_name)
             suite_green = suite_before["returncode"] == 0
+            steps.done("head_run", {"proof_returncode": head_result["returncode"],
+                                    "suite_returncode": suite_before["returncode"], "gate_open": bool(head_ok and suite_green)})
             receipt["initial"] = {
                 "base_proof": {**_clip_result(base_result), "failure_type": base_kind},
                 "head_proof": _clip_result(head_result),
@@ -426,8 +476,32 @@ def run_loop(
                      pytest_output=base_result["stdout"] + base_result["stderr"])
                 return finish("gave_up", "proof test does not reproduce the issue on the base revision "
                                          "(no assertion failure), so it cannot judge the fix")
+            def revert_gate(loop_files=None):
+                """Revert the fix; the proof test must fail again, or the gate stays shut."""
+                if not revert:
+                    receipt["revert_check"] = {"ran": False, "skipped": "revert check disabled"}
+                    return True
+                steps.started("revert_check")
+                try:
+                    result = revert_check(
+                        lambda directory: _run_proof(directory, command), test_name, test_source, TEST_FILE,
+                        work, base_dir, source_changes, root / "mutants", is_test_path,
+                        loop_files=loop_files, submitted_tree=submitted_dir if loop_files else None)
+                except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                    result = {"ran": False, "ok": False, "mutants": [], "error": f"{type(error).__name__}: {error}",
+                              "summary": "the revert check could not run, so the gate stays shut"}
+                receipt["revert_check"] = result
+                (steps.done if result["ok"] else steps.failed)("revert_check", result["summary"])
+                if not result["ok"]:
+                    emit("gate_shut", iteration=len(receipt["iterations"]), reason="revert check failed: " + result["summary"],
+                         base_red=True, head_suite_green=True)
+                return result["ok"]
+
             if head_ok and suite_green:
                 emit("gate_check", iteration=0, base_red=True, head_suite_green=True)
+                if not revert_gate():
+                    return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
+                                             "isolate the fix: " + receipt["revert_check"]["summary"])
                 inspect(work)
                 return finish("gate_open", "the submitted fix already passes the proof test; no loop needed")
             why = ("proof test fails on the submitted fix" if not head_ok else "the repo's own suite fails on the submitted fix")
@@ -447,23 +521,15 @@ def run_loop(
                     return finish("gave_up", "proof test fails on the submitted code with something other than an "
                                              "assertion (import/collection/environment error); not patching")
             if triage:
-                tri_user = (
-                    f"Issue report:\n{receipt['issue']}\n\nRegression test:\n{test_source}\n"
-                    f"pytest output on the submitted code:\n{clip(failing_text, 6000)[0]}\n\n"
-                    "Does this failure show the issue's reported behavior is still wrong in the code "
-                    "(an assertion about behavior), as opposed to an environment, import, syntax or test-harness "
-                    "problem? Answer with exactly one first line: REPRODUCES or NOT_REPRODUCES, then one short "
-                    "sentence of reason."
-                )
-                t_status, t_text, t_cid = ask(key, tri_user, model=LIGHTNING, system=TRIAGE_SYSTEM,
-                                              max_tokens=2048, prose=True)
+                steps.started("triage", {"model": LIGHTNING})
+                t_status, t_record = run_triage(calls.ask("triage"), None if model_fn else key, receipt["issue"],
+                                                test_source, clip(failing_text, 6000)[0])
                 if t_status != 200:
+                    steps.failed("triage", f"HTTP {t_status}")
                     fail(f"Nebius triage request failed: HTTP {t_status}")
-                t_text = (t_text or "").strip()
-                m = re.search(r"\b(NOT_REPRODUCES|REPRODUCES)\b", t_text)
-                t_verdict = ("not_reproduced" if m.group(1) == "NOT_REPRODUCES" else "reproduced") if m else "unclear"
-                receipt["triage"] = {"model": LIGHTNING, "completion_id": t_cid, "verdict": t_verdict,
-                                     "text": clip(t_text, 1000)[0]}
+                t_verdict, t_text, t_cid = t_record["verdict"], t_record["text"], t_record["completion_id"]
+                receipt["triage"] = t_record
+                steps.done("triage", {"verdict": t_verdict, "completion_id": t_cid})
                 emit("triage", model=LIGHTNING, completion_id=t_cid, verdict=t_verdict, reason=t_text[:1000])
                 if t_verdict != "reproduced":
                     return finish("gave_up", f"Lightning triage did not confirm the failure reproduces the issue "
@@ -473,8 +539,10 @@ def run_loop(
             failing = head_result if not head_ok else suite_before
             current_failure = failing["stdout"] + failing["stderr"]
             history = []
+            loop_files = []
             for i in range(1, max_iterations + 1):
                 emit("iteration_started", iteration=i, model=model)
+                steps.started("fix", {"iteration": i, "model": model})
                 sources = _source_files(work)
                 attempts = "".join(
                     f"\nAttempt {n} ({h['verdict']}): {h['summary']}" for n, h in enumerate(history, 1)
@@ -489,8 +557,9 @@ def run_loop(
                     + "".join(f"=== FILE: {p} ===\n{t}=== END FILE ===\n" for p, t in sources.items())
                     + "\nReturn the complete replacement for every file you change."
                 )
-                status, content, cid = ask(key, user, model=model, system=FIX_SYSTEM, max_tokens=8192)
+                status, content, cid = calls.ask("fixer")(key, user, model=model, system=FIX_SYSTEM, max_tokens=8192)
                 if status != 200 or not content:
+                    steps.failed("fix", {"iteration": i, "detail": f"HTTP {status}"})
                     receipt["iterations"].append({"iteration": i, "model": model, "completion_id": cid,
                                                    "diff": "", "pytest_output": "", "verdict": "error",
                                                    "detail": f"HTTP {status}"})
@@ -501,6 +570,7 @@ def run_loop(
                 try:
                     patch_diff, changed = apply_files(work, parse_files(content))
                 except ValueError as error:
+                    steps.failed("fix", {"iteration": i, "detail": str(error)})
                     record.update(verdict="invalid_patch", detail=str(error))
                     history.append({"verdict": "invalid_patch", "summary": str(error)})
                     receipt["iterations"].append(record)
@@ -508,9 +578,11 @@ def run_loop(
                     continue
                 record["diff"], diff_cut = clip(patch_diff)
                 record["changed_files"] = changed
+                loop_files += [f for f in changed if f not in loop_files]
                 if diff_cut:
                     record["truncated"] = True
                 emit("patch_applied", iteration=i, diff=patch_diff, changed_files=changed)
+                steps.done("fix", {"iteration": i, "completion_id": cid, "changed_files": changed})
 
                 suite = _run_suite(work, command)
                 _clean(work)
@@ -533,6 +605,9 @@ def run_loop(
                 receipt["iterations"].append(record)
                 emit("iteration_result", **record)
                 if gate:
+                    if not revert_gate(loop_files):
+                        return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
+                                                 "isolate the fix: " + receipt["revert_check"]["summary"])
                     inspect(work)
                     return finish("gate_open", f"harness watched the proof test go red on base and green after iteration {i}, with the repo suite green")
             return finish("gave_up", f"gate still shut after {max_iterations} iteration(s); the harness never saw the proof test pass with the repo suite green")

@@ -93,8 +93,14 @@ class Stub:
     def __init__(self, test=GOOD_TEST, triage="REPRODUCES: the merge still joins touching bookings.", fixes=(), status=200):
         self.test, self.triage, self.fixes, self.status = test, triage, list(fixes), status
         self.calls = []
+        self.map_calls = []  # repo-map calls are tracked apart so the per-role call counts below stay readable
 
     def __call__(self, key, user, model=None, system=None, max_tokens=None, prose=False):
+        if "map a Python repository" in (system or ""):
+            self.map_calls.append({"model": model, "user": user})
+            if self.status != 200:
+                return self.status, None, None
+            return 200, "bookings.py: overlaps, merge_bookings, nonexistent_name\nghost.py: x", f"cmpl-map-{len(self.map_calls)}"
         self.calls.append({"model": model, "user": user, "key": key})
         if self.status != 200:
             return self.status, None, None
@@ -122,7 +128,7 @@ class LoopTests(unittest.TestCase):
         return run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append, model_fn=stub, **kw)
 
     def types(self):
-        return [e["type"] for e in self.events]
+        return [e["type"] for e in self.events if e["type"] not in ("step", "model_call")]
 
     def test_shut_then_loop_opens_the_gate(self):
         stub = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
@@ -254,6 +260,77 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(receipt["triage"]["model"], "nvidia/Nemotron-3_5-Lightning")
         self.assertEqual(len(stub.calls), 2)  # test generation + triage, no patch call
 
+    def test_receipt_lists_every_model_call_by_role_with_ids(self):
+        stub = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        receipt = self.run_it(stub)
+        roles = [(c["role"], c["model"], c["completion_id"]) for c in receipt["model_calls"]]
+        self.assertEqual(roles, [("repo_map", "nvidia/Nemotron-3_5-Lightning", "cmpl-map-1"),
+                                 ("test_writer", core.ULTRA, "cmpl-test-1"),
+                                 ("triage", "nvidia/Nemotron-3_5-Lightning", "cmpl-triage-2"),
+                                 ("fixer", DEFAULT_MODEL, "cmpl-fix-3")])
+        self.assertTrue(all(c["cost_usd"] is None and isinstance(c["latency_ms"], int) for c in receipt["model_calls"]))
+        self.assertIsNone(receipt["model_cost_usd"])  # a stub reports no usage, so no cost is invented
+        self.assertIn("tokenfactory.nebius.com", receipt["model_prices_source"])
+        self.assertEqual([e["role"] for e in self.events if e["type"] == "model_call"],
+                         ["repo_map", "test_writer", "triage", "fixer"])
+
+    def test_repo_map_is_validated_and_fed_to_the_test_writer(self):
+        stub = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        receipt = self.run_it(stub)
+        self.assertEqual(receipt["repo_map"]["status"], "ok")
+        self.assertEqual([f["path"] for f in receipt["repo_map"]["files"]], ["bookings.py"])
+        self.assertIn("ghost.py", receipt["repo_map"]["dropped"])  # unknown files from the model are dropped
+        prompt = stub.calls[0]["user"]
+        self.assertIn("Repo map", prompt)
+        self.assertIn("merge_bookings", prompt)
+        self.assertNotIn("nonexistent_name", prompt)
+
+    def test_failed_repo_map_does_not_block_the_run(self):
+        stub = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        orig = stub.__call__
+
+        class Down(Stub):
+            def __call__(self, key, user, model=None, system=None, **kw):
+                if "map a Python repository" in (system or ""):
+                    return 503, None, None
+                return orig(key, user, model=model, system=system, **kw)
+
+        receipt = self.run_it(Down(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["repo_map"]["status"], "unavailable")
+
+    def test_step_events_are_emitted_in_order_and_saved(self):
+        seen = []
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), on_step_event=seen.append)
+        started = [e["step"] for e in seen if e["status"] == "started"]
+        self.assertEqual(started, ["fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "revert_check"])
+        self.assertEqual(seen[-1]["step"], "verdict")
+        self.assertEqual(receipt["steps"], seen)
+        self.assertEqual([e["step"] for e in self.events if e["type"] == "step"], [e["step"] for e in seen])
+        self.assertTrue(all(e["status"] in ("started", "done", "failed") for e in seen))
+
+    def test_revert_check_runs_after_the_gate_opens_and_is_in_the_receipt(self):
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        rc = receipt["revert_check"]
+        self.assertTrue(rc["ran"] and rc["ok"])
+        self.assertEqual([m["name"] for m in rc["mutants"]], ["revert_fix_to_base", "restore_submitted_patch"])
+        self.assertTrue(all(m["failed_as_expected"] for m in rc["mutants"]))
+
+    def test_gate_stays_shut_when_the_proof_test_survives_the_revert(self):
+        from unittest import mock
+        bad = {"ran": True, "ok": False, "mutants": [], "summary": "the proof test did NOT fail on the mutant(s) revert_fix_to_base"}
+        with mock.patch.object(core, "revert_check", return_value=bad):
+            receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertIn("revert", receipt["reason"])
+        self.assertEqual(self.types()[-2:], ["gate_shut", "gave_up"])
+
+    def test_revert_check_can_be_disabled(self):
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), revert=False, repo_map=False)
+        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertFalse(receipt["revert_check"]["ran"])
+        self.assertNotIn("repo_map", [c["role"] for c in receipt["model_calls"]])
+
     def test_unclear_triage_fails_closed(self):
         receipt = self.run_it(Stub(triage="hmm hard to say"))
         self.assertEqual(receipt["verdict"], "gave_up")
@@ -336,7 +413,8 @@ class LoopTests(unittest.TestCase):
             with self.assertRaises(LoopError):
                 run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append,
                          receipt_path=str(Path(self._tmp.name) / "r.json"))
-        self.assertEqual(self.types().count("model_retry"), 3)
+        # the repo-map call (context only, tolerated) retries 3 times, then the test-writer call 3 more times
+        self.assertEqual(self.types().count("model_retry"), 6)
         self.assertEqual(self.events[-1]["type"], "error")
 
     def test_missing_key_is_an_error(self):
@@ -408,7 +486,7 @@ class CliTests(unittest.TestCase):
             core.load_key = saved
         self.assertEqual(code, 2)
         lines = [json.loads(l) for l in out.getvalue().splitlines()]
-        self.assertEqual([l["type"] for l in lines], ["started", "error"])
+        self.assertEqual([l["type"] for l in lines if l["type"] != "step"], ["started", "error"])
         self.assertTrue(all(l["run_id"] == "t1" for l in lines))
 
 
