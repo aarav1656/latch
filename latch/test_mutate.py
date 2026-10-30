@@ -1,9 +1,11 @@
 """Offline tests for the AST mutation check: stub runners only, no model calls."""
 
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from latch import mutate
 from latch.revert import is_test_path
@@ -136,12 +138,52 @@ class MutationCheckTests(unittest.TestCase):
         self.assertEqual((out["killed"], out["total"], out["ok"]), (0, 5, False))
         self.assertIn("OSError", out["mutants"][0]["error"])
 
-    def test_the_time_budget_stops_running_mutants_and_counts_the_rest_as_survived(self):
+    def test_the_time_budget_records_unreached_mutants_as_not_run_not_survived(self):
         ticks = iter(range(0, 1000, 100))
         out = self.check(self.killer({"m1", "m2", "m3", "m4", "m5"}), time_budget=350, clock=lambda: next(ticks))
         self.assertEqual(self.calls, ["mutant-m1", "mutant-m2", "mutant-m3"])
-        self.assertEqual((out["killed"], out["total"], out["ok"]), (3, 5, True))
-        self.assertIn("time budget", out["mutants"][-1]["error"])
+        # killed / total / kill_rate only count the mutants that ran
+        self.assertEqual((out["killed"], out["total"], out["kill_rate"], out["not_run"], out["ok"]), (3, 3, 1.0, 2, True))
+        self.assertEqual([bool(m.get("not_run")) for m in out["mutants"]], [False, False, False, True, True])
+        self.assertTrue(all(not m["killed"] and "budget" in m["output_excerpt"] for m in out["mutants"][3:]))
+        self.assertNotIn("error", out["mutants"][-1])
+        self.assertIn("2 more were not run", out["note"])
+        self.assertFalse(out["incomplete"])
+
+    def test_the_kill_rate_is_over_the_mutants_that_ran_and_still_gates(self):
+        ticks = iter(range(0, 1000, 100))
+        out = self.check(self.killer({"m1"}), time_budget=350, clock=lambda: next(ticks))  # 1 of the 3 that ran is killed
+        self.assertEqual((out["killed"], out["total"], out["kill_rate"], out["ok"]), (1, 3, 0.333, False))
+
+    def test_fewer_than_two_mutants_running_is_incomplete_and_does_not_block(self):
+        ticks = iter(range(0, 1000, 100))
+        out = self.check(self.killer(set()), time_budget=150, clock=lambda: next(ticks))  # only m1 runs, and survives
+        self.assertEqual((out["total"], out["killed"], out["not_run"], out["ok"], out["incomplete"]), (1, 0, 4, True, True))
+        self.assertIn("mutation check incomplete: budget", out["note"])
+        self.assertIn("not mutation-backed", out["note"])
+        none_ran = self.check(self.killer(set()), time_budget=-1)
+        self.assertEqual((none_ran["total"], none_ran["kill_rate"], none_ran["ok"], none_ran["incomplete"], none_ran["not_run"]),
+                         (0, None, True, True, 5))
+        self.assertEqual(self.calls.count("mutant-m1"), 1)
+
+    def test_a_timed_out_mutant_still_ran_and_counts_as_killed_under_a_budget(self):
+        ticks = iter(range(0, 1000, 100))
+
+        def run(directory):
+            raise subprocess.TimeoutExpired("pytest", 60)
+        out = self.check(run, time_budget=250, clock=lambda: next(ticks))
+        self.assertEqual((out["killed"], out["total"], out["not_run"], out["ok"]), (2, 2, 3, True))
+        self.assertTrue(out["mutants"][0]["timed_out"])
+
+    def test_the_budget_is_600_with_a_runner_240_without_and_the_env_var_overrides_both(self):
+        env = {k: v for k, v in os.environ.items() if k != mutate.BUDGET_ENV}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual((mutate.time_budget_for(False), mutate.time_budget_for(True)), (240, 600))
+        for bad in ("", "abc", "0", "-5"):
+            with mock.patch.dict(os.environ, {mutate.BUDGET_ENV: bad}):
+                self.assertEqual(mutate.time_budget_for(True), 600, bad)
+        with mock.patch.dict(os.environ, {mutate.BUDGET_ENV: "900"}):
+            self.assertEqual((mutate.time_budget_for(False), mutate.time_budget_for(True)), (900, 900))
 
     def test_the_user_trees_are_never_modified_and_no_mutant_copy_is_left_behind(self):
         self.check(self.killer({"m1"}))

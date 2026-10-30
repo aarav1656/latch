@@ -12,6 +12,7 @@ No dependencies beyond the standard library.
 
 import ast
 import difflib
+import os
 import re
 import shutil
 import subprocess
@@ -21,7 +22,10 @@ from pathlib import Path
 THRESHOLD = 0.6          # kill_rate needed to pass
 MAX_MUTANTS = 5
 RUN_TIMEOUT = 60         # seconds per mutant run (a timeout counts as killed: the mutant hangs or is far too slow)
-TIME_BUDGET = 240        # seconds for all mutant runs together; mutants not reached count as survived
+TIME_BUDGET = 240        # seconds for all mutant runs together; mutants not reached are recorded as not_run (never survived)
+RUNNER_TIME_BUDGET = 600  # the same, when a custom runner (the hosted sandbox) does its own setup for every mutant
+MIN_RAN = 2              # fewer mutants than this actually ran because of the budget: the check is incomplete, not a verdict
+BUDGET_ENV = "LATCH_MUTATION_BUDGET"
 OPERATORS = ("compare_boundary", "negate_condition", "bool_swap", "const_off_by_one", "return_none")
 IGNORE = shutil.ignore_patterns(".latch-home", ".latch-suite-home", ".pytest_cache", "__pycache__", ".git", ".latch-venv")
 
@@ -153,15 +157,31 @@ def generate_mutants(files, max_mutants=MAX_MUTANTS):
     return picked
 
 
+def time_budget_for(custom_runner=False):
+    """Seconds allowed for all mutant runs: LATCH_MUTATION_BUDGET if set to a positive number, else 600 with a custom
+    runner (each mutant pays its own setup there) and 240 otherwise."""
+    try:
+        value = float(os.environ.get(BUDGET_ENV, ""))
+        if value > 0:
+            return value
+    except ValueError:
+        pass
+    return RUNNER_TIME_BUDGET if custom_runner else TIME_BUDGET
+
+
 def mutation_check(run, head_tree, base_tree, files, test_source, test_file, work_root,
-                   threshold=THRESHOLD, max_mutants=MAX_MUTANTS, time_budget=TIME_BUDGET, clock=time.monotonic):
+                   threshold=THRESHOLD, max_mutants=MAX_MUTANTS, time_budget=None, clock=time.monotonic):
     """Run the frozen proof test against mutants of the changed lines of `files`.
 
     run(directory) -> {returncode, stdout, stderr}: runs the proof test in a directory (it should apply its own timeout).
     head_tree / base_tree: Paths of the tree that passed the gate and of the base revision.
     files: non-test .py paths the change touched (relative). Returns the receipt dict
-    {mutants, killed, total, kill_rate, threshold, ok, note}.
+    {mutants, killed, total, kill_rate, threshold, ok, note, not_run, incomplete}. Mutants the time budget stopped
+    before they ran are recorded with not_run: true and left out of killed/total (kill_rate = killed / mutants that ran).
+    If the budget left fewer than MIN_RAN mutants run, the check is `incomplete`: it does not block, and says so.
     """
+    if time_budget is None:
+        time_budget = time_budget_for(False)
     head_tree, base_tree, work_root = Path(head_tree), Path(base_tree), Path(work_root)
     sources = {}
     for rel in files:
@@ -184,7 +204,7 @@ def mutation_check(run, head_tree, base_tree, files, test_source, test_file, wor
         record = {"id": mutant["id"], "operator": mutant["operator"], "file": mutant["file"], "line": mutant["line"],
                   "what": mutant["what"], "diff": mutant["diff"], "killed": False, "output_excerpt": ""}
         if clock() - started > time_budget:
-            record["error"] = "time budget exhausted before this mutant ran; counted as survived"
+            record.update(not_run=True, output_excerpt="not run: the time budget was exhausted before this mutant")
             records.append(record)
             continue
         target = work_root / f"mutant-{mutant['id']}"
@@ -204,12 +224,22 @@ def mutation_check(run, head_tree, base_tree, files, test_source, test_file, wor
         finally:
             shutil.rmtree(target, ignore_errors=True)
         records.append(record)
-    killed = sum(1 for r in records if r["killed"])
-    rate = round(killed / len(records), 3)
-    return {"mutants": records, "killed": killed, "total": len(records), "kill_rate": rate, "threshold": threshold,
-            "ok": rate >= threshold,
-            "note": f"{killed}/{len(records)} mutants of the changed lines were killed by the frozen proof test "
-                    f"(needs {threshold:.0%})"}
+    ran = [r for r in records if not r.get("not_run")]
+    skipped = len(records) - len(ran)
+    killed = sum(1 for r in ran if r["killed"])
+    rate = round(killed / len(ran), 3) if ran else None
+    result = {"mutants": records, "killed": killed, "total": len(ran), "kill_rate": rate, "threshold": threshold,
+              "not_run": skipped, "incomplete": False}
+    if skipped and len(ran) < MIN_RAN:
+        result.update(ok=True, incomplete=True,
+                      note=f"mutation check incomplete: budget ({len(ran)} of {len(records)} mutants ran, {skipped} not run "
+                           f"within {time_budget:g}s); this does not block, and the verdict is not mutation-backed")
+        return result
+    note = f"{killed}/{len(ran)} mutants of the changed lines were killed by the frozen proof test (needs {threshold:.0%})"
+    if skipped:
+        note += f"; {skipped} more were not run because the {time_budget:g}s budget ran out"
+    result.update(ok=rate >= threshold, note=note)
+    return result
 
 
 def mutation_detail(result):

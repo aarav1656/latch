@@ -147,7 +147,7 @@ class Timeline:
             d = detail or {}
             rate = d.get("kill_rate")
             self.line((self.c("green", "ok  ") if status == "done" else self.c("red", "FAILED  "))
-                      + ("no mutable lines in the change; nothing to mutate" if not d.get("total") and status == "done"
+                      + ("no mutants ran (nothing to mutate, or the time budget ran out); see the receipt note" if not d.get("total") and status == "done"
                          else f"killed {d.get('killed', 0)}/{d.get('total', 0)} mutants of the changed lines"
                               + (f" (kill rate {rate:.0%})" if rate is not None else " (the check could not complete)")), 0.8, indent=2)
         elif name == "revert_check":
@@ -174,6 +174,8 @@ class Timeline:
                 self.line(f"flake check: {flaky['runs']} runs on base and head, flake rate {flaky['flake_rate']:.0%}", indent=2)
             if mutation.get("ran") is False and mutation.get("ok") is False:
                 self.line(f"mutation check: could not complete ({mutation.get('note')})", indent=2)
+            elif mutation.get("incomplete"):
+                self.line(f"mutation check: {mutation.get('note')}", indent=2)
             elif mutation.get("total"):
                 self.line(f"mutation check: killed {mutation['killed']}/{mutation['total']} (kill rate {mutation['kill_rate']:.0%}, needs {mutation['threshold']:.0%})", indent=2)
         calls = receipt.get("model_calls") or self.calls
