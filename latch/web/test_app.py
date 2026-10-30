@@ -1039,7 +1039,7 @@ class PageRouteTests(unittest.TestCase):
         eval_html = h.request("GET", "/eval")[2].decode()
         self.assertNotRegex(eval_html, r"\d+(\.\d+)?%")  # every figure comes from /api/eval at runtime
         ship = h.request("GET", "/ship")[2].decode()
-        for needle in ("latch prove", "latch comment", "NEBIUS_API_KEY", "kamalbuilds/latch/.github/actions/latch", "GITHUB_TOKEN"):
+        for needle in ("latch prove", "latch comment", "NEBIUS_API_KEY", "aarav1656/latch/.github/actions/latch", "GITHUB_TOKEN"):
             self.assertIn(needle, ship)
 
     def test_ship_page_workflow_matches_the_shipped_example(self):
@@ -1051,6 +1051,8 @@ class PageRouteTests(unittest.TestCase):
         ship = htmllib.unescape(Harness(self).request("GET", "/ship")[2].decode())
         for line in lines:
             code = line.split("   #")[0].strip()
+            # latch/loop's example may still name the old owner; the page names the public repo
+            code = code.replace("kamalbuilds/latch/", "aarav1656/latch/")
             self.assertIn(code, ship, code)
 
 
