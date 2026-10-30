@@ -8,7 +8,7 @@
   --line: oklch(35% 0.010 70);
   --line-soft: oklch(30% 0.009 70);
   --ink: oklch(94% 0.008 85);
-  --muted: oklch(74% 0.012 80);
+  --muted: oklch(78% 0.012 80);
   --faint: oklch(63% 0.010 75);
   --pass: oklch(80% 0.15 155);
   --fail: oklch(74% 0.17 28);
@@ -22,7 +22,7 @@
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --t-hero: clamp(3rem, 9vw, 5.5rem);
   --t-base: 1.0625rem;
-  --t-small: 0.8125rem;
+  --t-small: 0.875rem;
 
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 72px;
   --radius: 4px;

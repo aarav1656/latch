@@ -177,3 +177,17 @@ strong { font-weight: 600; }
 
 .page-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); min-width: 0; }
 .page-panel > * { min-width: 0; }
+
+/* Evidence stays readable on a phone: wide tables become one labelled block per row, and code panes show a real scrollbar. */
+.pane pre { scrollbar-width: thin; scrollbar-color: var(--muted) var(--inset); }
+.pane pre::-webkit-scrollbar { height: 0.625rem; width: 0.625rem; }
+.pane pre::-webkit-scrollbar-track { background: var(--inset); }
+.pane pre::-webkit-scrollbar-thumb { background: var(--line); border-radius: 0.3125rem; }
+@media (max-width: 40rem) {
+  .ledger-table.stack, .ledger-table.stack tbody, .ledger-table.stack tr, .ledger-table.stack td { display: block; min-width: 0; }
+  .eval-scroll .ledger-table.stack { min-width: 0; }
+  .ledger-table.stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ledger-table.stack tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+  .ledger-table.stack td { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--space-3); border: 0; padding: 0.125rem 0; text-align: left; }
+  .ledger-table.stack td::before { content: attr(data-label); color: var(--muted); }
+}

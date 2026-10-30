@@ -105,12 +105,13 @@
     sec.appendChild(el("h3", "section-title", "Which model did what"));
     const calls = Array.isArray(r.model_calls) ? r.model_calls : null;
     const wrap = el("div", "scroll-x");
-    const table = el("table", "ledger-table");
+    const table = el("table", "ledger-table stack");
     const head = el("tr");
     ["Role", "Model", "Tokens in", "Tokens out", "Latency", "Est. cost"].forEach((h, i) => head.appendChild(el("th", i > 1 ? "r" : null, h)));
     const thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
     const body = el("tbody");
     const ROLE = { repo_map: "Repo map", triage: "Triage", test_writer: "Test writer", fixer: "Fixer" };
+    const LABELS = ["Role", "Model", "Tokens in", "Tokens out", "Latency", "Est. cost"];
     const add = (role, model, a, b, ms, cost) => {
       const tr = el("tr");
       tr.appendChild(el("td", null, role));
@@ -119,6 +120,7 @@
       tr.appendChild(el("td", "r", isNum(b) ? b.toLocaleString() : NR));
       tr.appendChild(el("td", "r", isNum(ms) ? secs(ms) : NR));
       tr.appendChild(el("td", "r", usd(cost)));
+      Array.from(tr.children).forEach((td, i) => td.setAttribute("data-label", LABELS[i]));
       body.appendChild(tr);
     };
     if (calls && calls.length) {
@@ -309,6 +311,7 @@
   function applyEvent(d) {
     const s = steps[d.step];
     if (!s) return;
+    if (!eventMode) LEDGER.forEach(([k]) => { steps[k].state = "pending"; });  // legacy hints ran ahead of the engine's own events
     eventMode = true;
     const t = new Date(d.ts).getTime();
     if (d.status === "started") { s.state = "active"; s.t0 = isNaN(t) ? null : t; s.ts = d.ts; }
