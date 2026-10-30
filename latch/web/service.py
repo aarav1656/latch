@@ -127,6 +127,9 @@ class Config:
         self.loop = os.environ.get("LATCH_LOOP", "1") != "0"
         self.loop_timeout = _env_int("LATCH_LOOP_TIMEOUT", 240)
         self.submit_rate = _env_int("LATCH_SUBMIT_RATE_PER_MIN", 20)
+        # LATCH_CREDITS_EXHAUSTED=1: the model account is known to be out of credits (HTTP 402). Live runs stay
+        # off from the first request, with the calm credits note, and every saved receipt keeps working.
+        self.credits_exhausted = os.environ.get("LATCH_CREDITS_EXHAUSTED", "0") == "1"
         self.credit_pause_s = _env_int("LATCH_CREDIT_PAUSE_S", 600)  # live mode stays off this long after a 402
         for key, value in overrides.items():
             if not hasattr(self, key):
@@ -254,7 +257,7 @@ class Service:
             return {"enabled": False, "reason": "Live runs are switched off on this server (LATCH_LIVE=0). Cached receipts still work."}
         if not self.key_present():
             return {"enabled": False, "reason": "Live runs are not configured on this server. Cached receipts still work."}
-        if self.credits_paused():
+        if self.config.credits_exhausted or self.credits_paused():
             return {"enabled": False, "reason": CREDITS_REASON}
         if self.cap.remaining() <= 0:
             return {"enabled": False, "reason": "The daily limit of live runs has been reached. Cached receipts still work; live runs reset at 00:00 UTC."}

@@ -87,6 +87,9 @@ def make_handler(service, trust_proxy=True):
             self._headers(status, content_type, len(body), {"Cache-Control": cache})
             self.wfile.write(body)
 
+        def _redirect(self, location):
+            self._headers(302, "text/plain; charset=utf-8", 0, {"Location": location, "Cache-Control": "no-store"})
+
         # -- pages --------------------------------------------------------
         def page(self, initial=None, status=200, notice=None):
             html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
@@ -134,6 +137,9 @@ def make_handler(service, trust_proxy=True):
                             return self.send_json(404, {"error": {"code": "no_receipt", "message": "No saved receipt for this pull request."}})
                         return self.send_json(200, envelope)
                     if not envelope:
+                        pr_number = service.store.pr_for_issue(repo, number)
+                        if pr_number and pr_number != number:
+                            return self._redirect(f"/r/{repo}/{pr_number}")
                         return self.page(None, 404, f"No saved receipt for {repo}#{number} yet. Paste its URL above to run one.")
                     return self.page(envelope)
                 match = PROOF_PATH.match(path)

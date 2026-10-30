@@ -215,6 +215,25 @@ class Store:
                 return found
         return self.seed_prs.get(key)
 
+    def pr_for_issue(self, repo_full_name, number):
+        """PR number whose cached receipt closes this issue number (None when unknown).
+
+        Lets /r/<owner>/<repo>/<issue> send people to the receipt of the pull request that fixes it, so a page
+        never says "no receipt" above a receipt.
+        """
+        suffix = f"/{repo_full_name}/issues/{int(number)}".lower()
+        candidates = list(self.seed_prs.values())
+        try:
+            candidates += [e for e in (self._read(f) for f in sorted((self.root / "receipts").glob("*.json"))) if e]
+        except OSError:
+            pass
+        for envelope in candidates:
+            issue_url = str((envelope.get("receipt") or {}).get("issue_url") or "").lower().rstrip("/")
+            meta = envelope.get("meta") or {}
+            if issue_url.endswith(suffix) and str(meta.get("repo", "")).lower() == repo_full_name.lower() and meta.get("number"):
+                return int(meta["number"])
+        return None
+
     def put(self, repo_full_name, number, envelope):
         receipt = envelope["receipt"]
         key = receipt_key(repo_full_name, receipt["base"], receipt["head"])
