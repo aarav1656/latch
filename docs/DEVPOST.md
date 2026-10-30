@@ -55,6 +55,7 @@ For context on a different benchmark with a looser fail-to-pass condition: Otter
 Pure Python 3.10+, standard library only on the gate path, so it runs anywhere pytest does.
 
 - **Nemotron Ultra** (`nvidia/Nemotron-3-Ultra-550b-a55b`) writes the proof test and the fixes. It reads the issue, a repository map and the changed files.
+- **Why Ultra and not Super for the tests:** a live A/B on 5 cases had `nvidia/Nemotron-3.5-Super-VL` prove the same 5 real fixes for $0.0059 per proof against Ultra's $0.0087, and accept 1 of 5 wrong patches that Ultra's test refused. A gate that exists to refuse wrong fixes takes the stricter writer.
 - **Nemotron Lightning** (`nvidia/Nemotron-3_5-Lightning`) builds the repository map and triages whether the base failure actually reproduces the issue. Two models because the jobs differ: Lightning is the fast reader, Ultra is the careful writer.
 - Both run on Nebius Token Factory through its OpenAI-compatible chat completions API. Every call's completion id, latency and token usage lands in the receipt.
 - The harness archives each commit with `git archive` into a temporary directory, so it never checks out or edits your repo. Mutation testing walks the AST of the changed lines only. On the hosted site, PR test code runs under a stripped environment with no secrets, resource limits and a process-group kill, with network isolation where the host allows it.
