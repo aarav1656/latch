@@ -1,0 +1,119 @@
+name: Latch gate
+description: >
+  Run Latch on a pull request: a model-written proof test must fail on the base, pass on the head and fail again
+  with the fix reverted. Posts (or updates) one PR comment with the receipt. The harness, not the model, decides.
+author: kamalbuilds
+inputs:
+  mode:
+    description: "prove (judge the PR as submitted) or loop (if the gate is shut, let Nemotron repair it and re-judge)"
+    default: prove
+  test-command:
+    description: Command that runs the project's tests (run from the repo root; install your dependencies first)
+    default: python3 -m pytest -q
+  base:
+    description: Base commit (default, the PR base SHA)
+    default: ""
+  head:
+    description: Head commit (default, the PR head SHA)
+    default: ""
+  issue:
+    description: Issue text the change should fix (default, the PR title and body)
+    default: ""
+  max-iterations:
+    description: Repair iterations when mode is loop
+    default: "3"
+  nebius-api-key:
+    description: Token Factory API key (pass a repository secret; never a literal)
+    required: true
+  github-token:
+    description: Token used to post or update the PR comment
+    default: ${{ github.token }}
+  post-comment:
+    description: "'true' posts or updates a single PR comment; 'false' only writes the receipt and the Markdown"
+    default: "true"
+  fail-on-shut:
+    description: "'true' fails the job when the gate is shut or proof fails (exit status 1 or 2)"
+    default: "true"
+  python-version:
+    description: Python used to run Latch
+    default: "3.12"
+outputs:
+  verdict:
+    description: "proven | not-proven | error"
+    value: ${{ steps.run.outputs.verdict }}
+  receipt:
+    description: Path of the JSON receipt
+    value: ${{ steps.run.outputs.receipt }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install Latch
+      shell: bash
+      env:
+        ACTION_ROOT: ${{ github.action_path }}
+      run: python -m pip install --quiet "$ACTION_ROOT/../../.."
+    - name: Run Latch
+      id: run
+      shell: bash
+      env:
+        # Everything user- or PR-controlled goes through the environment, never interpolated into the script.
+        NEBIUS_API_KEY: ${{ inputs.nebius-api-key }}
+        LATCH_MODE: ${{ inputs.mode }}
+        LATCH_TEST_COMMAND: ${{ inputs.test-command }}
+        LATCH_MAX_ITERATIONS: ${{ inputs.max-iterations }}
+        LATCH_BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+        LATCH_HEAD: ${{ inputs.head || github.event.pull_request.head.sha }}
+        LATCH_ISSUE: ${{ inputs.issue }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        RECEIPT_DIR: ${{ runner.temp }}/latch
+      run: |
+        set -u
+        mkdir -p "$RECEIPT_DIR"
+        issue="${LATCH_ISSUE:-}"
+        if [ -z "$issue" ]; then issue="$PR_TITLE"$'\n\n'"$PR_BODY"; fi
+        printf '%s' "$issue" > "$RECEIPT_DIR/issue.txt"
+        if [ -z "${NEBIUS_API_KEY:-}" ]; then
+          echo "::error::nebius-api-key is empty (pull requests from forks do not receive secrets)"
+          echo "verdict=error" >> "$GITHUB_OUTPUT"; echo "exit-code=2" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        set +e
+        if [ "$LATCH_MODE" = "loop" ]; then
+          latch loop --repo . --base "$LATCH_BASE" --head "$LATCH_HEAD" --issue-file "$RECEIPT_DIR/issue.txt" \
+            --test-command "$LATCH_TEST_COMMAND" --max-iterations "$LATCH_MAX_ITERATIONS" --jsonl \
+            --receipt "$RECEIPT_DIR/receipt.json" --events "$RECEIPT_DIR/events.jsonl" \
+            --pr-comment "$RECEIPT_DIR/comment.md" > /dev/null
+        else
+          latch prove --repo . --base "$LATCH_BASE" --head "$LATCH_HEAD" --issue-file "$RECEIPT_DIR/issue.txt" \
+            --test-command "$LATCH_TEST_COMMAND" \
+            --receipt "$RECEIPT_DIR/receipt.json" --pr-comment "$RECEIPT_DIR/comment.md"
+        fi
+        code=$?
+        set -e
+        case "$code" in 0) verdict=proven ;; 1) verdict=not-proven ;; *) verdict=error ;; esac
+        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "receipt=$RECEIPT_DIR/receipt.json" >> "$GITHUB_OUTPUT"
+        if [ -f "$RECEIPT_DIR/comment.md" ]; then cat "$RECEIPT_DIR/comment.md" >> "$GITHUB_STEP_SUMMARY"; fi
+    - name: Post or update the PR comment
+      if: ${{ always() && inputs.post-comment == 'true' && github.event_name == 'pull_request' && hashFiles(format('{0}/latch/receipt.json', runner.temp)) != '' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        RECEIPT_DIR: ${{ runner.temp }}/latch
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: latch comment "$RECEIPT_DIR/receipt.json" --post --repo "$REPO" --pr "$PR_NUMBER" --run-url "$RUN_URL"
+    - name: Fail when the gate is shut
+      if: ${{ always() && inputs.fail-on-shut == 'true' && steps.run.outputs.exit-code != '0' }}
+      shell: bash
+      env:
+        VERDICT: ${{ steps.run.outputs.verdict }}
+      run: |
+        echo "::error::Latch verdict: $VERDICT"
+        exit 1
