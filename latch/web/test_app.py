@@ -724,6 +724,47 @@ class ReceiptNoteTests(unittest.TestCase):
         self.assertIsNone(meta["model_retries_note"])
 
 
+class IssueNumberTests(unittest.TestCase):
+    def test_issue_number_redirects_to_the_pr_receipt_never_a_contradicting_banner(self):
+        h = Harness(self, live=False)
+        status, headers, _ = h.request("GET", "/r/pallets/click/3298")
+        self.assertEqual(status, 302)
+        self.assertEqual(headers["Location"], "/r/pallets/click/3299")
+        self.assertEqual(h.request("GET", "/api/receipt/pallets/click/3298")[0], 404)  # the API stays literal
+        status, _, page = h.request("GET", "/r/pallets/click/3299")
+        self.assertEqual(status, 200)
+        self.assertNotIn("No saved receipt", page.decode())
+
+    def test_unknown_numbers_still_404_with_the_banner(self):
+        h = Harness(self, live=False)
+        status, _, page = h.request("GET", "/r/pallets/click/1")
+        self.assertEqual(status, 404)
+        self.assertIn("No saved receipt for pallets/click#1", page.decode())
+        self.assertEqual(h.request("GET", "/r/pallets/other/3298")[0], 404)
+
+
+class CreditsExhaustedAtStartTests(unittest.TestCase):
+    def test_deployed_app_with_no_credits_degrades_cleanly_from_the_first_request(self):
+        h = Harness(self, credits_exhausted=True)
+        _, cfg = h.get_json("/api/config")
+        self.assertFalse(cfg["live"])
+        self.assertEqual(cfg["live_reason"], CREDITS)
+        self.assertFalse(cfg["loop"]["live"])
+        _, _, page = h.request("GET", "/")
+        boot = json.loads(page.decode().split('id="boot" type="application/json">')[1].split("</script>")[0])
+        self.assertFalse(boot["config"]["live"])
+        self.assertTrue(boot["example"]["receipt"]["proven"])
+        self.assertEqual(boot["example"]["meta"]["source"], "recorded")
+        status, example = h.get_json("/api/loop/example")
+        self.assertEqual(status, 200)
+        self.assertTrue(example["events"])
+        status, _, body = h.post(CLICK)
+        self.assertEqual((status, body["cached"], body["meta"]["source"]), (200, True, "recorded"))
+        status, _, body = h.post(h.add_pr(2))
+        self.assertEqual((status, body["error"]["code"]), (503, "live_disabled"))
+        self.assertEqual(body["error"]["message"], CREDITS)
+
+
 class CreditsTests(unittest.TestCase):
     def clocked(self, **kw):
         now = [1_000_000.0]
