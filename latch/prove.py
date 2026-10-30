@@ -11,7 +11,7 @@ import tempfile
 import textwrap
 from pathlib import Path
 
-from .run import MODEL, call_model, load_key
+from .run import LIGHTNING, MODEL, call_model, load_key
 from .harness.parse import extract_test_function
 
 
@@ -241,95 +241,111 @@ def run_test(snapshot, command, isolate=False):
     }
 
 
-def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None):
-    # runner(snapshot: Path, command: list[str]) -> {returncode, stdout, stderr}
-    # replaces run_test for each snapshot (used by hosted deployments to sandbox PR code).
+TRIAGE_SYSTEM = ("You triage test failures. Reply with REPRODUCES or NOT_REPRODUCES on the first line, "
+                 "then one short sentence.")
+
+
+def run_triage(ask, key, issue, test_source, failure_text, where="the submitted code", model=None):
+    """Nemotron Lightning reads a failing run and says whether it shows the issue's behavior.
+
+    Returns (status, record); record is {model, completion_id, verdict, text} with verdict reproduced |
+    not_reproduced | unclear, or None when the call failed.
+    """
+    from .run import LIGHTNING
+
+    model = model or LIGHTNING
+    user = (
+        f"Issue report:\n{issue}\n\nRegression test:\n{test_source}\n"
+        f"pytest output on {where}:\n{failure_text[-6000:]}\n\n"
+        "Does this failure show the issue's reported behavior is still wrong in the code "
+        "(an assertion about behavior), as opposed to an environment, import, syntax or test-harness "
+        "problem? Answer with exactly one first line: REPRODUCES or NOT_REPRODUCES, then one short "
+        "sentence of reason."
+    )
+    status, text, completion_id = ask(key, user, model=model, system=TRIAGE_SYSTEM, max_tokens=2048, prose=True)
+    if status != 200:
+        return status, None
+    text = (text or "").strip()
+    m = re.search(r"\b(NOT_REPRODUCES|REPRODUCES)\b", text)
+    verdict = ("not_reproduced" if m.group(1) == "NOT_REPRODUCES" else "reproduced") if m else "unclear"
+    return 200, {"model": model, "completion_id": completion_id, "verdict": verdict, "text": text[:1000]}
+
+
+def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None,
+          on_step_event=None, revert=True, triage=True, repo_map=True):
+    """Prove that a change fixes an issue: a generated test must fail on base and pass on head.
+
+    on_step(name): legacy string callback (fetching ... receipt), unchanged.
+    on_step_event(dict): {step, status: started|done|failed, ts, detail} for fetch, repo_map, test_writer,
+        base_run, head_run, triage, revert_check and verdict.
+    runner(snapshot: Path, command: list[str]) -> {returncode, stdout, stderr} replaces run_test for each
+        snapshot (used by hosted deployments to sandbox PR code); the revert check uses it too.
+    revert: after the gate looks open, revert the fix and require the proof test to fail again (fail closed).
+    triage / repo_map: the Lightning calls (an advisory read of the base failure; the repo map that feeds the
+        test-writing prompt). repo_map failure never blocks a run; triage never changes `proven`.
+    """
+    from .modelcalls import PRICES_SOURCE_URL, ModelCalls, total_cost
+    from .repomap import build_repo_map
+    from .revert import changed_files, is_test_path, revert_check
+    from .steps import StepLog
+
     def step(name):
         if on_step:
             on_step(name)
+
+    steps = StepLog(on_step_event)
+    retries = []
+    calls = ModelCalls(call_model, on_retry=retries.append, uses_meta=True)
 
     repo = Path(repo).resolve()
     if not repo.is_dir() or not issue.strip():
         raise ValueError("repo must be a directory and issue text must be non-empty")
     if len(issue) > 20000:
         raise ValueError("issue text exceeds the 20,000 character input limit")
-    commits = []
-    for ref in (base, head):
-        checked = git(repo, "rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}")
-        if checked.returncode:
-            raise ValueError(f"unknown commit ref: {ref}")
-        commits.append(checked.stdout.strip())
-    base_commit, head_commit = commits
-    changed = git(repo, "diff", "--name-only", "--diff-filter=ACMR", base_commit, head_commit)
-    if changed.returncode:
-        raise RuntimeError(changed.stderr.strip() or "could not inspect revision diff")
-    paths = [p for p in changed.stdout.splitlines() if p.endswith(".py")]
-    if not paths:
-        raise ValueError("the selected revisions have no changed Python files")
-    diff = git(
-        repo, "diff", "--no-ext-diff", "--unified=60", base_commit, head_commit, "--", *paths
-    )
-    if diff.returncode:
-        raise RuntimeError(diff.stderr.strip() or "could not read Python diff")
-    if not diff.stdout.strip():
-        raise ValueError("the selected Python diff is empty")
-    if len(diff.stdout) > 40000:
-        raise ValueError("Python diff exceeds the 40,000 character model input limit")
-
-    key = load_key()
-    if not key:
-        raise RuntimeError("NEBIUS_API_KEY is not configured")
-    step("model")
-    prompt = (
-        "Create exactly one self-contained pytest test function named test_... and no prose. "
-        "Put every import inside the test function. Use the issue report as the "
-        "independent expected behavior. Use actual issue-named library types, not stand-ins. "
-        "Assert that the reported correct behavior occurs. "
-        "If that operation raises an exception, catch it and call pytest.fail with a message "
-        "starting exactly 'Latch expected the issue operation to succeed:'. The test must fail "
-        "on the buggy base revision and pass on the "
-        "fixed head revision. Do not expect the bug as correct behavior or test the diff mechanically.\n\n"
-        f"Issue report:\n{issue.strip()}\n\nPython diff:\n{diff.stdout}"
-    )
-    retries = []
-    system = (
-        "Write one self-contained Python pytest function named test_... that asserts the "
-        "issue's expected behavior, using actual issue-named library types rather than "
-        "stand-ins. If the operation raises, catch it and call pytest.fail with a message "
-        "starting exactly 'Latch expected the issue operation to succeed:'. It must fail "
-        "on the bug and pass on the fix. Put imports inside it. Output no prose."
-    )
-
-    def ask(*args, **kwargs):
-        return call_model(*args, on_retry=retries.append, **kwargs)
-
+    command = shlex.split(test_command)
+    if not command:
+        raise ValueError("test command cannot be empty")
+    steps.started("fetch", {"base": base, "head": head})
     try:
-        function, test_attempts = generate_proof_test(ask, key, prompt, system, MODEL, 2048)
-    except ModelRequestError as error:
-        raise RuntimeError(f"Nebius model request failed: HTTP {error.status}") from None
-    if function is None:
-        # Fail closed: both generations were vacuous, so nothing was run and nothing is proven.
-        result = {
-            "repo": repo.name, "base": base_commit, "head": head_commit, "issue": issue.strip(),
-            "test_command": shlex.split(test_command), "model": MODEL,
-            "completion_id": test_attempts[-1]["completion_id"], "test": None,
-            "base_result": None, "head_result": None, "test_name": None,
-            "base_failure_type": None, "base_failure_is_expected": False, "proven": False,
-            "rejected_test_reason": test_attempts[-1]["rejection"],
-            "why_not_proven": "the generated test was rejected as vacuous twice: " + test_attempts[-1]["rejection"],
-            "test_attempts": test_attempts, "model_retries": retries,
-        }
+        commits = []
+        for ref in (base, head):
+            checked = git(repo, "rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}")
+            if checked.returncode:
+                raise ValueError(f"unknown commit ref: {ref}")
+            commits.append(checked.stdout.strip())
+        base_commit, head_commit = commits
+        changed = git(repo, "diff", "--name-only", "--diff-filter=ACMR", base_commit, head_commit)
+        if changed.returncode:
+            raise RuntimeError(changed.stderr.strip() or "could not inspect revision diff")
+        paths = [p for p in changed.stdout.splitlines() if p.endswith(".py")]
+        if not paths:
+            raise ValueError("the selected revisions have no changed Python files")
+        diff = git(
+            repo, "diff", "--no-ext-diff", "--unified=60", base_commit, head_commit, "--", *paths
+        )
+        if diff.returncode:
+            raise RuntimeError(diff.stderr.strip() or "could not read Python diff")
+        if not diff.stdout.strip():
+            raise ValueError("the selected Python diff is empty")
+        if len(diff.stdout) > 40000:
+            raise ValueError("Python diff exceeds the 40,000 character model input limit")
+        key = load_key()
+        if not key:
+            raise RuntimeError("NEBIUS_API_KEY is not configured")
+    except Exception as error:
+        steps.failed("fetch", str(error))
+        raise
+    steps.done("fetch", {"base": base_commit[:12], "head": head_commit[:12], "changed_python_files": paths[:20]})
+
+    def write_receipt(result):
+        result.update(model_calls=list(calls.calls), model_cost_usd=total_cost(calls.calls),
+                      model_prices_source=PRICES_SOURCE_URL, steps=steps.events)
         output = Path(receipt)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         step("receipt")
         return result
-    completion_id = test_attempts[-1]["completion_id"]
-    test_name = re.match(r"\s*def\s+(test_\w+)", function).group(1)
 
-    command = shlex.split(test_command)
-    if not command:
-        raise ValueError("test command cannot be empty")
     with tempfile.TemporaryDirectory(prefix="latch-proof-") as temp:
         root = Path(temp)
         base_dir, head_dir = root / "base", root / "head"
@@ -337,6 +353,67 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         head_dir.mkdir()
         archive(repo, base_commit, base_dir)
         archive(repo, head_commit, head_dir)
+
+        map_result = {"status": "skipped"}
+        if repo_map:
+            steps.started("repo_map", {"model": LIGHTNING})
+            try:
+                map_result = build_repo_map(calls.ask("repo_map"), key, base_dir, issue.strip(), paths)
+            except (OSError, ValueError) as error:  # context only: never blocks the proof
+                map_result = {"status": "unavailable", "detail": f"{type(error).__name__}: {error}"}
+            (steps.done if map_result["status"] == "ok" else steps.failed)(
+                "repo_map", {"files": [f["path"] for f in map_result.get("files", [])],
+                             "dropped": map_result.get("dropped", []), "detail": map_result.get("detail")})
+
+        step("model")
+        steps.started("test_writer", {"model": MODEL})
+        map_text = map_result.get("text") or ""
+        prompt = (
+            "Create exactly one self-contained pytest test function named test_... and no prose. "
+            "Put every import inside the test function. Use the issue report as the "
+            "independent expected behavior. Use actual issue-named library types, not stand-ins. "
+            "Assert that the reported correct behavior occurs. "
+            "If that operation raises an exception, catch it and call pytest.fail with a message "
+            "starting exactly 'Latch expected the issue operation to succeed:'. The test must fail "
+            "on the buggy base revision and pass on the "
+            "fixed head revision. Do not expect the bug as correct behavior or test the diff mechanically.\n\n"
+            + (f"Repo map (files and symbols that exist in the base revision, picked by Nemotron Lightning and "
+               f"checked against the code; import only names listed here or from the issue):\n{map_text}\n\n"
+               if map_text else "")
+            + f"Issue report:\n{issue.strip()}\n\nPython diff:\n{diff.stdout}"
+        )
+        system = (
+            "Write one self-contained Python pytest function named test_... that asserts the "
+            "issue's expected behavior, using actual issue-named library types rather than "
+            "stand-ins. If the operation raises, catch it and call pytest.fail with a message "
+            "starting exactly 'Latch expected the issue operation to succeed:'. It must fail "
+            "on the bug and pass on the fix. Put imports inside it. Output no prose."
+        )
+        try:
+            function, test_attempts = generate_proof_test(calls.ask("test_writer"), key, prompt, system, MODEL, 2048)
+        except ModelRequestError as error:
+            steps.failed("test_writer", f"HTTP {error.status}")
+            raise RuntimeError(f"Nebius model request failed: HTTP {error.status}") from None
+        base_info = {"repo": repo.name, "base": base_commit, "head": head_commit, "issue": issue.strip(),
+                     "test_command": command, "model": MODEL, "repo_map": {k: v for k, v in map_result.items() if k != "reply"}}
+        if function is None:
+            # Fail closed: both generations were vacuous, so nothing was run and nothing is proven.
+            steps.failed("test_writer", test_attempts[-1]["rejection"])
+            reason = "the generated test was rejected as vacuous twice: " + test_attempts[-1]["rejection"]
+            steps.done("verdict", {"proven": False, "why_not_proven": reason})
+            return write_receipt({
+                **base_info,
+                "completion_id": test_attempts[-1]["completion_id"], "test": None,
+                "base_result": None, "head_result": None, "test_name": None,
+                "base_failure_type": None, "base_failure_is_expected": False, "proven": False,
+                "rejected_test_reason": test_attempts[-1]["rejection"], "why_not_proven": reason,
+                "revert_check": {"ran": False, "skipped": "no proof test"},
+                "test_attempts": test_attempts, "model_retries": retries,
+            })
+        steps.done("test_writer", {"attempts": len(test_attempts), "completion_id": test_attempts[-1]["completion_id"]})
+        completion_id = test_attempts[-1]["completion_id"]
+        test_name = re.match(r"\s*def\s+(test_\w+)", function).group(1)
+
         test_source = f"import pytest\n\n{function.rstrip()}\n"
         for snapshot in (base_dir, head_dir):
             (snapshot / "latch_issue_test.py").write_text(test_source, encoding="utf-8")
@@ -344,35 +421,67 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             lambda snapshot, argv: run_test(snapshot, argv, isolate=isolate_tests)
         )
         step("base-test")
+        steps.started("base_run")
         base_result = execute(base_dir, command)
+        base_kind = expected_base_failure(base_result, test_name)
+        steps.done("base_run", {"returncode": base_result["returncode"], "failure_type": base_kind})
         step("head-test")
+        steps.started("head_run")
         head_result = execute(head_dir, command)
+        steps.done("head_run", {"returncode": head_result["returncode"]})
+        is_proven = proven(base_result, head_result, test_name)
+
+        triage_record = None
+        if triage and base_kind is not None:
+            steps.started("triage", {"model": LIGHTNING})
+            tri_status, triage_record = run_triage(calls.ask("triage"), key, issue.strip(), test_source,
+                                                   base_result["stdout"] + base_result["stderr"], "the base revision")
+            if triage_record is None:
+                steps.failed("triage", f"HTTP {tri_status}")
+            else:
+                triage_record["advisory"] = True
+                steps.done("triage", {"verdict": triage_record["verdict"], "completion_id": triage_record["completion_id"]})
+
+        revert_result = {"ran": False, "skipped": "the gate is not open"}
+        why_not = None
+        if is_proven and revert:
+            steps.started("revert_check")
+            try:
+                source_changes = changed_files(repo, base_commit, head_commit)
+                revert_result = revert_check(
+                    lambda directory: execute(directory, command), test_name, test_source, "latch_issue_test.py",
+                    head_dir, base_dir, source_changes, root / "mutants", is_test_path)
+            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                revert_result = {"ran": False, "ok": False, "mutants": [], "error": f"{type(error).__name__}: {error}",
+                                 "summary": "the revert check could not run, so the gate stays shut"}
+            (steps.done if revert_result["ok"] else steps.failed)("revert_check", revert_result["summary"])
+            if not revert_result["ok"]:
+                is_proven = False
+                why_not = "revert check failed: " + revert_result["summary"]
+        elif is_proven:
+            revert_result = {"ran": False, "skipped": "revert check disabled"}
 
     result = {
-        "repo": repo.name,
-        "base": base_commit,
-        "head": head_commit,
-        "issue": issue.strip(),
-        "test_command": command,
-        "model": MODEL,
+        **base_info,
         "completion_id": completion_id,
         "test": test_source,
         "base_result": base_result,
         "head_result": head_result,
         "test_name": test_name,
-        "base_failure_type": expected_base_failure(base_result, test_name),
-        "base_failure_is_expected": expected_base_failure(base_result, test_name) is not None,
-        "proven": proven(base_result, head_result, test_name),
+        "base_failure_type": base_kind,
+        "base_failure_is_expected": base_kind is not None,
+        "proven": is_proven,
+        "revert_check": revert_result,
+        "triage": triage_record,
         "test_attempts": test_attempts,
         "model_retries": retries,
     }
+    if why_not:
+        result["why_not_proven"] = why_not
     if runner is not None:
         result["test_runner"] = getattr(runner, "description", "custom runner")
-    output = Path(receipt)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    step("receipt")
-    return result
+    steps.done("verdict", {"proven": is_proven, "why_not_proven": why_not})
+    return write_receipt(result)
 
 
 def main(argv=None):

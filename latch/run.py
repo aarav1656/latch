@@ -96,7 +96,7 @@ def _transient_status(status):
 
 def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=False,
                attempts=RETRY_ATTEMPTS, timeout=CALL_TIMEOUT, on_retry=None,
-               sleep=None, jitter=None):
+               sleep=None, jitter=None, meta=None):
     """One chat completion with retry. Returns (status, content, completion_id); (status, None, None) on failure.
 
     Transient failures (connection reset or dropped by the server, timeouts, URLError, HTTP 429 and 5xx)
@@ -105,7 +105,17 @@ def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=Fal
     attempts run out the failure is returned, never raised, so callers fail closed.
     on_retry(info) is called after every failed attempt with
     {attempt, attempts, status, error, will_retry, delay} so callers can log each retry.
+    meta: optional dict filled with {prompt_tokens, completion_tokens, latency_ms, status} (the usage the
+    server reported; None when it did not). latency_ms covers all attempts, including backoff sleeps.
     """
+    started = time.monotonic()
+
+    def finish_meta(status, usage=None):
+        if meta is not None:
+            usage = usage or {}
+            meta.update(prompt_tokens=usage.get("prompt_tokens"), completion_tokens=usage.get("completion_tokens"),
+                        latency_ms=int((time.monotonic() - started) * 1000), status=status)
+
     body = json.dumps(
         {
             "model": model,
@@ -131,6 +141,7 @@ def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=Fal
                 payload = json.loads(resp.read())
                 message = payload["choices"][0]["message"]
                 content = message_text(message, prose=prose)
+                finish_meta(status, payload.get("usage") if isinstance(payload.get("usage"), dict) else None)
                 return status, content, payload.get("id")
         except urllib.error.HTTPError as e:
             status, error = e.code, f"HTTP {e.code}"
@@ -146,8 +157,10 @@ def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=Fal
             on_retry({"attempt": attempt, "attempts": attempts, "status": status, "error": error,
                       "will_retry": will_retry, "delay": round(delay, 2)})
         if not will_retry:
+            finish_meta(status)
             return status, None, None
         (sleep or time.sleep)(delay)
+    finish_meta(status)
     return status, None, None
 
 
