@@ -4,3 +4,5 @@ __pycache__/
 mitm_mcp_traffic.db
 .agentctx/
 .progress/
+build/
+*.egg-info/

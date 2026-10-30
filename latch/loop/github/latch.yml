@@ -1,0 +1,38 @@
+# Example workflow: run Latch on every pull request and keep ONE comment up to date with the receipt.
+#
+# Copy to .github/workflows/latch.yml in your repository. Needs a repository secret NEBIUS_API_KEY
+# (Token Factory). Pull requests from forks get no secrets, so Latch reports an error there and fails closed.
+# Nothing here runs until you commit it; Latch never posts anywhere on its own.
+name: latch
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write   # post or update the single Latch comment
+
+concurrency:
+  group: latch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  latch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # Latch needs the base and head commits
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the project's own test dependencies
+        run: python -m pip install -e . pytest
+      - uses: kamalbuilds/latch/.github/actions/latch@main   # or ./.github/actions/latch inside the Latch repo
+        with:
+          mode: prove                      # "loop" lets Nemotron repair a shut gate and re-judge
+          test-command: python -m pytest -q
+          nebius-api-key: ${{ secrets.NEBIUS_API_KEY }}
+          # post-comment: "false"          # only write the receipt and the job summary
+          # fail-on-shut: "false"          # report, but do not fail the check

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latch-gate"
+version = "0.1.0"
+description = "Latch: a model-written proof test must go red on the bug and green on the fix; the harness, not the model, decides."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+latch = "latch.cli:main"
+
+[tool.setuptools]
+packages = ["latch", "latch.loop", "latch.harness"]
+
+[tool.setuptools.package-data]
+"latch.loop" = ["demo/*.txt", "demo/*/*.py"]
