@@ -51,6 +51,11 @@ def _relative(path, root):
 
 def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), generated_at=None, root="."):
     runs = {(r["case"], r["variant"]): r for r in doc["runs"]}
+    dropped_by_id = {}
+    for d in dropped:
+        reason = d.get("reason", "")
+        dropped_by_id.setdefault(d["id"], "; ".join(map(str, reason)) if isinstance(reason, (list, tuple)) else str(reason))
+    case_ids = {c["id"] for c in cases}
     suite_of = {c["id"]: _kind(c) for c in cases}
     rows, validator, abstentions, failures = [], [], [], []
     for case in cases:
@@ -60,8 +65,9 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
             base = {"case": case["id"], "suite": suite_of[case["id"]], "variant": variant, "repo": case["repo"], "title": case.get("title"),
                     "contested": case["id"] in CONTESTED and variant == "wrong"}
             if run is None:
-                rows.append({**base, "status": "not run", "outcome": None,
-                             "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"})
+                why = ("dropped before the run: " + dropped_by_id[case["id"]]) if case["id"] in dropped_by_id else \
+                    "this case did not run in this evaluation (it is listed so the omission is visible)"
+                rows.append({**base, "status": "not run", "outcome": None, "reason": why})
                 continue
             receipt = load_receipt(run.get("receipt")) or {}
             row = {**base, "status": "ran", "label": run.get("label"), "outcome": run["outcome"], "verdict": run.get("verdict"),
@@ -148,7 +154,8 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
                         "items": abstentions},
         "failures": {"n": len(failures), "items": failures},
         "not_run": [{"case": r["case"], "variant": r["variant"], "reason": r["reason"]} for r in rows if r["status"] == "not run"]
-                   + [{"case": d["id"], "variant": None, "reason": "dropped before the run: " + str(d.get("reason", ""))} for d in dropped],
+                   + [{"case": i, "variant": None, "reason": "dropped before the run: " + why}
+                      for i, why in dropped_by_id.items() if i not in case_ids],
         "baselines": BASELINES,
         "comparison": comparison,
         "caveat": CAVEAT,

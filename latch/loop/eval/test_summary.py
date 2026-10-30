@@ -81,6 +81,9 @@ class SummaryTests(unittest.TestCase):
         not_run = {(n["case"], n["variant"]) for n in s["not_run"]}
         self.assertIn(("notrun", "real"), not_run)
         self.assertIn(("cachetools-221", None), not_run)
+        dup = build(dropped=[{"id": "notrun", "reason": ["base not red"]}, {"id": "notrun", "reason": "dup"}])
+        self.assertEqual(sum(1 for n in dup["not_run"] if n["case"] == "notrun"), 2)      # real + wrong rows, once each
+        self.assertIn("base not red", [n for n in dup["not_run"] if n["case"] == "notrun"][0]["reason"])
         rows = {(r["case"], r["variant"]): r for r in s["cases"]}
         self.assertEqual(rows[("notrun", "real")]["status"], "not run")
         self.assertEqual(len(s["cases"]), 14)                                  # every case x variant is listed
@@ -128,7 +131,7 @@ class NoPlaceholderTest(unittest.TestCase):
         path = Path(run_eval.REPO_ROOT) / "latch" / "runs" / "eval-summary.json"
         results = (Path(run_eval.__file__).parent / "RESULTS.md").read_text()
         self.assertTrue(path.exists() is False or '"schema_version"' in path.read_text())
-        self.assertIn("eval-summary.json schema", results)
+        self.assertIn("eval-summary.json` schema", results)
 
 
 if __name__ == "__main__":

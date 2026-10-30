@@ -474,7 +474,7 @@ def write_eval_summary(doc, dropped=(), path=None):
         return json.loads(file.read_text()) if file.exists() else None
 
     path = Path(path or REPO_ROOT / "latch" / "runs" / "eval-summary.json")
-    summary = write_summary(path, doc, CASES, load, dropped=list(dropped) + list(DROPPED), root=REPO_ROOT)
+    summary = write_summary(path, doc, CASES, load, dropped=[*dropped, *DROPPED], root=REPO_ROOT)
     print(f"wrote {path}", file=sys.stderr)
     return summary
 
