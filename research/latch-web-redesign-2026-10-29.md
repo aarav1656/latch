@@ -87,10 +87,26 @@ Eval schema v1 (`latch/loop/eval/RESULTS.md`) is read exactly: `wrong_fixes {n, 
 
 ## Review rounds
 
-Fresh-context design review was not possible with a separate reviewer: the free-tier freecode lanes went silent and were killed, so all edits were written by hand and the review below was a self review against the bans, from the screenshots only. This is a limitation, not a clean external review.
+An earlier pass was a self review. On 2026-10-30 a genuine fresh-context external review was run: `codex exec --ephemeral --ignore-user-config --ignore-rules -s read-only` from an empty directory, given only eight screenshots (first, eval_pending, ship, notproven_failclosed at 1440 and 390), the slop bans and the evidence-ledger direction. No repo, env or secrets were passed. Two rounds, scores 6/10 then 6.5/10.
 
-1. Round 1 (first screen, 390): verdict was below the fold and a default notice repeated the tag. Removed the notice and tightened the intro.
-2. Round 2 (ship, fix loop at 390): horizontal overflow from grid min-content. Fixed and asserted.
-3. Round 3 (eval at 390): tables squeezed into three-letter columns. Tables now scroll inside their own container with a minimum width.
+Round 1 critiques and what was done:
 
-Known gaps: `latch.github_pr.run_pull_request` does not forward `on_step_event` to `prove()`, so live runs of a PR use the legacy `step` events mapped onto the ledger; `latch/runs/eval-summary.json` is absent so `/eval` is pending; the committed Click receipt has no `model_calls`.
+1. Verdict arrives late on receipt pages (form above it). Declined: the verdict is inside the first viewport at 1440 and 390; moving the form would be a restructure.
+2. Model accounting table fragments at 390. Fixed: tables under 40rem become one labelled block per row (`data-label`, `.ledger-table.stack`).
+3. Evidence table on /eval clipped at 390 ("Reporte d"). Fixed by the same stacking.
+4. Test and failure panes look cut off. Partly fixed: code panes get a visible thin scrollbar; the 26rem cap stays on receipts.
+5. No compact proof summary. Declined: base and head results already sit side by side directly under the verdict.
+6. Secondary text too small and dim. Fixed: `--t-small` 13px to 14px, `--muted` lightened.
+7. "Eval pending" is as loud as a verdict. Fixed: a restrained status block, duplicated sentence removed.
+8. Ship page workflow truncated. Real bug found: `.pane pre` had `max-height: 26rem`, which clipped the YAML. Fixed: no cap on the ship page.
+9. "Exceeds three type sizes". Declined: three tokens are used (`--t-hero`, `--t-base`, `--t-small`).
+
+Round 2 (fresh session, new screenshots) raised: provenance beside the verdict, collapse accounting, expandable code panes, flat heading hierarchy, dim secondary data, workflow dominates /ship, competitor numbers outweigh Latch's pending state, inconsistent measures across pages, ambiguous fix-loop tab label. Not acted on (cap of two rounds, and each is a layout restructure or taste call): the action bar move, a details wrapper for accounting, expand controls, the shared shell width, the tab sub-label. Kept as follow-ups.
+
+Live PR runs: `latch.github_pr.run_pull_request` now accepts `on_step_event=None` and forwards it to `prove()` (additive; `runner=` and `on_step` unchanged; test in `latch/test_github_pr.py`). The web service already passed the callback when the runner accepts it, so live runs now stream `step_event`s into the ledger. The engine's own `fetch` events arrive after the legacy hints, so `app.js` resets the ledger on the first engine event.
+
+Recent proofs: only real receipts in the store are listed. In the built image `/data` is an empty volume and `/api/recent` returns only the recorded Click seed; no file under `/app` or `/data` contains "acme". `ImageContextTests` asserts `latch/web/.data` and test files are ignored and that no shipped file mentions the screenshot fixture. The acme/widgets entries in screenshots come from the dev fixture server, not the image; the `first` screenshots now use a bare server.
+
+Tests at the end: `pytest -q` 213 passed, 3 skipped; `unittest discover` 197 tests OK (skipped=3).
+
+Known gaps: `latch/runs/eval-summary.json` is absent so `/eval` is pending; the committed Click receipt has no `model_calls`; set `LATCH_CREDITS_EXHAUSTED=1` in production while credit is out.
