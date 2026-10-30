@@ -25,6 +25,7 @@ from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
 from ..run import LIGHTNING, MODEL, call_model, load_key
 from ..steps import StepLog
+from ..verdict import step_detail, verdict_fields
 
 ULTRA = MODEL
 DEFAULT_MODEL = ULTRA
@@ -209,7 +210,8 @@ def run_loop(
     revert=True,
     repo_map=True,
 ):
-    """Run the fix loop and return the receipt dict (`receipt["verdict"]` is "gate_open" or "gave_up").
+    """Run the fix loop and return the receipt dict (`receipt["gate"]` is "gate_open", "gave_up" or "error";
+    `receipt["verdict"]` is the named verdict from latch.verdict, or None on an infrastructure error).
 
     repo/base/head: a git repo and two revisions: `base` is the buggy revision, `head` is the
         submitted (wrong) fix. The repo is never modified; revisions are archived to temp dirs.
@@ -284,17 +286,25 @@ def run_loop(
         "proof_test": None,
         "initial": None,
         "iterations": [],
-        "verdict": "error",
+        "gate": "error",      # the loop's own outcome: gate_open | gave_up | error
+        "verdict": None,      # the named verdict (VALIDATED, NO_REGRESSION_FOUND, ...), decided by latch.verdict
         "reason": None,
     }
+    ev = {"patch_loop": False}  # facts for latch.verdict.decide_verdict, filled in as the run goes
     receipt["issue"], issue_cut = clip(receipt["issue"])
 
     def finish(verdict, reason, type_=None, code_error=None):
-        receipt["verdict"] = verdict
+        receipt["gate"] = verdict
         receipt["reason"] = reason
         receipt["finished_at"] = now()
+        if verdict == "error":  # infrastructure failure: no named verdict (the run proved nothing)
+            receipt.update(verdict=None, verdict_reason=reason, proven=False,
+                           base_sha=receipt.get("base"), head_sha=receipt.get("head"))
+        else:
+            receipt.update(verdict_fields(ev, receipt.get("base"), receipt.get("head")))
         if not steps.has("verdict"):
-            steps.done("verdict", {"verdict": verdict, "reason": reason})
+            steps.done("verdict", step_detail(receipt) if receipt["verdict"] else
+                       {"verdict": None, "reason": reason})
         receipt["model_calls"] = list(calls.calls)
         receipt["model_cost_usd"] = total_cost(calls.calls)
         receipt["model_prices_source"] = PRICES_SOURCE_URL
@@ -431,6 +441,7 @@ def run_loop(
                     emit("proof_test_attempt", **{k: item[k] for k in ("attempt", "completion_id", "valid", "rejection")})
             if function is None:
                 last = attempts[-1]
+                ev["rejected"] = last["rejection"]
                 if last["rejection"] == "the reply contained no test_ function":
                     return finish("gave_up", "model returned no test function; nothing to prove with")
                 return finish("gave_up", f"the proof test was rejected as vacuous"
@@ -441,6 +452,7 @@ def run_loop(
                 fail("proof test has no test_ function")
             test_name = name_match.group(1)
             test_source = f"import pytest\n\n{function.rstrip()}\n"
+            ev["test_name"] = test_name
             receipt["proof_test"] = {"name": test_name, "source": clip(test_source)[0], **generated}
             emit("proof_test", name=test_name, test=test_source, **generated)
 
@@ -460,6 +472,7 @@ def run_loop(
             (work / TEST_FILE).unlink()
             head_ok = proven(base_result, head_result, test_name)
             suite_green = suite_before["returncode"] == 0
+            ev.update(base=base_result, head=head_result, suite_ok=suite_green)
             steps.done("head_run", {"proof_returncode": head_result["returncode"],
                                     "suite_returncode": suite_before["returncode"], "gate_open": bool(head_ok and suite_green)})
             receipt["initial"] = {
@@ -479,7 +492,7 @@ def run_loop(
             def revert_gate(loop_files=None):
                 """Revert the fix; the proof test must fail again, or the gate stays shut."""
                 if not revert:
-                    receipt["revert_check"] = {"ran": False, "skipped": "revert check disabled"}
+                    receipt["revert_check"] = ev["revert"] = {"ran": False, "skipped": "revert check disabled"}
                     return True
                 steps.started("revert_check")
                 try:
@@ -490,7 +503,7 @@ def run_loop(
                 except (OSError, RuntimeError, subprocess.SubprocessError) as error:
                     result = {"ran": False, "ok": False, "mutants": [], "error": f"{type(error).__name__}: {error}",
                               "summary": "the revert check could not run, so the gate stays shut"}
-                receipt["revert_check"] = result
+                receipt["revert_check"] = ev["revert"] = result
                 (steps.done if result["ok"] else steps.failed)("revert_check", result["summary"])
                 if not result["ok"]:
                     emit("gate_shut", iteration=len(receipt["iterations"]), reason="revert check failed: " + result["summary"],
@@ -532,6 +545,7 @@ def run_loop(
                 steps.done("triage", {"verdict": t_verdict, "completion_id": t_cid})
                 emit("triage", model=LIGHTNING, completion_id=t_cid, verdict=t_verdict, reason=t_text[:1000])
                 if t_verdict != "reproduced":
+                    ev["triage_blocked"] = f"Lightning triage did not confirm the failure reproduces the issue ({t_verdict})"
                     return finish("gave_up", f"Lightning triage did not confirm the failure reproduces the issue "
                                              f"({t_verdict}): {t_text[:300]}; not patching")
 
@@ -584,12 +598,14 @@ def run_loop(
                 emit("patch_applied", iteration=i, diff=patch_diff, changed_files=changed)
                 steps.done("fix", {"iteration": i, "completion_id": cid, "changed_files": changed})
 
+                ev["patch_loop"] = True
                 suite = _run_suite(work, command)
                 _clean(work)
                 (work / TEST_FILE).write_text(test_source, encoding="utf-8")
                 proof = _run_proof(work, command)
                 (work / TEST_FILE).unlink()
                 suite_ok = suite["returncode"] == 0
+                ev.update(head=proof, suite_ok=suite_ok)
                 gate = proven(base_result, proof, test_name) and suite_ok
                 combined = proof["stdout"] + proof["stderr"]
                 if not suite_ok:

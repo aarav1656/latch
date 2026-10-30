@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .run import LIGHTNING, MODEL, call_model, load_key
 from .harness.parse import extract_test_function
+from .verdict import VALIDATED, decide_verdict, step_detail, verdict_fields
 
 
 _SECTION_END = re.compile(r"(?m)^(?:_{3,} .+ _{3,}|={3,} .+ ={3,})$")
@@ -195,9 +196,9 @@ def archive(repo, ref, target):
     )
 
 
-def run_test(snapshot, command, isolate=False):
+def run_test(snapshot, command, isolate=False, timeout=300):
     home = snapshot / ".latch-home"
-    home.mkdir()
+    home.mkdir(exist_ok=True)  # reruns (flake check) reuse the snapshot
     env = {
         name: os.environ[name]
         for name in ("PATH", "LANG", "LC_ALL", "TMPDIR")
@@ -231,7 +232,7 @@ def run_test(snapshot, command, isolate=False):
             env=env,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=timeout,
             preexec_fn=limit_resources,
         )
     return {
@@ -400,8 +401,10 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             # Fail closed: both generations were vacuous, so nothing was run and nothing is proven.
             steps.failed("test_writer", test_attempts[-1]["rejection"])
             reason = "the generated test was rejected as vacuous twice: " + test_attempts[-1]["rejection"]
-            steps.done("verdict", {"proven": False, "why_not_proven": reason})
+            decided = verdict_fields({"rejected": test_attempts[-1]["rejection"]}, base_commit, head_commit)
+            steps.done("verdict", step_detail(decided))
             return write_receipt({
+                **decided,
                 **base_info,
                 "completion_id": test_attempts[-1]["completion_id"], "test": None,
                 "base_result": None, "head_result": None, "test_name": None,
@@ -457,12 +460,18 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             (steps.done if revert_result["ok"] else steps.failed)("revert_check", revert_result["summary"])
             if not revert_result["ok"]:
                 is_proven = False
-                why_not = "revert check failed: " + revert_result["summary"]
         elif is_proven:
             revert_result = {"ran": False, "skipped": "revert check disabled"}
 
+    decided = verdict_fields(
+        {"base": base_result, "head": head_result, "test_name": test_name, "revert": revert_result},
+        base_commit, head_commit)
+    is_proven = decided["proven"]  # derived: proven == (verdict == VALIDATED)
+    why_not = None if is_proven else decided["verdict_reason"]
+
     result = {
         **base_info,
+        **decided,
         "completion_id": completion_id,
         "test": test_source,
         "base_result": base_result,
@@ -480,7 +489,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         result["why_not_proven"] = why_not
     if runner is not None:
         result["test_runner"] = getattr(runner, "description", "custom runner")
-    steps.done("verdict", {"proven": is_proven, "why_not_proven": why_not})
+    steps.done("verdict", step_detail(decided))
     return write_receipt(result)
 
 

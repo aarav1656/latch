@@ -144,4 +144,4 @@ def main(argv=None):
         else:
             Path(args.pr_comment).write_text(markdown, encoding="utf-8")
     print(f"wall time: {time.monotonic() - started:.1f}s", file=sys.stderr)
-    return 0 if receipt["verdict"] == "gate_open" else 1
+    return 0 if receipt["gate"] == "gate_open" else 1

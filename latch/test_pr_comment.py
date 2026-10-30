@@ -116,6 +116,28 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Constructed regression case", body)
         self.assertIn("[Run](https://example.invalid/run/1)", body)
 
+    def test_named_verdict_row_and_old_loop_receipts_still_render(self):
+        old = render_comment(loop_receipt())  # receipts written before named verdicts keep the gate in `verdict`
+        self.assertIn("Gate open", old)
+        new = loop_receipt()
+        new.update(gate="gate_open", verdict="VALIDATED", proven=True, verdict_reason="red on base, green on head",
+                   mutation={"ok": True, "killed": 3, "total": 4, "kill_rate": 0.75, "threshold": 0.6},
+                   flaky={"ran": True, "flaky": False, "runs": 5, "flake_rate": 0.0, "base_fail_rate": 1.0, "head_pass_rate": 1.0})
+        body = render_comment(new)
+        self.assertIn("Gate open", body)
+        self.assertIn("| Verdict | `VALIDATED` |", body)
+        self.assertIn("killed 3/4 mutants", body)
+        self.assertIn("kill rate 75%", body)
+        self.assertIn("stable over 5 runs", body)
+
+    def test_prove_receipt_shows_why_it_was_not_proven(self):
+        body = render_comment({"base": "a" * 40, "head": "b" * 40, "proven": False, "verdict": "MUTATION_SURVIVED",
+                               "verdict_reason": "mutation kill rate 25% is below the 60% threshold",
+                               "mutation": {"ok": False, "killed": 1, "total": 4, "kill_rate": 0.25, "threshold": 0.6}})
+        self.assertIn("NOT PROVEN (MUTATION_SURVIVED)", body)
+        self.assertIn("25% is below", body)
+        self.assertIn("❌ killed 1/4", body)
+
 
 class FakeGitHub:
     def __init__(self, comments=()):
