@@ -72,6 +72,27 @@ def flake_summary(base_passes, head_passes, note_extra=None):
     return out
 
 
+def _strengthened_note(mutation):
+    """", after one strengthening round (kill rate was 2/5)" when the test writer got the survivor retry, else ''."""
+    info = (mutation or {}).get("strengthened") or {}
+    if not info.get("attempted") or info.get("outcome") == "kept_original":
+        return ""
+    return f", after one strengthening round (it was {info.get('killed_before')}/{info.get('total_before')} before)"
+
+
+def _error_excerpt(result, test_name):
+    """` (IndexError: list index out of range)`: the exception that ended the proof test, so an INVALID_TEST reason says
+    whether the code under test raised it (the test did not wrap the operation) or the test itself broke. Evidence only."""
+    import re
+    output = (result.get("stdout") or "") + (result.get("stderr") or "")
+    header = re.search(rf"(?m)^_{{2,}}\s+{re.escape(str(test_name))}\s+_{{2,}}$", output)
+    text = output[header.end():] if header else output
+    for line in text.splitlines():
+        if re.match(r"E\s+\S", line):
+            return " (" + " ".join(line[1:].split())[:160] + ")"
+    return ""
+
+
 def decide_verdict(evidence):
     """Pure function: evidence dict -> (verdict, reason).
 
@@ -100,10 +121,10 @@ def decide_verdict(evidence):
         return INVALID_TEST, "no proof test ran"
     if base["returncode"] != 0 and expected_base_failure(base, name) is None:
         return INVALID_TEST, ("the proof test errored on base (collection, import or runtime error) "
-                              "instead of failing an assertion")
+                              "instead of failing an assertion" + _error_excerpt(base, name))
     if head["returncode"] != 0 and expected_base_failure(head, name) is None and not e.get("patch_loop"):
         return INVALID_TEST, ("the proof test errored on head (collection, import or runtime error) "
-                              "instead of failing an assertion")
+                              "instead of failing an assertion" + _error_excerpt(head, name))
     if e.get("triage_blocked"):
         return INVALID_TEST, e["triage_blocked"]
     flaky = e.get("flaky")
@@ -124,7 +145,8 @@ def decide_verdict(evidence):
         if rate is None:  # the check itself could not run: fail closed
             return MUTATION_SURVIVED, "the mutation check could not complete: " + str(mutation.get("note"))
         return MUTATION_SURVIVED, (f"mutation kill rate {rate:.0%} is below the {mutation.get('threshold', MUTATION_THRESHOLD):.0%} "
-                                   f"threshold ({mutation.get('killed')}/{mutation.get('total')} mutants of the changed lines killed)")
+                                   f"threshold ({mutation.get('killed')}/{mutation.get('total')} mutants of the changed lines killed"
+                                   f"{_strengthened_note(mutation)})")
     notes = []
     if revert is not None and revert.get("skipped"):
         notes.append("revert check was " + str(revert["skipped"]))
@@ -140,7 +162,7 @@ def decide_verdict(evidence):
     if revert is not None and not revert.get("skipped"):
         reason += ", killed the revert"
     if mutation is not None and mutation.get("total"):
-        reason += f", killed {mutation['killed']}/{mutation['total']} mutants"
+        reason += f", killed {mutation['killed']}/{mutation['total']} mutants{_strengthened_note(mutation)}"
         if mutation.get("not_run") and not mutation.get("incomplete"):
             notes.append(f"{mutation['not_run']} more mutants were not run: budget")
     return VALIDATED, reason + (f" ({'; '.join(notes)})" if notes else "")
