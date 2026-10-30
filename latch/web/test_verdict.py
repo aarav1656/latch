@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from latch import strengthen as strengthening
 from latch import tautology as taut
 from latch import verdict as harness
 from latch.web import store
@@ -489,6 +490,188 @@ class IncompleteMutationTests(unittest.TestCase):
         for m in mu["mutants"][2:]:
             self.assertIs(m["killed"], False)
             self.assertNotIn("error", m)
+
+
+# ---- survivor-driven strengthening (latch/strengthen.py, latch/loop/core.py, latch/prove.py) ----
+
+def strengthened_mutation(outcome):
+    """The mutation dict the engine leaves in the receipt, built with the engine's own record helpers.
+
+    adopted / still_surviving: the NEW test's mutation result carries `strengthened`.
+    kept_original: the ORIGINAL result carries it (the stronger test never reached the mutation check)."""
+    first = mutation([True, False, False, True, False])  # 2 of 5 killed: below the 0.6 bar, three survivors
+    record = strengthening.new_record(first, strengthening.survivors(first), "test_x")
+    if outcome == "kept_original":
+        first["strengthened"] = strengthening.finish(record, outcome, "the stronger test does not fail on the base revision with an assertion")
+        return first
+    after = mutation([True] * 5) if outcome == "adopted" else mutation([True, False, True, False, False])
+    after["strengthened"] = strengthening.finish(
+        record, outcome, None if outcome == "adopted" else "the stronger test still killed too few mutants", after, "chatcmpl-stronger")
+    return after
+
+
+def strengthened_receipt(outcome, **extra):
+    """A receipt whose verdict_fields were decided by the real harness for that mutation result."""
+    code = "VALIDATED" if outcome == "adopted" else "MUTATION_SURVIVED"
+    m = strengthened_mutation(outcome)
+    evidence = copy.deepcopy(dict(EVIDENCE[code], test_name="test_x", suite_ok=True))
+    evidence["mutation"] = m
+    fields = harness.verdict_fields(evidence, BASE, HEAD)
+    assert fields["verdict"] == code, (code, fields["verdict"])
+    r = verdict_receipt(code, mutation=m, verdict_reason=fields["verdict_reason"], verdict_logs=fields["verdict_logs"])
+    r.update(extra)
+    return r
+
+
+LONG_ERROR = "ValueError: could not convert string to float: " + "'" + "x" * 90 + "'"
+
+
+def invalid_test_receipt():
+    """INVALID_TEST whose reason now names the error that ended the proof test (an unbroken 160-character excerpt)."""
+    base = {"returncode": 1, "stdout": "____ test_x ____\nE   " + LONG_ERROR + "\n1 failed", "stderr": ""}
+    evidence = {"base": base, "head": PASS, "test_name": "test_x", "suite_ok": True}
+    fields = harness.verdict_fields(copy.deepcopy(evidence), BASE, HEAD)
+    assert fields["verdict"] == "INVALID_TEST", fields["verdict"]
+    r = verdict_receipt("INVALID_TEST", verdict_reason=fields["verdict_reason"])
+    r["base_result"] = base
+    return r
+
+
+def run_node(source):
+    out = subprocess.run([NODE, "-e", "global.window={};require(%s);const L=window.LatchVerdict;process.stdout.write(JSON.stringify(%s))"
+                          % (json.dumps(str(STATIC / "verdict.js")), source)], capture_output=True, text=True, timeout=30, check=True)
+    return json.loads(out.stdout)
+
+
+class StrengthenedTests(unittest.TestCase):
+    """mutation.strengthened and the `strengthen` step: shown plainly, the first attempt kept visible, the verdict never softened."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (STATIC / "app.js").read_text()
+        cls.css = (STATIC / "app.css").read_text()
+        cls.loop = (STATIC / "loop.js").read_text()
+
+    def test_the_fixtures_have_the_exact_keys_the_engine_writes(self):
+        adopted = strengthened_mutation("adopted")["strengthened"]
+        self.assertEqual(set(adopted), {"attempted", "survivors_before", "killed_before", "total_before", "kill_rate_before", "threshold",
+                                        "test_before", "outcome", "completion_id", "killed_after", "total_after", "kill_rate_after"})
+        self.assertEqual((adopted["killed_before"], adopted["total_before"], adopted["kill_rate_before"]), (2, 5, 0.4))
+        self.assertEqual(len(adopted["survivors_before"]), 3)
+        self.assertEqual(set(adopted["survivors_before"][0]), set(strengthening.RECORD_KEYS))
+        kept = strengthened_mutation("kept_original")["strengthened"]
+        self.assertNotIn("killed_after", kept)
+        self.assertTrue(kept["reason"])
+        self.assertEqual(strengthening.not_attempted("strengthening is off"), {"attempted": False, "reason": "strengthening is off"})
+
+    def test_the_harness_names_the_strengthening_round_in_the_reason_only_when_the_stronger_test_was_judged(self):
+        self.assertIn("after one strengthening round (it was 2/5 before)", strengthened_receipt("adopted")["verdict_reason"])
+        self.assertIn("after one strengthening round", strengthened_receipt("still_surviving")["verdict_reason"])
+        self.assertNotIn("strengthening", strengthened_receipt("kept_original")["verdict_reason"])
+        for outcome in ("still_surviving", "kept_original"):
+            self.assertEqual(strengthened_receipt(outcome)["verdict"], "MUTATION_SURVIVED")
+            self.assertFalse(strengthened_receipt(outcome)["proven"])
+        self.assertEqual(strengthened_receipt("adopted")["verdict"], "VALIDATED")
+
+    def test_the_plain_line_reads_the_engine_record_for_every_outcome(self):
+        if not NODE:
+            self.skipTest("node is not installed")
+        got = {o: run_node("L.strengthened(%s,{cleared:%s})" % (json.dumps(strengthened_mutation(o)["strengthened"]),
+                                                               "true" if o == "adopted" else "false")) for o in ("adopted", "still_surviving", "kept_original")}
+        self.assertEqual(got["adopted"]["state"], "adopted")
+        self.assertEqual(got["adopted"]["text"], "First test let 3 mutants survive (kill rate 40%); Latch wrote a stronger test, which now kills 5/5 (100%).")
+        self.assertEqual(got["still_surviving"]["state"], "still_surviving")
+        self.assertIn("it still let 3 mutants survive (kill rate 40%)", got["still_surviving"]["text"])
+        self.assertTrue(got["still_surviving"]["text"].endswith("so the Mutation survived verdict stands."))
+        self.assertEqual(got["kept_original"]["state"], "kept_original")
+        self.assertIn("it did not clear the gate (the stronger test does not fail on the base revision with an assertion)", got["kept_original"]["text"])
+        self.assertTrue(got["kept_original"]["text"].endswith("The original test and its Mutation survived verdict stand."))
+        self.assertNotIn("now kills", got["kept_original"]["text"])
+
+    def test_the_line_never_claims_more_than_the_receipt_says(self):
+        if not NODE:
+            self.skipTest("node is not installed")
+        adopted = json.dumps(strengthened_mutation("adopted")["strengthened"])
+        # adopted, yet the receipt's own mutation result did not clear the bar: that result wins
+        self.assertEqual(run_node("L.strengthened(%s,{cleared:false})" % adopted)["state"], "still_surviving")
+        # an outcome this page does not know, or none at all, says only that the verdict stands
+        for rec in ({"attempted": True, "survivors_before": [], "kill_rate_before": 0.4, "outcome": "somethingnew"}, {"attempted": True}):
+            got = run_node("L.strengthened(%s)" % json.dumps(rec))
+            self.assertEqual(got["state"], "unknown")
+            self.assertIn("verdict stands as written", got["text"])
+            self.assertNotIn("now kills", got["text"])
+        self.assertEqual(run_node("L.strengthened({attempted:false,reason:'strengthening is off'})")["text"],
+                         "Latch did not write a stronger test: strengthening is off.")
+        # live (step event) form, one survivor
+        self.assertEqual(run_node("L.strengthened({live:true,survivors_before:1,kill_rate_before:0.5})")["text"],
+                         "First test let 1 mutant survive (kill rate 50%); Latch is writing a stronger test.")
+
+    def test_absent_or_hostile_values_never_throw(self):
+        if not NODE:
+            self.skipTest("node is not installed")
+        self.assertEqual(run_node("[L.strengthened(null),L.strengthened(undefined),L.strengthened('x'),L.strengthened([]),L.strengthened(7)]"),
+                         [None] * 5)
+        hostile = {"attempted": True, "outcome": {"a": 1}, "survivors_before": "many", "kill_rate_before": "0.4", "killed_after": "5", "reason": ["x"]}
+        self.assertEqual(run_node("L.strengthened(%s)" % json.dumps(hostile))["state"], "unknown")
+
+    def test_a_receipt_with_strengthening_is_stored_and_served_unchanged(self):
+        h = Harness(self)
+        for number, outcome in ((81, "adopted"), (82, "still_surviving"), (83, "kept_original")):
+            sent = seed(h, number, "VALIDATED" if outcome == "adopted" else "MUTATION_SURVIVED", mutation=strengthened_mutation(outcome))
+            got = h.get_json(f"/api/receipt/acme/widgets/{number}")[1]
+            self.assertEqual(got["receipt"]["mutation"], sent["mutation"])
+            self.assertEqual(got["receipt"]["mutation"]["strengthened"]["outcome"], outcome)
+
+    def test_the_receipt_view_renders_the_block_with_the_first_attempt_kept_and_marked(self):
+        block = self.app[self.app.index("function strengthenedBlock"):]
+        block = block[:block.index("function mutationSection")]
+        for needle in ("LatchVerdict.strengthened", "data-strengthened", "Strengthened test", "First test", "(superseded)", "Stronger test",
+                       "not adopted; the original test is the one judged", "the first test missed", "survivors_before"):
+            self.assertIn(needle, block)
+        # the originals are shown as survivors even though the record has no `killed` key; text only, never HTML
+        self.assertIn("killed: false", block)
+        self.assertNotIn("innerHTML", block)
+        self.assertIn("const stronger = strengthenedBlock(mu)", self.app)
+
+    def test_the_ledger_groups_the_repeated_gate_steps_after_strengthen_and_marks_the_first_attempt_superseded(self):
+        for needle in ('const REPEATS = ["base_run", "head_run", "flake_check", "revert_check", "mutation_check"]', "round2",
+                       '"superseded"', '"discarded"', "Strengthened test", "in-round", "LAST occurrence"):
+            self.assertIn(needle, self.app)
+        apply = self.app[self.app.index("function applyEvent"):]
+        apply = apply[:apply.index("function applyLegacy")]
+        self.assertIn('d.step === "strengthen"', apply)
+        self.assertIn("unknown step name never breaks the ledger", apply)
+        self.assertLess(apply.index('d.step === "strengthen"'), apply.index("if (!s) return"))
+        # a round that never reached the mutation check (kept_original) does not demote the first attempt
+        self.assertIn('round2.outcome !== "kept_original"', self.app)
+        # the verdict row is decided last and its reason is never truncated
+        draw = self.app[self.app.index("function drawSteps"):self.app.index("function applyEvent")]
+        self.assertLess(draw.index("round2"), draw.index('LEDGER.find((x) => x[0] === "verdict")'))
+        self.assertIn("verdict reasons show in full", draw)
+        # the saved receipt note goes to the current mutation_check row
+        result = self.app[self.app.index("function onResult"):]
+        self.assertIn("round2.steps.mutation_check", result[:result.index("finishSteps()")])
+        for rule in ('.steps li.round', 'li[data-mark="superseded"]', ".strengthened", '.strengthened[data-strengthened="kept_original"]'):
+            self.assertIn(rule, self.css)
+
+    def test_the_loop_timeline_shows_the_strengthen_step_and_hides_every_other_step_event(self):
+        step = self.loop[self.loop.index('case "step"'):self.loop.index('case "proof_test"')]
+        self.assertIn('ev.step !== "strengthen"', step)
+        self.assertIn("return null", step)
+        self.assertIn("Stronger proof test written and frozen", self.loop)
+        self.assertIn("strengthened-line", self.loop)
+
+    def test_invalid_test_reasons_name_the_error_and_display_in_full_without_overflow(self):
+        r = invalid_test_receipt()
+        self.assertIn("(" + LONG_ERROR[:100], r["verdict_reason"])
+        self.assertGreater(len(r["verdict_reason"]), 200)
+        for selector in (".verdict-reason", ".case-reason", ".steps .sub"):
+            rule = self.css[self.css.index(selector):] if selector in self.css else (STATIC / "eval.css").read_text()[(STATIC / "eval.css").read_text().index(selector):]
+            self.assertIn("overflow-wrap: anywhere", rule[:rule.index("}")], selector)
+        self.assertIn("overflow-wrap: anywhere", (STATIC / "loop.css").read_text()[(STATIC / "loop.css").read_text().index(".tl-meta"):][:260])
+        h = Harness(self)
+        sent = seed(h, 84, "INVALID_TEST", verdict_reason=r["verdict_reason"])
+        self.assertEqual(h.get_json("/api/receipt/acme/widgets/84")[1]["receipt"]["verdict_reason"], sent["verdict_reason"])
 
 
 class TimeoutAndEnvReuseTests(unittest.TestCase):

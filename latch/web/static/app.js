@@ -26,11 +26,13 @@
     ["mutation_check", "Mutation check (harness)", false],
     ["verdict", "Decide the verdict (harness)", true],
   ];
+  // After a real MUTATION_SURVIVED the engine emits `strengthen`, then repeats these gate steps for the stronger test.
+  const REPEATS = ["base_run", "head_run", "flake_check", "revert_check", "mutation_check"];
   const STEP_ALIAS = { "mutation": "mutation_check" };  // the draft contract's step name
   const LEGACY = { "fetching": "fetch", "fetching-commits": "fetch", "generating-test": "test_writer", "model": "test_writer", "base-test": "base_run", "head-test": "head_run", "receipt": "verdict" };
   let config = boot.config || {};
   let source = null, poll = null, busy = false;
-  let steps = {}, eventMode = false;
+  let steps = {}, eventMode = false, round2 = null;  // round2: the strengthening round, once the engine starts one
 
   function el(tag, cls, text, attrs) {
     const node = document.createElement(tag);
@@ -195,6 +197,37 @@
     }
     return li;
   }
+  // mutation.strengthened: the survivor-driven retry. The section above it scores the CURRENT test (the stronger one when it
+  // ran the mutation check, the original when it did not); this block says how that came about and keeps the first attempt visible.
+  function strengthenedBlock(mu) {
+    const raw = mu.strengthened;
+    const info = window.LatchVerdict && window.LatchVerdict.strengthened ? window.LatchVerdict.strengthened(raw, { cleared: mu.ok === true }) : null;
+    if (!info) return null;
+    const box = el("div", "strengthened", null, { "data-strengthened": info.state });
+    box.appendChild(el("h4", "strengthened-title", "Strengthened test"));
+    box.appendChild(el("p", "strengthened-line", info.text));
+    if (info.state === "not_attempted" || !raw || raw.attempted === false) return box;
+    const facts = el("dl", "rows strengthened-facts");
+    const before = isNum(raw.killed_before) && isNum(raw.total_before) ? raw.killed_before + "/" + raw.total_before + (isNum(raw.kill_rate_before) ? ", " + Math.round(raw.kill_rate_before * 100) + "%" : "") : null;
+    const superseded = info.state === "adopted" || info.state === "still_surviving";
+    if (before) facts.appendChild(row("First test", before + " killed" + (superseded ? " (superseded)" : ""), true));
+    if (superseded && isNum(raw.killed_after) && isNum(raw.total_after)) {
+      facts.appendChild(row("Stronger test", raw.killed_after + "/" + raw.total_after + (isNum(raw.kill_rate_after) ? ", " + Math.round(raw.kill_rate_after * 100) + "%" : "") + " killed", true));
+    }
+    if (info.state === "kept_original") facts.appendChild(row("Stronger test", "not adopted; the original test is the one judged"));
+    if (isNum(raw.threshold)) facts.appendChild(row("Threshold", Math.round(raw.threshold * 100) + "%", true));
+    if (facts.children.length) box.appendChild(facts);
+    const left = Array.isArray(raw.survivors_before) ? raw.survivors_before.filter((x) => x && typeof x === "object") : [];
+    if (left.length) {
+      const d = el("details", "strengthened-survivors");
+      d.appendChild(el("summary", null, "The " + left.length + " mutant" + (left.length === 1 ? "" : "s") + " the first test missed"));
+      const ul = el("ol", "mutants");
+      left.forEach((x) => ul.appendChild(mutantItem(Object.assign({}, x, { killed: false, not_run: false, error: null }))));
+      d.appendChild(ul);
+      box.appendChild(d);
+    }
+    return box;
+  }
   function mutationSection(r) {
     const sec = el("section", "section mutation", null, { "data-mutation": "" });
     sec.appendChild(el("h3", "section-title", "Mutation check"));
@@ -229,6 +262,8 @@
     facts.appendChild(row("Threshold", isNum(mu.threshold) ? Math.round(mu.threshold * 100) + "%" : NR, true));
     facts.appendChild(row("Result", mu.ok === true ? "met the threshold" : mu.ok === false ? "below the threshold or could not complete" : NR));
     sec.appendChild(facts);
+    const stronger = strengthenedBlock(mu);
+    if (stronger) sec.appendChild(stronger);
     if (incomplete) sec.appendChild(el("p", "caution mutation-caution", CAUTION));
     if (typeof mu.note === "string" && mu.note.trim()) sec.appendChild(el("p", "hint mutation-note", mu.note.trim()));
     const passedMutants = survived.length - errored.length;
@@ -482,7 +517,7 @@
 
   // ---- step ledger ----
   function resetSteps() {
-    steps = {}; eventMode = false;
+    steps = {}; eventMode = false; round2 = null;
     LEDGER.forEach(([k]) => { steps[k] = { state: "pending" }; });
   }
   function detailText(d) {
@@ -498,30 +533,78 @@
   }
 
   function clock(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString(undefined, { hour12: false }); }
+  const WORDS = { pending: "waiting", active: "running", done: "done", failed: "failed" };
+  function stepRow(n, key, label, s, mark, full) {
+    const li = el("li", null, null, { "data-step": key, "data-state": s.state });
+    if (mark) li.setAttribute("data-mark", mark);  // superseded: an earlier attempt, kept visible. discarded: not adopted.
+    let st = WORDS[s.state] || "waiting";
+    if (s.state === "done" && s.t0 && s.t1) st = "done " + secs(s.t1 - s.t0);
+    if (mark) st += ", " + mark;
+    li.append(el("span", "n", String(n)), el("span", "lbl", label), el("span", "ts", s.ts ? clock(s.ts) : ""), el("span", "st", st));
+    const sub = typeof full === "string" ? full : detailText(s.detail);
+    if (sub) li.appendChild(el("span", "sub", full || sub.length <= 160 ? sub : sub.slice(0, 157) + "..."));
+    return li;
+  }
+  // The stronger test is judged only when it went through the mutation check or the engine said it was adopted;
+  // a round that never got that far (kept_original) is shown but never replaces the first attempt.
+  const roundCounts = () => !!round2 && round2.outcome !== "kept_original";
+  function roundText() {
+    const L = window.LatchVerdict;
+    const d = round2.start || {}, e = round2.end || {};
+    const rec = { live: !round2.end, survivors_before: d.survivors, killed_before: d.killed, total_before: d.total, kill_rate_before: d.kill_rate_before,
+      outcome: round2.outcome, reason: e.reason, kill_rate_after: e.kill_rate_after };
+    const info = L && L.strengthened ? L.strengthened(rec) : null;
+    return info ? info.text : "";
+  }
   function drawSteps() {
     clear(stepperEl);
     let n = 0;
+    const draw = (key, label, s, mark, full) => { n++; stepperEl.appendChild(stepRow(n, key, label, s, mark, full)); };
     LEDGER.forEach(([key, label, core]) => {
+      if (key === "verdict") return;  // the verdict is decided last, after any strengthened round
       const s = steps[key];
       if (!core && (!s || s.state === "pending")) return;
-      n++;
-      const li = el("li", null, null, { "data-step": key, "data-state": s.state });
-      const words = { pending: "waiting", active: "running", done: "done", failed: "failed" };
-      let st = words[s.state];
-      if (s.state === "done" && s.t0 && s.t1) st = "done " + secs(s.t1 - s.t0);
-      li.append(el("span", "n", String(n)), el("span", "lbl", label), el("span", "ts", s.ts ? clock(s.ts) : ""), el("span", "st", st));
-      const sub = detailText(s.detail);
-      if (sub) li.appendChild(el("span", "sub", sub.length > 160 ? sub.slice(0, 157) + "..." : sub));
-      stepperEl.appendChild(li);
+      const again = round2 && REPEATS.includes(key) && round2.steps[key] && round2.steps[key].state !== "pending";
+      draw(key, label, s, again && roundCounts() ? "superseded" : null);
     });
+    if (round2) {
+      const r = round2;
+      const state = !r.end ? "active" : r.end.status === "failed" ? "failed" : "done";
+      const head = stepRow(++n, "strengthen", "Strengthened test", { state, ts: r.ts, detail: null }, null, roundText());
+      head.classList.add("round");
+      if (r.outcome) head.setAttribute("data-outcome", r.outcome);
+      stepperEl.appendChild(head);
+      LEDGER.forEach(([key, label]) => {
+        if (!REPEATS.includes(key)) return;
+        const s = r.steps[key];
+        if (s && s.state !== "pending") { n++; const li = stepRow(n, key, label, s, r.outcome === "kept_original" ? "discarded" : null); li.classList.add("in-round"); stepperEl.appendChild(li); }
+      });
+    }
+    const v = LEDGER.find((x) => x[0] === "verdict");
+    if (v) draw("verdict", v[1], steps.verdict, null, (function () { const t = detailText(steps.verdict.detail); return t || undefined; })());  // verdict reasons show in full
   }
   function applyEvent(d) {
     if (STEP_ALIAS[d.step]) d = Object.assign({}, d, { step: STEP_ALIAS[d.step] });
-    const s = steps[d.step];
-    if (!s) return;
+    const t = new Date(d.ts).getTime();
+    if (d.step === "strengthen") {  // the engine's survivor-driven retry: not a ledger row of its own, a section
+      if (!eventMode) LEDGER.forEach(([k]) => { steps[k].state = "pending"; });
+      eventMode = true;
+      if (!round2) { round2 = { steps: {}, ts: d.ts, start: null, end: null, outcome: null }; REPEATS.forEach((k) => { round2.steps[k] = { state: "pending" }; }); }
+      const det = d.detail && typeof d.detail === "object" ? d.detail : {};
+      if (d.status === "started") round2.start = det;
+      else {
+        round2.end = Object.assign({ status: d.status }, det);
+        round2.outcome = typeof det.outcome === "string" ? det.outcome : (d.status === "failed" ? "kept_original" : "adopted");
+      }
+      drawSteps();
+      return;
+    }
+    // Once a strengthened round has started, the repeated gate steps belong to it; the LAST occurrence is the current one.
+    const inRound = round2 && !round2.end && REPEATS.includes(d.step);
+    const s = inRound ? round2.steps[d.step] : steps[d.step];
+    if (!s) return;  // an unknown step name never breaks the ledger
     if (!eventMode) LEDGER.forEach(([k]) => { steps[k].state = "pending"; });  // legacy hints ran ahead of the engine's own events
     eventMode = true;
-    const t = new Date(d.ts).getTime();
     if (d.status === "started") { s.state = "active"; s.t0 = isNaN(t) ? null : t; s.ts = d.ts; }
     else { s.state = d.status === "failed" ? "failed" : "done"; s.t1 = isNaN(t) ? null : t; s.ts = s.ts || d.ts; }
     if (d.detail != null) s.detail = d.detail;
@@ -538,7 +621,11 @@
     steps[key].state = "active";
     drawSteps();
   }
-  function finishSteps() { LEDGER.forEach(([k, , core]) => { if (core && steps[k].state !== "failed") steps[k].state = "done"; }); drawSteps(); }
+  function finishSteps() {
+    LEDGER.forEach(([k, , core]) => { if (core && steps[k].state !== "failed") steps[k].state = "done"; });
+    if (round2) REPEATS.forEach((k) => { if (round2.steps[k].state === "active") round2.steps[k].state = "done"; });
+    drawSteps();
+  }
 
   // ---- ui state ----
   function setBusy(on) {
@@ -586,7 +673,9 @@
   }
   function onResult(data) {
     const note = mutationStepNote(data.receipt);
-    if (note && steps.mutation_check) steps.mutation_check.detail = note;
+    // the current mutation_check is the strengthened round's, when that round ran its own check and was not discarded
+    const cur = round2 && roundCounts() && round2.steps.mutation_check.state !== "pending" ? round2.steps.mutation_check : steps.mutation_check;
+    if (note && cur) cur.detail = note;
     finishSteps();
     progress.hidden = true;
     showError(null); showNotice(null);
@@ -597,8 +686,11 @@
     receiptEl.focus({ preventScroll: false });
   }
   function onError(err) {
-    const active = Object.keys(steps).find((k) => steps[k].state === "active");
-    if (active) { steps[active].state = "failed"; drawSteps(); }
+    const all = Object.keys(steps).map((k) => steps[k]).concat(round2 ? REPEATS.map((k) => round2.steps[k]) : []);
+    const active = all.filter((x) => x.state === "active");
+    active.forEach((x) => { x.state = "failed"; });
+    if (round2 && !round2.end) round2.end = { status: "failed" }, round2.outcome = round2.outcome || "kept_original";
+    if (active.length || round2) drawSteps();
     showError(err);
     detailEl.textContent = "";
     endRun();
