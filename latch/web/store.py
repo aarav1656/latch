@@ -50,6 +50,15 @@ def _sentence(text):
     return text if text.endswith((".", "!", "?")) else text + "."
 
 
+VERDICT_CODES = ("VALIDATED", "NO_REGRESSION_FOUND", "INVALID_TEST", "MUTATION_SURVIVED", "FLAKY")
+
+
+def verdict_code(receipt):
+    """The harness verdict code when the receipt carries a recognised one, else None (older receipts have none)."""
+    code = receipt.get("verdict") if isinstance(receipt, dict) else None
+    return code if code in VERDICT_CODES else None
+
+
 def explain(receipt):
     """Human reason a receipt is not proven (None when it is).
 
@@ -59,6 +68,10 @@ def explain(receipt):
     """
     if receipt.get("proven") is True:
         return None
+    if verdict_code(receipt):
+        decided = receipt.get("verdict_reason")
+        if isinstance(decided, str) and decided.strip():
+            return _sentence(decided)
     recorded = receipt.get("why_not_proven")
     if isinstance(recorded, str) and recorded.strip():
         return _sentence(recorded)
@@ -133,6 +146,7 @@ def make_envelope(receipt, source, started=None, finished=None, extra=None):
     meta = {
         "source": source,
         "verdict": "proven" if receipt.get("proven") is True else "not_proven",
+        "verdict_code": verdict_code(receipt),
         "why_not_proven": explain(receipt),
         "test_attempts_note": attempts_note(receipt),
         "model_retries_note": retries_note(receipt),
@@ -268,6 +282,7 @@ class Store:
                 "repo": repo,
                 "number": number,
                 "verdict": meta.get("verdict") or ("proven" if receipt.get("proven") is True else "not_proven"),
+                "verdict_code": verdict_code(receipt),
                 "title": receipt.get("pull_request_title") or f"Pull request #{number}",
                 "created_at": meta.get("created_at"),
                 "permalink": f"/r/{repo}/{number}",
@@ -278,7 +293,7 @@ class Store:
 
     def put(self, repo_full_name, number, envelope):
         receipt = envelope["receipt"]
-        key = receipt_key(repo_full_name, receipt["base"], receipt["head"])
+        key = receipt_key(repo_full_name, receipt.get("base") or receipt["base_sha"], receipt.get("head") or receipt["head_sha"])
         envelope["meta"].update({"repo": repo_full_name, "number": int(number)})
         with self.lock:
             self._write(self.root / "receipts" / f"{key}.json", envelope)

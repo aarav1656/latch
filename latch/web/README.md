@@ -182,7 +182,7 @@ Disk note: keep Docker/Colima data and image tarballs on the external drive
 * `app.py`: HTTP server, routes, SSE, CSP.
 * `service.py`: jobs, queue, rate limits, daily cap, proof and loop execution.
 * `sandbox.py`: the sandbox runner. `store.py`: disk cache.
-* `static/`: `index.html`, `eval.html`, `ship.html`, `tokens.css` (design tokens), `app.css` (shared primitives), `loop.css`, `eval.css`, `ship.css`, `app.js`, `loop.js`, `eval.js`, `ship.js`. No inline styles or scripts (CSP).
+* `static/`: `index.html`, `eval.html`, `ship.html`, `tokens.css` (design tokens), `app.css` (shared primitives), `loop.css`, `eval.css`, `ship.css`, `verdict.js` (verdict wording and fail-closed rules, shared by the receipt and /eval pages), `app.js`, `loop.js`, `eval.js`, `ship.js`. No inline styles or scripts (CSP).
 * `DESIGN.md`: the visual system (dark warm graphite, three type sizes, colour only on pass or fail plus one accent).
 * `test_app.py`: tests (no network, no model).
 * `Dockerfile`, `Dockerfile.dockerignore`, `deploy.sh`, `vercel/`.

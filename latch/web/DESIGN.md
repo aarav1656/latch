@@ -63,6 +63,20 @@ with `.section-title`; `.lede` (62ch measure); `.mono` and `.num` (13px mono, ta
 `.pill.fail` (bordered, text + icon, never colour alone); `.ledger-table` (ruled table, right-aligned
 tabular numbers); `.hero-num` (hero size, for the single headline figure on a page).
 
+## Verdict and mutation check (draft receipt contract)
+
+The harness decides the verdict; the page only displays it. `static/verdict.js` is the single place that
+maps a receipt to a headline, a one-line meaning and pass or fail (`window.LatchVerdict.info`). Only
+VALIDATED is a pass. NO_REGRESSION_FOUND, INVALID_TEST, MUTATION_SURVIVED and FLAKY are all fail, each with
+its own plain-English line plus the harness `verdict_reason`; colour stays pass/fail, never one hue per
+verdict. A verdict that disagrees with `proven`, or one the page does not recognise, fails closed.
+Receipts without `verdict` render as before (Proven / Not proven).
+
+The "Mutation check" section shows `killed/total` in tabular numerals and lists mutants with survivors
+first (`.mutant.is-survived`: fail rule on the left edge, diff visible). Killed mutants fold their diff away.
+A receipt without `mutation` shows "not run". The `verdict` and `mutation` step events get their own ledger
+rows. Fixtures for all of this live in `test_verdict.py` only, until latch-loop's final schema lands.
+
 ## CSP
 
 `style-src 'self'` plus Google Fonts: no inline `<style>` and no `style=""` attributes in HTML. Setting
