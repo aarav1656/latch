@@ -145,6 +145,9 @@ def make_envelope(receipt, source, started=None, finished=None, extra=None):
     return {"receipt": receipt, "meta": meta}
 
 
+CLICK_RECORDED_AT = "2026-10-29T08:37:03Z"
+
+
 class Store:
     def __init__(self, root, seed_receipt_path=None):
         self.root = Path(root)
@@ -168,7 +171,9 @@ class Store:
             receipt,
             "recorded",
             extra={
-                "created_at": utc_iso(mtime),
+                # A file mtime changes with every checkout and image build, so the date is the commit that added the receipt.
+                "created_at": CLICK_RECORDED_AT,
+                "recorded_basis": "date of the commit (ecb2b47) that added latch/runs/click-3298.json",
                 "recorded_run": "latch/runs/click-3298.json",
                 "note": "Recorded run of the same pipeline. Press Run live to reproduce it.",
                 "enriched_fields": sorted(CLICK_ENRICHMENT),

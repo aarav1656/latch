@@ -6,22 +6,27 @@
   const urlError = $("url-error"), liveNote = $("live-note");
   const progress = $("progress"), stepperEl = $("stepper"), detailEl = $("detail");
   const noticeEl = $("notice"), errorEl = $("error"), receiptEl = $("receipt");
+  const recentEl = $("recent"), recentList = $("recent-list");
   const CLICK_URL = "https://github.com/pallets/click/pull/3299";
-  const STEPS = [
-    ["fetching", "Read the pull request"],
-    ["fetching-commits", "Fetch base and head"],
-    ["model", "Write the test from the issue"],
-    ["base-test", "Run on base (should fail)"],
-    ["head-test", "Run on head (should pass)"],
-    ["receipt", "Write the receipt"],
-  ];
-  let config = boot.config || {};
-  let current = null; // envelope on screen
-  let source = null; // EventSource
-  let poll = null;
-  let busy = false;
+  const NR = "not recorded";
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ---- tiny DOM helpers (all untrusted text goes through textContent) ----
+  // The step ledger. `step_event` frames from the engine fill it by name; the older `step` frames map in.
+  const LEDGER = [
+    ["fetch", "Read the pull request and issue", true],
+    ["repo_map", "Map the repository (Lightning)", false],
+    ["test_writer", "Write the test from the issue (Ultra)", true],
+    ["base_run", "Run on base, expect it to fail", true],
+    ["head_run", "Run on head, expect it to pass", true],
+    ["triage", "Triage the base failure (Lightning)", false],
+    ["revert_check", "Revert the fix, expect it to fail again", false],
+    ["verdict", "Write the receipt", true],
+  ];
+  const LEGACY = { "fetching": "fetch", "fetching-commits": "fetch", "generating-test": "test_writer", "model": "test_writer", "base-test": "base_run", "head-test": "head_run", "receipt": "verdict" };
+  let config = boot.config || {};
+  let source = null, poll = null, busy = false;
+  let steps = {}, eventMode = false;
+
   function el(tag, cls, text, attrs) {
     const node = document.createElement(tag);
     if (cls) node.className = cls;
@@ -29,107 +34,181 @@
     if (attrs) for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
     return node;
   }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
   function safeHref(url) {
-    try {
-      const u = new URL(url);
-      return u.protocol === "https:" && u.hostname === "github.com" ? u.href : null;
-    } catch (_) { return null; }
+    try { const u = new URL(url); return u.protocol === "https:" && u.hostname === "github.com" ? u.href : null; } catch (_) { return null; }
   }
   function link(url, label) {
     const href = safeHref(url);
     if (!href) return el("span", null, label || url || "");
     return el("a", null, label || url, { href, target: "_blank", rel: "noopener noreferrer" });
   }
-  function fact(label, content, mono) {
-    const dt = el("dt", null, label);
-    const dd = el("dd");
-    if (typeof content === "string") { dd.textContent = content; if (mono) dd.className = "mono"; }
-    else if (content) dd.appendChild(content);
-    const wrap = el("div", "fact"); wrap.append(dt, dd);
+  function row(label, content, mono) {
+    const dt = el("dt", null, label), dd = el("dd");
+    if (content instanceof Node) dd.appendChild(content);
+    else { dd.textContent = content; if (mono) dd.className = "mono"; }
+    const wrap = el("div", "row"); wrap.append(dt, dd);
     return wrap;
   }
-  function when(iso) {
-    if (!iso) return "unknown";
+  function short(sha) { return sha ? String(sha).slice(0, 10) : "?"; }
+  function modelName(m) { return String(m || "").replace(/^nvidia\//, ""); }
+  function day(iso) {
     const d = new Date(iso);
-    return isNaN(d) ? iso : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) + " (" + iso + ")";
+    return isNaN(d) ? null : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   }
-  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  function secs(ms) { return (ms / 1000).toFixed(1) + " s"; }
+  function isNum(x) { return typeof x === "number" && isFinite(x); }
+  function usd(x) { return isNum(x) ? "$" + x.toFixed(x < 0.01 ? 5 : 4) : NR; }
 
-  // ---- receipt view ----
   const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
   const CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
   function icon(svg) { const s = el("span"); s.innerHTML = svg; return s.firstChild; }
-  function short(sha) { return sha ? String(sha).slice(0, 10) : "?"; }
 
-  function outputBlock(kind, title, result, ok) {
-    const box = el("div", "run " + kind + (kind === "head" && !ok ? " bad-head" : ""));
-    const h = el("h3", null, title);
-    const code = result && typeof result.returncode === "number" ? result.returncode : "?";
-    h.appendChild(el("span", "status", (kind === "base" ? "failed" : ok ? "passed" : "failed") + " · exit " + code));
-    const text = result ? ((result.stdout || "") + (result.stderr ? "\n" + result.stderr : "")).trim() : "";
-    const pre = el("pre", null, text || "(no output)", { tabindex: "0", role: "region", "aria-label": title + " output" });
-    box.append(h, pre);
+  // ---- receipt ----
+  function pill(ok, text) {
+    const p = el("span", "pill " + (ok ? "pass" : "fail"));
+    p.append(icon(ok ? CHECK : CROSS), document.createTextNode(text));
+    p.firstChild.setAttribute("width", "12"); p.firstChild.setAttribute("height", "12");
+    return p;
+  }
+  function pane(cls, title, badge, body, label) {
+    const box = el("div", "pane " + cls);
+    const head = el("div", "pane-head");
+    head.appendChild(el("h3", null, title));
+    if (badge) head.appendChild(badge);
+    box.append(head, el("pre", null, body || "(no output)", { tabindex: "0", role: "region", "aria-label": label || title }));
     return box;
+  }
+  function resultText(res) {
+    return res ? ((res.stdout || "") + (res.stderr ? "\n" + res.stderr : "")).trim() : "";
+  }
+
+  // What the receipt says about where it came from. A cached live run is never shown as live.
+  function provenance(m, cached) {
+    const meta = el("div", "verdict-meta");
+    const when = m.created_at ? day(m.created_at) : null;
+    if (m.source === "recorded") {
+      meta.appendChild(el("span", "tag", "Recorded run"));
+      meta.appendChild(el("span", null, "saved " + (when || "date unknown") + ". Not a live run."));
+    } else if (cached || m.source === "cached") {
+      meta.appendChild(el("span", "tag", "Cached receipt"));
+      meta.appendChild(el("span", null, "run here on " + (when || "an earlier date") + (isNum(m.duration_s) ? ", took " + m.duration_s.toFixed(1) + " s" : "") + ". Nothing was re-run."));
+    } else {
+      meta.appendChild(el("span", "tag", "Live run"));
+      meta.appendChild(el("span", null, (when || "just now") + (isNum(m.duration_s) ? ", took " + m.duration_s.toFixed(1) + " s" : "")));
+    }
+    return meta;
+  }
+
+  function modelsSection(r) {
+    const sec = el("section", "section");
+    sec.appendChild(el("h3", "section-title", "Which model did what"));
+    const calls = Array.isArray(r.model_calls) ? r.model_calls : null;
+    const wrap = el("div", "scroll-x");
+    const table = el("table", "ledger-table");
+    const head = el("tr");
+    ["Role", "Model", "Tokens in", "Tokens out", "Latency", "Est. cost"].forEach((h, i) => head.appendChild(el("th", i > 1 ? "r" : null, h)));
+    const thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
+    const body = el("tbody");
+    const ROLE = { repo_map: "Repo map", triage: "Triage", test_writer: "Test writer", fixer: "Fixer" };
+    const add = (role, model, a, b, ms, cost) => {
+      const tr = el("tr");
+      tr.appendChild(el("td", null, role));
+      tr.appendChild(el("td", null, modelName(model) || NR));
+      tr.appendChild(el("td", "r", isNum(a) ? a.toLocaleString() : NR));
+      tr.appendChild(el("td", "r", isNum(b) ? b.toLocaleString() : NR));
+      tr.appendChild(el("td", "r", isNum(ms) ? secs(ms) : NR));
+      tr.appendChild(el("td", "r", usd(cost)));
+      body.appendChild(tr);
+    };
+    if (calls && calls.length) {
+      calls.forEach((c) => add(ROLE[c.role] || c.role || NR, c.model, c.prompt_tokens, c.completion_tokens, c.latency_ms, c.cost_usd));
+    } else if (r.model) {
+      add("Test writer", r.model, null, null, null, null);
+    }
+    table.appendChild(body);
+    wrap.appendChild(table);
+    sec.appendChild(wrap);
+    const lines = [];
+    if (calls && calls.length) {
+      lines.push("Total estimated cost " + usd(r.model_cost_usd) + ". Cost is an upper-bound estimate from Token Factory list prices, without cached-input discounts.");
+    } else {
+      lines.push("This receipt predates per-call accounting. Tokens, latency, cost and the Lightning calls are " + NR + ".");
+    }
+    sec.appendChild(el("p", "hint", lines.join(" ")));
+    return sec;
+  }
+
+  function checksSection(r) {
+    const rows = el("dl", "rows");
+    const tri = r.triage;
+    rows.appendChild(row("Triage (Lightning)", tri && tri.verdict ? String(tri.verdict).replace(/_/g, " ") + (tri.reason ? ". " + tri.reason : "") : NR));
+    const rm = r.repo_map;
+    rows.appendChild(row("Repo map (Lightning)", rm && rm.status ? (rm.status === "ok" ? (Array.isArray(rm.files) ? rm.files.length + " files fed to the test writer" : "ok") : rm.status + (rm.detail ? ": " + rm.detail : "")) : NR));
+    const rc = r.revert_check;
+    rows.appendChild(row("Revert check", rc ? (rc.ran ? (rc.ok ? "passed. " : "failed. ") : "not run. ") + (rc.summary || rc.skipped || "") : NR));
+    return rows;
   }
 
   function renderReceipt(envelope, opts = {}) {
-    current = envelope;
     const r = envelope.receipt, m = envelope.meta || {};
     const proven = r.proven === true;
     clear(receiptEl);
 
-    const verdict = el("div", "verdict " + (proven ? "proven" : "not-proven"));
-    const stamp = el("div", "stamp");
-    stamp.append(icon(proven ? CHECK : CROSS), document.createTextNode(proven ? "Proven" : "Not proven"));
+    const verdict = el("div", "verdict " + (proven ? "is-pass" : "is-fail"));
+    const word = el("h2", "verdict-word");
+    word.append(icon(proven ? CHECK : CROSS), document.createTextNode(proven ? "Proven" : "Not proven"));
     const why = proven
       ? "The test written from the issue fails on the base commit and passes on the pull request head."
-      : (m.why_not_proven || "The test did not show the issue failing on base and passing on head.");
-    verdict.append(stamp, el("p", "verdict-text", why));
-    const tags = { recorded: "Recorded run", live: "Live run", cached: "Cached receipt" };
-    verdict.appendChild(el("span", "tag", tags[opts.cached && m.source === "live" ? "cached" : m.source] || "Receipt"));
+      : (m.why_not_proven || r.why_not_proven || "The test did not show the issue failing on base and passing on head.");
+    verdict.append(word, el("p", "verdict-why", why), provenance(m, opts.cached));
+    const idLine = el("p", "verdict-meta");
+    idLine.append(el("span", null, "completion"), el("span", "id", r.completion_id || NR));
+    verdict.appendChild(idLine);
     receiptEl.appendChild(verdict);
     const quiet = [m.test_attempts_note, m.model_retries_note].filter(Boolean).join(" ");
-    if (quiet) receiptEl.appendChild(el("p", "hint quiet", quiet));
-
-    const facts = el("dl", "facts");
-    const prTitle = r.pull_request_title || "Pull request";
-    facts.appendChild(fact("Pull request", r.pull_request_url ? (() => { const d = el("div"); d.appendChild(link(r.pull_request_url, prTitle)); return d; })() : prTitle));
-    facts.appendChild(fact("Issue (the oracle)", r.issue_url ? (() => { const d = el("div"); d.appendChild(link(r.issue_url, r.issue_title || r.issue_url)); return d; })() : (r.issue_title || "Linked issue")));
-    facts.appendChild(fact("Base commit", short(r.base) + (r.base_branch ? "  (" + r.base_branch + ")" : ""), true));
-    facts.appendChild(fact("Head commit", short(r.head) + (r.head_branch ? "  (" + r.head_branch + ")" : ""), true));
-    facts.appendChild(fact("Model", r.model || "unknown", true));
-    facts.appendChild(fact("Completion id", r.completion_id || "unknown", true));
-    facts.appendChild(fact("Recorded", when(m.created_at)));
-    facts.appendChild(fact("Test runner", r.test_runner || m.runner || "unknown"));
-    receiptEl.appendChild(facts);
-
-    if (r.issue) {
-      const d = el("details", "issue");
-      d.append(el("summary", null, "Issue text the model saw"), el("p", null, r.issue));
-      receiptEl.appendChild(d);
-    }
+    if (quiet) receiptEl.appendChild(el("p", "hint", quiet));
 
     const ran = !!r.test && r.base_result != null && r.head_result != null;
-    const rejected = (r.test_attempts || r.proof_test_attempts || []).filter((a) => a && a.valid === false && a.source);
     if (ran) {
-      const test = el("div", "block");
-      const th = el("h3", null, "Generated test");
-      if (r.test_name) th.appendChild(el("small", null, r.test_name));
-      test.append(th, el("pre", null, r.test || "", { tabindex: "0", role: "region", "aria-label": "Generated test source" }));
-      receiptEl.appendChild(test);
-
-      const runs = el("div", "block runs");
-      runs.appendChild(outputBlock("base", "Base: " + short(r.base), r.base_result, false));
-      runs.appendChild(outputBlock("head", "Head: " + short(r.head), r.head_result, (r.head_result || {}).returncode === 0));
-      receiptEl.appendChild(runs);
+      const pair = el("div", "pair");
+      const testPane = pane("test", "Generated test" + (r.test_name ? ": " + r.test_name : ""), null, r.test || "", "Generated test source");
+      const stack = el("div", "stack");
+      const baseOk = (r.base_result || {}).returncode;
+      const headOk = (r.head_result || {}).returncode === 0;
+      stack.append(
+        pane("base", "Base " + short(r.base), pill(false, "fails, exit " + (typeof baseOk === "number" ? baseOk : "?")), resultText(r.base_result), "Base output"),
+        pane("head " + (headOk ? "is-pass" : "is-fail"), "Head " + short(r.head), pill(headOk, (headOk ? "passes" : "fails") + ", exit " + ((r.head_result || {}).returncode)), resultText(r.head_result), "Head output"),
+      );
+      pair.append(testPane, stack);
+      receiptEl.appendChild(pair);
       if (r.base_failure_type) {
-        receiptEl.appendChild(el("p", "hint", "Base failure type: " + r.base_failure_type + (r.base_failure_is_expected ? " (accepted as the issue's failure)" : " (not accepted)")));
+        receiptEl.appendChild(el("p", "hint", "Base failure type: " + r.base_failure_type + (r.base_failure_is_expected ? ", accepted as the issue's failure." : ", not accepted.")));
       }
     } else {
       receiptEl.appendChild(el("p", "hint", "No test was run on base or head, so there is no test output to show."));
     }
+
+    const facts = el("dl", "rows");
+    const prLink = r.pull_request_url ? link(r.pull_request_url, r.pull_request_title || r.pull_request_url) : (r.pull_request_title || "Pull request");
+    facts.appendChild(row("Pull request", prLink));
+    facts.appendChild(row("Issue (the oracle)", r.issue_url ? link(r.issue_url, r.issue_title || r.issue_url) : (r.issue_title || "Linked issue")));
+    facts.appendChild(row("Base commit", short(r.base) + (r.base_branch ? " (" + r.base_branch + ")" : ""), true));
+    facts.appendChild(row("Head commit", short(r.head) + (r.head_branch ? " (" + r.head_branch + ")" : ""), true));
+    facts.appendChild(row("Test runner", r.test_runner || m.runner || NR));
+    receiptEl.appendChild(facts);
+
+    receiptEl.appendChild(modelsSection(r));
+    receiptEl.appendChild(checksSection(r));
+
+    if (r.issue) {
+      const d = el("details");
+      d.append(el("summary", null, "Issue text the model saw"), el("p", null, r.issue));
+      receiptEl.appendChild(d);
+    }
+    const rejected = (r.test_attempts || r.proof_test_attempts || []).filter((a) => a && a.valid === false && a.source);
     if (rejected.length) {
-      const d = el("details", "issue");
+      const d = el("details");
       d.appendChild(el("summary", null, "Rejected test attempts (" + rejected.length + ")"));
       rejected.forEach((a) => {
         d.appendChild(el("p", "hint", "Attempt " + a.attempt + ": " + (a.rejection || "rejected")));
@@ -141,17 +220,26 @@
     const actions = el("div", "actions");
     const flash = el("span", "flash", "", { role: "status" });
     const permalink = m.permalink || (m.repo && m.number ? "/r/" + m.repo + "/" + m.number : null);
-    if (permalink) actions.appendChild(button("Copy permalink", () => copy(location.origin + permalink, flash, "Link copied")));
+    if (permalink) {
+      const cp = button("Copy permalink", () => copy(location.origin + permalink, flash, "Link copied"));
+      cp.classList.remove("ghost"); cp.classList.add("primary");
+      actions.appendChild(cp);
+    }
     actions.appendChild(button("Copy JSON", () => copy(JSON.stringify(envelope, null, 2), flash, "JSON copied")));
     actions.appendChild(button("Download JSON", () => download(envelope)));
     if (r.pull_request_url) {
       const live = button("Run live", () => submit(r.pull_request_url, true));
       live.id = "run-live";
-      if (!config.live) { live.disabled = true; live.title = config.live_reason || "Live runs are off"; }
+      if (!config.live) live.disabled = true;
       actions.appendChild(live);
     }
     actions.appendChild(flash);
     receiptEl.appendChild(actions);
+    if (permalink) {
+      const pl = el("p", "permalink");
+      pl.append(el("span", "hint", "Permalink"), el("span", "mono", location.origin + permalink));
+      receiptEl.appendChild(pl);
+    }
   }
 
   function button(label, onclick) {
@@ -160,50 +248,98 @@
     return b;
   }
   async function copy(text, flash, message) {
-    try { await navigator.clipboard.writeText(text); flash.textContent = message; }
-    catch (_) { flash.textContent = "Copy failed"; }
+    try { await navigator.clipboard.writeText(text); flash.textContent = message; } catch (_) { flash.textContent = "Copy failed"; }
     setTimeout(() => { flash.textContent = ""; }, 2000);
   }
   function download(envelope) {
-    const r = envelope.receipt;
     const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" });
-    const a = el("a", null, "", { href: URL.createObjectURL(blob), download: "latch-receipt-" + short(r.head) + ".json" });
+    const a = el("a", null, "", { href: URL.createObjectURL(blob), download: "latch-receipt-" + short(envelope.receipt.head) + ".json" });
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  // ---- stepper ----
-  function buildStepper() {
-    clear(stepperEl);
-    for (const [key, label] of STEPS) {
-      const li = el("li", null, label, { "data-step": key, "data-state": "pending" });
-      stepperEl.appendChild(li);
-    }
-  }
-  function markStep(name, state) {
-    const keys = STEPS.map((s) => s[0]);
-    const idx = keys.indexOf(name);
-    if (idx < 0) return;
-    [...stepperEl.children].forEach((li, i) => {
-      if (i < idx && li.dataset.state !== "failed") li.dataset.state = "done";
-      if (i === idx) li.dataset.state = state;
+  // ---- recent proofs (real cached receipts only) ----
+  function renderRecent(items) {
+    clear(recentList);
+    const real = (items || []).filter((x) => x && x.permalink && x.verdict);
+    recentEl.hidden = real.length === 0;
+    real.forEach((x) => {
+      const li = el("li");
+      const what = el("div", "what");
+      what.appendChild(el("a", null, (x.repo || "") + " #" + (x.number || "?"), { href: x.permalink }));
+      if (x.title) what.appendChild(el("span", "sub", x.title));
+      const proven = x.verdict === "proven";
+      const when = el("span", "when", (x.source === "recorded" ? "recorded " : x.source === "live" ? "run here " : "") + (day(x.created_at) || ""));
+      li.append(what, pill(proven, proven ? "Proven" : "Not proven"), when);
+      recentList.appendChild(li);
     });
   }
-  function finishSteps() { [...stepperEl.children].forEach((li) => { li.dataset.state = "done"; }); }
+  async function refreshRecent() {
+    try { const j = await (await fetch("/api/recent")).json(); renderRecent(j.items || j.recent || j); } catch (_) { /* keep what is shown */ }
+  }
+
+  // ---- step ledger ----
+  function resetSteps() {
+    steps = {}; eventMode = false;
+    LEDGER.forEach(([k]) => { steps[k] = { state: "pending" }; });
+  }
+  function detailText(d) {
+    if (d == null) return "";
+    if (typeof d === "string") return d;
+    try { return JSON.stringify(d); } catch (_) { return ""; }
+  }
+  function clock(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString(undefined, { hour12: false }); }
+  function drawSteps() {
+    clear(stepperEl);
+    let n = 0;
+    LEDGER.forEach(([key, label, core]) => {
+      const s = steps[key];
+      if (!core && (!s || s.state === "pending")) return;
+      n++;
+      const li = el("li", null, null, { "data-step": key, "data-state": s.state });
+      const words = { pending: "waiting", active: "running", done: "done", failed: "failed" };
+      let st = words[s.state];
+      if (s.state === "done" && s.t0 && s.t1) st = "done " + secs(s.t1 - s.t0);
+      li.append(el("span", "n", String(n)), el("span", "lbl", label), el("span", "ts", s.ts ? clock(s.ts) : ""), el("span", "st", st));
+      const sub = detailText(s.detail);
+      if (sub) li.appendChild(el("span", "sub", sub.length > 160 ? sub.slice(0, 157) + "..." : sub));
+      stepperEl.appendChild(li);
+    });
+  }
+  function applyEvent(d) {
+    const s = steps[d.step];
+    if (!s) return;
+    eventMode = true;
+    const t = new Date(d.ts).getTime();
+    if (d.status === "started") { s.state = "active"; s.t0 = isNaN(t) ? null : t; s.ts = d.ts; }
+    else { s.state = d.status === "failed" ? "failed" : "done"; s.t1 = isNaN(t) ? null : t; s.ts = s.ts || d.ts; }
+    if (d.detail != null) s.detail = d.detail;
+    drawSteps();
+  }
+  function applyLegacy(name) {
+    if (eventMode) return;
+    const key = LEGACY[name];
+    if (!key) return;
+    const order = LEDGER.map((x) => x[0]);
+    order.forEach((k, i) => {
+      if (i < order.indexOf(key) && steps[k].state !== "failed" && LEDGER[i][2]) steps[k].state = "done";
+    });
+    steps[key].state = "active";
+    drawSteps();
+  }
+  function finishSteps() { LEDGER.forEach(([k, , core]) => { if (core && steps[k].state !== "failed") steps[k].state = "done"; }); drawSteps(); }
 
   // ---- ui state ----
   function setBusy(on) {
-    busy = on;
-    runBtn.disabled = on;
-    exampleBtn.disabled = on;
-    runBtn.textContent = on ? "Working…" : "Prove it";
+    busy = on; runBtn.disabled = on; exampleBtn.disabled = on;
+    runBtn.textContent = on ? "Working..." : "Prove it";
   }
   function showNotice(text) { noticeEl.hidden = !text; noticeEl.textContent = text || ""; }
   function showError(err) {
     clear(errorEl);
     if (!err) { errorEl.hidden = true; return; }
     errorEl.append(el("h2", null, "Nothing was proven"), el("p", null, err.message || "Something went wrong."));
-    if (err.code) errorEl.appendChild(el("p", "code", err.code + (err.retry_after ? " · retry in " + err.retry_after + " s" : "")));
+    if (err.code) errorEl.appendChild(el("p", "code", err.code + (err.retry_after ? ", retry in " + err.retry_after + " s" : "")));
     errorEl.hidden = false;
   }
   function fieldError(text) {
@@ -211,10 +347,14 @@
     input.setAttribute("aria-invalid", text ? "true" : "false");
   }
   function applyConfig() {
-    liveNote.hidden = config.live;
-    liveNote.textContent = config.live ? "" : (config.live_reason || "Live runs are off. Cached receipts still work.");
+    const paused = !config.live;
+    liveNote.hidden = !paused;
+    liveNote.textContent = paused
+      ? (config.live_reason || "Live runs are paused.") + " The recorded Click receipt, saved proofs and the fix-loop example still load."
+      : "";
     const live = $("run-live");
-    if (live) { live.disabled = !config.live; live.title = config.live ? "" : (config.live_reason || ""); }
+    if (live) live.disabled = paused;
+    runBtn.title = paused ? "Saved proofs open instantly. A new pull request needs a live run." : "";
   }
   function endRun() { closeStreams(); setBusy(false); receiptEl.hidden = false; }
   function closeStreams() {
@@ -224,16 +364,16 @@
   function onResult(data) {
     finishSteps();
     progress.hidden = true;
-    showError(null);
-    showNotice(null);
+    showError(null); showNotice(null);
     renderReceipt({ receipt: data.receipt, meta: data.meta });
     if (data.meta && data.meta.permalink) history.replaceState(null, "", data.meta.permalink);
     endRun();
+    refreshRecent();
     receiptEl.focus({ preventScroll: false });
   }
   function onError(err) {
-    const failed = stepperEl.querySelector('[data-state="active"]');
-    if (failed) failed.dataset.state = "failed";
+    const active = Object.keys(steps).find((k) => steps[k].state === "active");
+    if (active) { steps[active].state = "failed"; drawSteps(); }
     showError(err);
     detailEl.textContent = "";
     endRun();
@@ -245,30 +385,30 @@
 
   // ---- live stream ----
   function watch(jobId) {
-    buildStepper();
+    resetSteps(); drawSteps();
     progress.hidden = false;
-    receiptEl.hidden = true; // the old receipt returns (replaced) when the run ends
-    progress.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
-    detailEl.textContent = "Waiting for the worker…";
+    receiptEl.hidden = true;
+    progress.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "center" });
+    detailEl.textContent = "Waiting for the worker...";
     let finished = false;
     const done = () => { finished = true; };
-    const listen = (name, fn) => source.addEventListener(name, (e) => { try { fn(JSON.parse(e.data)); } catch (_) {} });
     source = new EventSource("/api/proof/" + jobId + "/events");
-    listen("queued", (d) => { detailEl.textContent = d.position ? "Queued. " + d.position + " run(s) ahead." : "Starting…"; });
-    listen("queue", (d) => { detailEl.textContent = d.position ? "Queued. " + d.position + " run(s) ahead." : "Starting…"; });
-    listen("step", (d) => { markStep(d.step, "active"); detailEl.textContent = (STEPS.find((s) => s[0] === d.step) || [0, ""])[1] + "…"; });
+    const listen = (name, fn) => source.addEventListener(name, (e) => { try { fn(JSON.parse(e.data)); } catch (_) {} });
+    const queued = (d) => { detailEl.textContent = d.position ? "Queued. " + d.position + " run(s) ahead." : "Starting..."; };
+    listen("queued", queued); listen("queue", queued);
+    listen("step", (d) => applyLegacy(d.step));
+    listen("step_event", applyEvent);
     listen("detail", (d) => { detailEl.textContent = d.message; });
     listen("result", (d) => { done(); onResult(d); });
     listen("error", (d) => { done(); onError(d); });
     source.onerror = () => {
       if (finished) return;
-      // EventSource retries by itself; also poll so we never hang on a dropped stream.
       if (!poll) poll = setInterval(async () => {
         try {
           const j = await (await fetch("/api/proof/" + jobId)).json();
           if (j.status === "done") { done(); onResult(j); }
           else if (j.status === "error" || j.error) { done(); onError(j.error || { message: "The run failed." }); }
-          else if (j.step) markStep(j.step, "active");
+          else if (j.step) applyLegacy(j.step);
         } catch (_) { /* keep polling */ }
       }, 2500);
     };
@@ -285,8 +425,7 @@
     setBusy(true);
     try {
       const res = await fetch("/api/proof", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pull_request_url: url.trim(), live: !!live }),
       });
       const data = await res.json().catch(() => ({ error: { message: "The server returned an unreadable response." } }));
@@ -294,7 +433,9 @@
       if (data.cached) {
         progress.hidden = true;
         renderReceipt({ receipt: data.receipt, meta: data.meta }, { cached: true });
-        showNotice(data.note || (data.meta.source === "recorded" ? "Instant: this is the recorded receipt. Press Run live to reproduce it." : "Instant: this pull request was already proven here. Press Run live to run it again."));
+        showNotice(data.note || (data.meta.source === "recorded"
+          ? "This is the recorded receipt, returned instantly. Nothing was run. Press Run live to reproduce it."
+          : "This pull request was already proven here, so the saved receipt is shown. Nothing was re-run. Press Run live to run it again."));
         if (data.permalink) history.replaceState(null, "", data.permalink);
         endRun();
         return;
@@ -305,7 +446,6 @@
     }
   }
 
-  // ---- wire up ----
   form.addEventListener("submit", (e) => { e.preventDefault(); submit(input.value, false); });
   exampleBtn.addEventListener("click", () => {
     input.value = CLICK_URL;
@@ -313,13 +453,14 @@
     if (boot.example) {
       progress.hidden = true;
       renderReceipt(boot.example);
-      showNotice("Instant: the recorded Click receipt. Press Run live to reproduce it.");
+      showNotice("This is the recorded Click receipt, not a live run. Paste any pull request above to prove your own.");
       history.replaceState(null, "", "/r/pallets/click/3299");
-      receiptEl.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      receiptEl.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
     }
   });
 
   applyConfig();
+  renderRecent(boot.recent);
   setInterval(() => { if (!document.hidden && !busy) refreshConfig(); }, 60000);
   if (boot.initial) {
     renderReceipt(boot.initial);
@@ -327,9 +468,7 @@
     if (u) input.value = u;
   } else if (boot.example) {
     renderReceipt(boot.example);
-    input.value = "";
-    if (boot.notice) showNotice(boot.notice);
-    else showNotice("This is a recorded receipt for Click PR #3299. Paste any pull request above to prove your own.");
+    showNotice(boot.notice || "");
   }
   if (boot.notice && boot.initial) showNotice(boot.notice);
 })();
