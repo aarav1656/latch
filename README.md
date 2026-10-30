@@ -6,6 +6,26 @@ Track: Coding and Agentic Engineering.
 
 Coding agents now write the code and the tests in the same pull request. The tests pass, the reviewer sees green, and the change merges. The failure is quiet: a test that calls the changed function but cannot fail. Latch finds that test, has NVIDIA Nemotron write one that can fail, and opens only when the harness, not a model, watches the new test go red on the bug and green on the fix.
 
+Live: [latch-mauve.vercel.app](https://latch-mauve.vercel.app) serves the recorded receipts, the [evidence page](https://latch-mauve.vercel.app/eval) and the [CI page](https://latch-mauve.vercel.app/ship).
+
+## Results: 42 live runs on Nebius Token Factory
+
+`nvidia/Nemotron-3-Ultra-550b-a55b` writes every proof test and every fix; `nvidia/Nemotron-3_5-Lightning` maps the repository and triages the base failure. The harness decides. The set: 21 real bug fixes (9 upstream fixes from cachetools, boltons, tabulate, toolz, packaging, more-itertools and click, plus 12 SWE-bench Lite sympy instances), 9 hand-built plausible-but-wrong patches, and 12 runs where Nemotron writes the fix itself and the instance's hidden tests judge it.
+
+| Measure | Result |
+|---|---|
+| Real fixes proven: red on base, green on the fix, suite green, stable over 5 reruns, revert and mutation checks | **10 of 21 (48%)**: upstream 5 of 9, sympy 5 of 12 |
+| Wrong patches accepted | **0 of 9** |
+| Wrong patches failed by a valid proof test | 6 of 9 (the other 3 kept the gate shut by default) |
+| Runs where Nemotron wrote the fix and the gate opened on a fix the hidden tests reject | 0 of 12 |
+| Mutants of the proven fixes' changed lines killed by the proof test | 28 of 31 (90%) |
+| Flaky proof tests | 0 of 12 rerun |
+| Cost, from the receipts' token counts at list prices | $2.22 for all 42 runs, median $0.018 per run, 21 minutes with 3 jobs |
+
+**Test repair.** When a proof test errors instead of asserting (a missing import, or the bug's own exception escaping the test), Ultra gets that test's own error output once and rewrites it; the rewritten test goes through every check again. The same 42 runs before it shipped: 7 of 21 proven, 3 of 9 wrong patches failed by a valid test, 1 accepted (packaging-810, now failed by its proof test). Both runs are committed side by side: `latch/runs/eval-summary.json`, `latch/runs/eval-summary-repair.json` and the per-case table `latch/runs/eval-diff-repair.md`. Full method in `latch/loop/eval/RESULTS.md`.
+
+For context on a different benchmark with a looser pass condition (fail-to-pass only): Otter 31.4% ([arXiv 2502.05368](https://arxiv.org/abs/2502.05368)), AssertFlip 43.6% ([arXiv 2507.17542](https://arxiv.org/abs/2507.17542)).
+
 ## The problem, in the words of people hitting it
 
 - "All 12 tests passed. An independent verifier reversed the condition to count finished tasks instead. All 12 still passed." One verifier reported five deliberately broken changes that left all 1,621 relevant tests green. [@NatureBlueee](https://x.com/NatureBlueee/status/2115186551407944177)
@@ -120,9 +140,9 @@ latch comment receipt.json           # print the PR comment (dry run); --post ne
 - **Model use, recorded.** Every receipt has `model_calls[]` (role `repo_map`, `triage`, `test_writer` or `fixer`; model; tokens; latency; completion id; cost). Lightning also builds a repo map (relevant files and symbols, checked against an AST index of the base snapshot) that goes into Ultra's test prompt. Cost is an upper-bound estimate from Token Factory's published per-token prices (https://tokenfactory.nebius.com/model-catalog.md, read 2026-10-30; cached-input discounts are not applied). It is `null` when token counts are unknown.
 - **Steps.** `steps[]` and the JSONL event stream carry `{step, status, ts, detail}` for `fetch`, `repo_map`, `base_run`, `head_run`, `revert_check` and the verdict.
 - **Revert check.** After the gate opens, the harness reverts the fix (and, in the loop, restores the submitted patch) and requires the proof test to fail again. If it does not, or the check cannot run, the gate stays shut. `--no-revert` turns it off and says so in the receipt.
-- **Demo output.** On a terminal `python3 -m latch.loop demo` prints a coloured human timeline (`--pace` slows it for filming, about 90 s); piped output stays JSONL for the web (`--jsonl` forces it). The demo is a constructed regression case: a hand-written partial fix modelled on common agent behaviour, not an upstream bug.
+- **Demo output.** On a terminal `python3 -m latch.loop demo` prints a coloured human timeline (`--pace` slows it for filming, about 90 s); piped output stays JSONL for the web (`--jsonl` forces it). The demo case is built to show the loop's whole arc: a fix that repairs the conflict check and misses the merge, the way agents often do, which the gate shuts and Nemotron then repairs.
 - **GitHub Action.** `.github/actions/latch` (composite) and the example workflow `latch/loop/github/latch.yml` run Latch on `pull_request` and keep one PR comment up to date. PR-controlled text goes through `env:`, never into a script, and fork PRs get no secrets, so the action fails closed. Posting is opt-in and nothing in this repo posts by default.
-- **Evaluation.** `latch/loop/eval/RESULTS.md` has the method, baselines and the `latch/runs/eval-summary.json` schema (version 2). `latch eval` runs the benchmark: `latch eval run --dry-run` exercises it on stubbed output and spends nothing; `latch eval oracle` runs the model-free oracle baseline (the upstream tests on base, real fix and wrong patch, $0); `latch eval manifest --check` verifies the pinned models, prompts and dataset; a live `latch eval run` needs Token Factory credit and writes the summary and a Markdown report with a Slopgate-style comparison table. Slopgate's numbers are quoted from its own repo, and the table says the two measure different tasks. Nemotron results are "not run" until a live run exists.
+- **Evaluation.** `latch eval run` runs the benchmark behind the Results section above and writes the summary, a Markdown report and every receipt; `--tag NAME` writes a second run beside the first and `latch eval diff` compares them case by case. `latch eval oracle` runs the upstream tests themselves on base, real fix and wrong patch as the answer key, with no model; `latch eval manifest --check` verifies the pinned models, prompts and dataset; `latch eval run --dry-run` exercises the whole pipeline offline. Method, baselines and the summary schema (version 2) are in `latch/loop/eval/RESULTS.md`, with a Slopgate-style comparison table quoted from Slopgate's own repo.
 - **Dev-only provider.** `LATCH_PROVIDER=openrouter` (or `--provider openrouter` on `prove`, `loop`, `demo`, `eval`) sends the same Ultra and Lightning calls to OpenRouter's free `nvidia/nemotron-3-ultra-550b-a55b:free` and `nvidia/nemotron-3.5-lightning:free` with `OPENROUTER_API_KEY` from the environment, for development while Token Factory credit is unavailable. The default stays `nebius`. Every receipt carries `provider` and each `model_calls[]` entry records the provider and resolved model id; costs are `null` off Token Factory. An openrouter run writes only under `latch/runs/dev/` (`latch eval run` writes `latch/runs/dev/eval-summary-openrouter.json` marked `dev_only: true`, never `latch/runs/eval-summary.json`), so it can never feed the site or the numbers above.
 - **Dev receipts.** `latch/runs/dev/` holds dev-only OpenRouter receipts (`provider: openrouter`, `dev_only: true`) that the site never serves and the Docker image excludes; they are not hackathon results.
 
@@ -175,7 +195,7 @@ python3 -m unittest latch.test_prove latch.harness.test_parse latch.harness.test
 
 ## The hosted site
 
-`python3 -m latch.web.app` serves a paste-a-PR page, shareable receipts at `/r/owner/repo/pr`, an evidence page at `/eval` (it shows "Eval pending" until `latch/runs/eval-summary.json` is committed) and a CLI and GitHub Action page at `/ship`. Every model call, token count and cost on a receipt is read from the receipt; anything missing shows as "not recorded". Run, API and deploy notes are in `latch/web/README.md`; the visual system is in `latch/web/DESIGN.md`.
+`python3 -m latch.web.app` serves a paste-a-PR page, shareable receipts at `/r/owner/repo/pr`, an evidence page at `/eval` (the newest committed live run, with the earlier run and the per-case diff beside it) and a CLI and GitHub Action page at `/ship`. Every model call, token count and cost on a receipt is read from the receipt; anything missing shows as "not recorded". Run, API and deploy notes are in `latch/web/README.md`; the visual system is in `latch/web/DESIGN.md`.
 
 ## Layout
 

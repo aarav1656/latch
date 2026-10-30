@@ -27,6 +27,29 @@ Baselines for context only, on different benchmarks and a weaker pass condition:
 The dominant failure mode is the model's proof test, not the fixer: most INVALID_TEST runs are a test that never reached an assertion.
 The one-round test repair (below) was added after this run and is **not** in these numbers; the numbers above are the first run, kept as committed.
 
+## Repair run (live, 2026-10-30, Latch 96eb8d5, test repair on, same 42 runs, 3 iterations max, 3 jobs)
+
+From `latch/runs/eval-2026-10-30-repair.json` / `eval-summary-repair.json` / `eval-report-repair.md`; per-case before and after in
+`latch/runs/eval-diff-repair.md`. One run per case, launched once, reported as it ran.
+
+| Measure | First run | Repair run |
+|---|---|---|
+| Real fixes VALIDATED | 7/21 (33%) | **10/21 (48%)**: upstream 5/9, sympy 5/12 |
+| Wrong patches failed by a valid proof test (FIX_FAILS_TEST) | 3/9 | **6/9** (5/7 without the contested cases) |
+| Wrong patches accepted | 1/9 (packaging-810) | **0/9** |
+| No-fix runs where the gate opened | 0/12 | 0/12 |
+| INVALID_TEST runs | 23 | 14 |
+| Verdicts (42 runs) | INVALID_TEST 23, FIX_FAILS_TEST 10, VALIDATED 8, NO_REGRESSION_FOUND 1 | INVALID_TEST 14, FIX_FAILS_TEST 16, VALIDATED 10, MUTATION_SURVIVED 1, NO_REGRESSION_FOUND 1 |
+| Mutation kill rate (pooled, VALIDATED runs) | 23/23 | 28/31 |
+| Flaky | 0 of 9 checked | 0 of 12 checked |
+| Cost | $1.38 | $2.22 (169 model calls), median $0.018 per run |
+| Wall time | 21.6 min | 20.9 min |
+
+Test repairs: attempted in 17 runs, the repaired test stopped erroring in 5. Of the 10 verdicts that changed, 2 had a repaired
+test (sympy-22714 nofix, tabulate-180 real); the other 8 changed with no repair, from a different first test. With a
+non-deterministic model and one run per case, the change between runs is not attributable to the repair alone. packaging-810's wrong
+patch, the first run's one false accept, is FIX_FAILS_TEST here: this run's proof test reaches the cases the wrong patch gets wrong.
+
 The one measured thing so far is the **oracle baseline (no model)**: the human-written upstream tests, run for real with git and
 pytest, $0, no Token Factory call. Over the 21 kept cases the upstream tests fail on base for 21/21, pass on the real fix for
 21/21, and reject the constructed wrong patch for 9/9 upstream cases (total 185 s wall with 3 jobs; `latch/runs/eval-oracle-baseline.json`,
