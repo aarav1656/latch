@@ -4,6 +4,7 @@
     latch loop    --repo R --base B --head H --issue TEXT [--receipt F] [--pr-comment F|-] [--human|--jsonl]
     latch demo    [--human|--jsonl] [--pace 1]
     latch comment RECEIPT [--post --repo OWNER/REPO --pr N]     (default: print the comment, post nothing)
+    latch eval    run [--dry-run] | summarize | report | oracle | manifest     (the Slopgate-comparable benchmark; --dry-run spends nothing)
 
 Exit status: prove 0 proven / 1 not proven / 2 error; loop 0 gate_open / 1 gave_up / 2 error; 64 bad arguments.
 Nothing is posted anywhere unless `latch comment --post` is given explicitly, with GITHUB_TOKEN set.
@@ -101,7 +102,10 @@ def main(argv=None):
     if cmd in ("loop", "demo"):
         from .loop.cli import main as loop_main
         return loop_main([{"loop": "run"}.get(cmd, cmd), *rest])
-    print(f"unknown command: {cmd} (prove | loop | demo | comment)", file=sys.stderr)
+    if cmd == "eval":
+        from .loop.eval.cli import main as eval_main
+        return eval_main(rest)
+    print(f"unknown command: {cmd} (prove | loop | demo | comment | eval)", file=sys.stderr)
     return 64
 
 

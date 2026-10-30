@@ -1,0 +1,536 @@
+{
+  "schema_version": 1,
+  "label": "oracle baseline (no model)",
+  "kind": "oracle_baseline",
+  "model_free": true,
+  "generated_at": "2026-10-30T05:20:15+00:00",
+  "wall_s_elapsed": 185.1,
+  "cost_usd": 0.0,
+  "model_calls": 0,
+  "dropped": [
+    {
+      "id": "cachetools-221",
+      "reason": "no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly."
+    },
+    {
+      "id": "boltons-4457decc",
+      "reason": "the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply"
+    },
+    {
+      "id": "boltons-8177b933",
+      "reason": "same as boltons-4457decc"
+    }
+  ],
+  "totals": {
+    "cases": 21,
+    "errors": 0,
+    "oracle_fails_on_base": {
+      "k": 21,
+      "n": 21,
+      "rate": 1.0
+    },
+    "oracle_passes_on_real_fix": {
+      "k": 21,
+      "n": 21,
+      "rate": 1.0
+    },
+    "oracle_rejects_wrong_patch": {
+      "k": 9,
+      "n": 9,
+      "rate": 1.0
+    },
+    "oracle_separates_real_from_wrong": {
+      "k": 9,
+      "n": 9,
+      "rate": 1.0
+    },
+    "cost_usd": 0.0,
+    "model_calls": 0,
+    "wall_s": {
+      "total": 534.0,
+      "median": 25.3
+    }
+  },
+  "cases": [
+    {
+      "case": "cachetools-423",
+      "suite": "upstream",
+      "repo": "tkem/cachetools",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 13.2,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 28 passed in 0.36s",
+        "oracle_head": "29 passed in 0.28s",
+        "oracle_wrong": "1 failed, 28 passed in 0.33s"
+      }
+    },
+    {
+      "case": "boltons-319",
+      "suite": "upstream",
+      "repo": "mahmoud/boltons",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 9.7,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 3 passed, 1 warning in 0.26s",
+        "oracle_head": "4 passed, 1 warning in 0.30s",
+        "oracle_wrong": "1 failed, 3 passed, 1 warning in 0.19s"
+      }
+    },
+    {
+      "case": "tabulate-180",
+      "suite": "upstream",
+      "repo": "astanin/python-tabulate",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 6.8,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 29 passed, 4 skipped in 0.39s",
+        "oracle_head": "30 passed, 4 skipped in 0.30s",
+        "oracle_wrong": "1 failed, 29 passed, 4 skipped in 0.34s"
+      }
+    },
+    {
+      "case": "tabulate-190",
+      "suite": "upstream",
+      "repo": "astanin/python-tabulate",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 8.3,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 28 passed, 4 skipped in 0.35s",
+        "oracle_head": "29 passed, 4 skipped in 0.44s",
+        "oracle_wrong": "1 failed, 28 passed, 4 skipped in 0.43s"
+      }
+    },
+    {
+      "case": "toolz-602",
+      "suite": "upstream",
+      "repo": "pytoolz/toolz",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 9.0,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 49 passed in 0.82s",
+        "oracle_head": "50 passed in 0.61s",
+        "oracle_wrong": "1 failed, 49 passed in 0.62s"
+      }
+    },
+    {
+      "case": "packaging-810",
+      "suite": "upstream",
+      "repo": "pypa/packaging",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 85.4,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "9 failed, 1224 passed in 2.21s",
+        "oracle_head": "1233 passed in 2.19s",
+        "oracle_wrong": "5 failed, 1228 passed in 2.53s"
+      }
+    },
+    {
+      "case": "more-itertools-409",
+      "suite": "upstream",
+      "repo": "more-itertools/more-itertools",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 11.6,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 322 passed, 5 warnings in 1.66s",
+        "oracle_head": "323 passed, 5 warnings in 1.55s",
+        "oracle_wrong": "1 failed, 322 passed, 5 warnings in 1.44s"
+      }
+    },
+    {
+      "case": "click-3360",
+      "suite": "upstream",
+      "repo": "pallets/click",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 25.3,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "7 failed, 28 passed in 0.37s",
+        "oracle_head": "35 passed in 0.26s",
+        "oracle_wrong": "7 failed, 28 passed in 0.47s"
+      }
+    },
+    {
+      "case": "click-3019",
+      "suite": "upstream",
+      "repo": "pallets/click",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": true,
+      "base_suite_green": true,
+      "wall_s": 15.8,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "wrong patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on real fix": true,
+        "oracle fails on wrong patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 141 passed in 1.55s",
+        "oracle_head": "142 passed in 1.61s",
+        "oracle_wrong": "1 failed, 141 passed in 1.59s"
+      }
+    },
+    {
+      "case": "sympy-21612",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 25.5,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 99 deselected, 2 warnings in 1.65s",
+        "oracle_head": "1 passed, 99 deselected, 2 warnings in 1.62s"
+      }
+    },
+    {
+      "case": "sympy-21614",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 18.6,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 7 deselected, 2 warnings in 0.48s",
+        "oracle_head": "1 passed, 7 deselected, 2 warnings in 0.41s"
+      }
+    },
+    {
+      "case": "sympy-21627",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 33.9,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 4 passed, 26 deselected, 2 warnings in 2.89s",
+        "oracle_head": "5 passed, 26 deselected, 2 warnings in 1.81s"
+      }
+    },
+    {
+      "case": "sympy-21847",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 26.6,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 10 passed, 1 warning in 1.38s",
+        "oracle_head": "11 passed, 1 warning in 0.69s"
+      }
+    },
+    {
+      "case": "sympy-22005",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 32.6,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 3 deselected, 1 warning in 1.74s",
+        "oracle_head": "1 passed, 3 deselected, 1 warning in 2.30s"
+      }
+    },
+    {
+      "case": "sympy-22714",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 35.9,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 12 deselected in 0.87s",
+        "oracle_head": "1 passed, 12 deselected in 0.86s"
+      }
+    },
+    {
+      "case": "sympy-24066",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 32.4,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 32 deselected in 1.14s",
+        "oracle_head": "1 passed, 32 deselected in 1.80s"
+      }
+    },
+    {
+      "case": "sympy-24213",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 33.3,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 33 deselected in 0.98s",
+        "oracle_head": "1 passed, 33 deselected in 1.08s"
+      }
+    },
+    {
+      "case": "sympy-24909",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 27.6,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 3 deselected in 0.87s",
+        "oracle_head": "1 passed, 3 deselected in 0.95s"
+      }
+    },
+    {
+      "case": "sympy-21055",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 36.6,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 14 deselected, 2 warnings in 0.79s",
+        "oracle_head": "1 passed, 14 deselected, 2 warnings in 0.66s"
+      }
+    },
+    {
+      "case": "sympy-20590",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 21.4,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 22 deselected, 2 warnings in 0.63s",
+        "oracle_head": "1 passed, 22 deselected, 2 warnings in 0.56s"
+      }
+    },
+    {
+      "case": "sympy-23262",
+      "suite": "swebench_lite",
+      "repo": "sympy/sympy",
+      "ok": true,
+      "fails_on_base": true,
+      "passes_on_real_fix": true,
+      "fails_on_wrong_patch": null,
+      "base_suite_green": true,
+      "wall_s": 24.5,
+      "error": null,
+      "checks": {
+        "base suite green": true,
+        "gold-patch suite green": true,
+        "oracle fails on base": true,
+        "oracle passes on gold patch": true
+      },
+      "oracle_summary": {
+        "oracle_base": "1 failed, 116 deselected in 0.90s",
+        "oracle_head": "1 passed, 116 deselected in 0.67s"
+      }
+    }
+  ]
+}
