@@ -24,6 +24,8 @@ Live: [latch-mauve.vercel.app](https://latch-mauve.vercel.app) serves the record
 
 **Test repair.** When a proof test errors instead of asserting (a missing import, or the bug's own exception escaping the test), Ultra gets that test's own error output once and rewrites it; the rewritten test goes through every check again. The same 42 runs before it shipped: 7 of 21 proven, 3 of 9 wrong patches failed by a valid test, 1 accepted (packaging-810, now failed by its proof test). Both runs are committed side by side: `latch/runs/eval-summary.json`, `latch/runs/eval-summary-repair.json` and the per-case table `latch/runs/eval-diff-repair.md`. Full method in `latch/loop/eval/RESULTS.md`.
 
+**Why Ultra writes the tests.** A live A/B on 5 cases (real fix and wrong patch each) put `nvidia/Nemotron-3.5-Super-VL` in the test writer's seat: it proved the same 5 real fixes at $0.0059 per proof against Ultra's $0.0087, and accepted 1 of 5 wrong patches (packaging-810) that Ultra's test caught. The gate exists to refuse wrong fixes, so Ultra stays the default and `latch eval run --test-model` swaps the writer for anyone who wants the trade. Data: `latch/runs/eval-ab-super.json`.
+
 For context on a different benchmark with a looser pass condition (fail-to-pass only): Otter 31.4% ([arXiv 2502.05368](https://arxiv.org/abs/2502.05368)), AssertFlip 43.6% ([arXiv 2507.17542](https://arxiv.org/abs/2507.17542)).
 
 ## How Latch compares
