@@ -404,6 +404,93 @@ class StepNamesAndMutantStateTests(unittest.TestCase):
         self.assertNotIn("gate", events[-1]["receipt"], "the recorded demo predates the gate field")
 
 
+CAUTION = "Mutation check incomplete: this verdict is not mutation-backed."
+INCOMPLETE_NOTE = "mutation check incomplete: budget exhausted after 2 of 5 mutants, the verdict is not mutation-backed"
+
+
+def not_run_mutant(i):
+    """What mutate.py leaves for a mutant the budget never reached: in the list, not killed, no error."""
+    m = mutant(i, False)
+    for key in ("diff", "output_excerpt"):
+        m.pop(key)
+    m.update(not_run=True)
+    return m
+
+
+def incomplete_mutation(ran=2, total=5):
+    mutants = [mutant(i + 1, True) for i in range(ran)] + [not_run_mutant(i + 1) for i in range(ran, total)]
+    return {"ran": True, "mutants": mutants, "killed": ran, "total": ran, "kill_rate": 1.0 if ran else None, "threshold": harness.MUTATION_THRESHOLD,
+            "ok": True, "not_run": total - ran, "incomplete": True, "note": INCOMPLETE_NOTE}
+
+
+class IncompleteMutationTests(unittest.TestCase):
+    """A budget-limited mutation check: unreached mutants are 'not run', and the verdict says it is not mutation-backed."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = (STATIC / "app.js").read_text()
+        cls.css = (STATIC / "app.css").read_text()
+
+    def test_the_harness_still_validates_when_the_check_is_incomplete(self):
+        for ran in (0, 2):
+            evidence = copy.deepcopy(dict(EVIDENCE["VALIDATED"], test_name="test_x", suite_ok=True))
+            evidence["mutation"] = incomplete_mutation(ran)
+            fields = harness.verdict_fields(evidence, BASE, HEAD)
+            self.assertEqual(fields["verdict"], "VALIDATED")
+            self.assertIn("not mutation-backed", fields["verdict_reason"])
+
+    def test_not_run_mutants_get_their_own_neutral_state_and_never_read_as_killed_or_survived(self):
+        state = self.app[self.app.index("function mutantState"):]
+        state = state[:state.index("\n  }\n")]
+        self.assertIn("not run (budget)", state)
+        self.assertLess(state.index("not_run === true"), state.index('"survived"'))
+        self.assertLess(state.index("not_run === true"), state.index('"killed"'))
+        for needle in ("neutralPill", "is-notrun", "const killed = mu.killed === true && !notRun"):
+            self.assertIn(needle, self.app)
+        for rule in (".pill.neutral", ".mutant.is-notrun"):
+            self.assertIn(rule, self.css)
+        neutral = self.css[self.css.index(".pill.neutral"):]
+        neutral = neutral[:neutral.index("}")]
+        self.assertNotIn("--pass", neutral)
+        self.assertNotIn("--fail", neutral)
+
+    def test_the_score_counts_mutants_that_ran_and_the_ones_that_did_not(self):
+        for needle in ("not_run", "mutation-notrun", " not run", "killed of the mutants that ran", "reached"):
+            self.assertIn(needle, self.app)
+        self.assertIn("survived = reached.filter", self.app.replace("const survived = reached.filter", "survived = reached.filter"))
+
+    def test_an_incomplete_check_carries_the_caution_in_the_verdict_and_in_the_mutation_section(self):
+        self.assertIn('const CAUTION = "%s"' % CAUTION, self.app)
+        for needle in ("isIncomplete(r)", "verdict-caution", "mutation-caution", '"incomplete"'):
+            self.assertIn(needle, self.app)
+        self.assertIn(".caution", self.css)
+        hero = self.app[self.app.index("verdict-reason"):]
+        self.assertLess(hero.index("verdict-caution"), hero.index("is-pass") if "is-pass" in hero else len(hero))
+
+    def test_no_mutable_lines_and_an_incomplete_run_read_differently_in_the_ledger_and_the_section(self):
+        self.assertIn("function mutationStepNote", self.app)
+        self.assertIn("no mutable lines, so no mutants were generated", self.app)
+        self.assertIn("not run (budget). Not mutation-backed.", self.app)
+        self.assertIn("No mutable lines: no mutants were generated", self.app)
+        # the step event is {0,0,null} for both, so the saved receipt decides; it runs before the ledger is finished
+        result = self.app[self.app.index("function onResult"):]
+        self.assertLess(result.index("mutationStepNote(data.receipt)"), result.index("finishSteps()"))
+
+    def test_an_incomplete_receipt_is_stored_and_served_unchanged(self):
+        h = Harness(self)
+        sent = seed(h, 1, "VALIDATED", mutation=incomplete_mutation(2), verdict_reason=INCOMPLETE_NOTE)
+        got = h.get_json("/api/receipt/acme/widgets/1")[1]
+        self.assertEqual(got["receipt"], sent)
+        self.assertEqual(got["meta"]["verdict_code"], "VALIDATED")
+        mu = got["receipt"]["mutation"]
+        self.assertTrue(mu["incomplete"])
+        self.assertEqual(mu["not_run"], 3)
+        self.assertEqual([m for m in mu["mutants"] if m.get("not_run")], mu["mutants"][2:])
+        for m in mu["mutants"][2:]:
+            self.assertIs(m["killed"], False)
+            self.assertNotIn("error", m)
+
+
 class TimeoutAndEnvReuseTests(unittest.TestCase):
     def test_the_loop_timeout_covers_reruns_and_mutants_and_can_be_overridden(self):
         with mock.patch.dict(os.environ, {}, clear=False):
