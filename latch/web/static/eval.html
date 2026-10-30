@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latch evidence: does the gate refuse wrong fixes?</title>
+<meta name="description" content="What the committed Latch evaluation shows, with honest baselines.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/eval.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+  <a class="mark" href="/">Latch</a>
+  <nav class="nav" aria-label="Pages">
+    <a href="/">Prove a PR</a><a href="/eval" aria-current="page">Evidence</a><a href="/ship">Use in CI</a>
+  </nav>
+</div></header>
+<main id="main" class="page">
+  <section class="section" aria-labelledby="title">
+    <h1 id="title" class="section-title">Evidence: does the gate refuse wrong fixes?</h1>
+    <p class="lede">Latch is only worth trusting if it says NOT PROVEN when a fix is wrong. This page reads the committed evaluation summary and nothing else. If a number is not in that file, it shows as not recorded.</p>
+  </section>
+  <div id="eval-root" class="eval-root" aria-live="polite"><p class="hint">Loading the evaluation summary...</p></div>
+</main>
+<footer class="foot"><div class="foot-in">
+  <p>Latch proves that a patch changes behaviour the issue asked for. It does not review code quality.</p>
+</div></footer>
+<script src="/static/eval.js"></script>
+</body>
+</html>

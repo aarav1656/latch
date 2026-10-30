@@ -5,6 +5,7 @@ Run from the repo root:  python3 -m unittest latch.web.test_app -v
 
 import http.client
 import json
+import re
 import os
 import sys
 import tempfile
@@ -410,7 +411,11 @@ class FailClosedTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(headers["Content-Type"].startswith("text/css"))
         self.assertNotIn(b"Inter", css.replace(b"Interface", b""))
-        self.assertIn(b"oklch(58% 0.20 256)", css)
+        status, _, tokens = h.request("GET", "/static/tokens.css")
+        self.assertEqual(status, 200)
+        self.assertIn(b"--accent", tokens)
+        self.assertNotIn(b"gradient", css + tokens)
+        self.assertNotIn(b"backdrop-filter", css + tokens)
 
     def test_boot_json_cannot_break_out_of_its_script_tag(self):
         text = web.boot_json({"x": "</script><script>alert(1)</script>"})
@@ -992,17 +997,74 @@ class EvalTests(unittest.TestCase):
 
 
 class PageRouteTests(unittest.TestCase):
-    def test_eval_and_ship_pages_are_served_when_present(self):
+    PAGES = (("/", "Prove a PR"), ("/eval", "Evidence"), ("/ship", "Use in CI"))
+
+    def test_every_page_is_served_with_csp_and_no_inline_code(self):
         h = Harness(self)
-        for path, name in (("/eval", "eval.html"), ("/ship", "ship.html")):
+        for path, _ in self.PAGES + (("/eval", ""), ("/ship", "")):
             status, headers, body = h.request("GET", path)
-            if not (web.STATIC_DIR / name).is_file():
-                self.assertEqual(status, 404)
-                continue
-            self.assertEqual(status, 200)
+            self.assertEqual(status, 200, path)
             self.assertTrue(headers["Content-Type"].startswith("text/html"))
             self.assertIn("Content-Security-Policy", headers)
             self.assertNotIn(b"__LATCH_BOOT__", body)
+            text = body.decode()
+            self.assertNotIn(" style=", text, path)  # CSP has no inline styles
+            self.assertNotIn("onclick=", text, path)
+            for tag in re.findall(r"<script\b[^>]*>", text):
+                self.assertTrue("src=" in tag or "application/json" in tag, (path, tag))
+
+    def test_pages_share_the_same_nav_and_mark_their_own_link_current(self):
+        h = Harness(self)
+        for path, label in self.PAGES:
+            text = h.request("GET", path)[2].decode()
+            for _, other in self.PAGES:
+                self.assertIn(">" + other + "</a>", text, (path, other))
+            current = re.findall(r'<a href="[^"]*" aria-current="page">([^<]*)</a>', text)
+            self.assertEqual(current, [label], path)
+
+    def test_static_files_referenced_by_pages_exist(self):
+        h = Harness(self)
+        for path, _ in self.PAGES:
+            text = h.request("GET", path)[2].decode()
+            for ref in re.findall(r'(?:src|href)="(/static/[^"]+)"', text):
+                self.assertEqual(h.request("GET", ref)[0], 200, (path, ref))
+
+    def test_eval_page_has_no_invented_numbers_and_ship_page_documents_the_action(self):
+        h = Harness(self)
+        eval_html = h.request("GET", "/eval")[2].decode()
+        self.assertNotRegex(eval_html, r"\d+(\.\d+)?%")  # every figure comes from /api/eval at runtime
+        ship = h.request("GET", "/ship")[2].decode()
+        for needle in ("latch prove", "latch comment", "NEBIUS_API_KEY", "kamalbuilds/latch/.github/actions/latch", "GITHUB_TOKEN"):
+            self.assertIn(needle, ship)
+
+    def test_ship_page_workflow_matches_the_shipped_example(self):
+        example = (web.REPO_ROOT / "latch/loop/github/latch.yml")
+        if not example.is_file():
+            self.skipTest("example workflow not present")
+        lines = [l.strip() for l in example.read_text().splitlines() if l.strip() and not l.strip().startswith("#")]
+        import html as htmllib
+        ship = htmllib.unescape(Harness(self).request("GET", "/ship")[2].decode())
+        for line in lines:
+            code = line.split("   #")[0].strip()
+            self.assertIn(code, ship, code)
+
+
+class RecordedLabelTests(unittest.TestCase):
+    def test_click_receipt_is_dated_by_its_commit_not_a_file_mtime(self):
+        h = Harness(self)
+        status, body = h.get_json("/api/receipt/pallets/click/3299")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["meta"]["source"], "recorded")
+        self.assertEqual(body["meta"]["created_at"], "2026-10-29T08:37:03Z")
+        self.assertEqual(body["receipt"]["completion_id"], "chatcmpl-99d6e5a92020c804")
+
+    def test_front_end_labels_recorded_cached_and_live_and_never_claims_a_live_time(self):
+        js = (web.STATIC_DIR / "app.js").read_text()
+        for label in ("Recorded run", "Cached receipt", "Live run", "not recorded"):
+            self.assertIn(label, js)
+        for path in web.STATIC_DIR.glob("*"):
+            if path.suffix in (".html", ".js", ".css"):
+                self.assertNotIn("16.1", path.read_text(), path.name)
 
 
 if __name__ == "__main__":

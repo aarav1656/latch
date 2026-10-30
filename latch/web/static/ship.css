@@ -1,0 +1,5 @@
+/* Use in CI page. */
+.ship-code { max-width: 52rem; }
+.ship-code pre { white-space: pre; overflow-x: auto; margin: 0; padding: var(--space-3); }
+.ship-limits { display: grid; gap: var(--space-2); max-width: var(--measure); }
+.ship-limits li { padding: var(--space-2) 0 var(--space-2) var(--space-4); border-left: 2px solid var(--line); }

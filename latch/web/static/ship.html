@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latch in CI: the CLI and the GitHub Action</title>
+<meta name="description" content="Run Latch on every pull request and post the receipt as a comment.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/ship.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-in">
+  <a class="mark" href="/">Latch</a>
+  <nav class="nav" aria-label="Pages">
+    <a href="/">Prove a PR</a><a href="/eval">Evidence</a><a href="/ship" aria-current="page">Use in CI</a>
+  </nav>
+</div></header>
+<main id="main" class="page">
+  <section class="section" aria-labelledby="title">
+    <h1 id="title" class="section-title">Run Latch on every pull request, and post the receipt as a comment</h1>
+    <p class="lede">The same engine that powers this site ships as a command line tool and a composite GitHub Action. Both are in this repository. Nothing here runs on your code until you add it to your workflow.</p>
+  </section>
+  <section class="section" aria-labelledby="cli-title">
+    <h2 id="cli-title" class="section-title">1. Command line</h2>
+    <p class="lede">Prove a pull request, then render the receipt as a comment. The comment command is a dry run unless you pass <span class="mono">--post</span> and set <span class="mono">GITHUB_TOKEN</span>.</p>
+    <div class="ship-code"><div class="pane"><div class="pane-head"><h3>Shell</h3><button type="button" class="btn ghost small" data-copy="cli">Copy</button></div><pre id="cli" tabindex="0">export NEBIUS_API_KEY=...     # read from the environment only, never a flag
+latch prove --repo . --base BASE_SHA --head HEAD_SHA --issue-file issue.md --receipt receipt.json
+latch comment receipt.json      # dry run: prints the comment, posts nothing
+latch comment receipt.json --post --repo OWNER/REPO --pr N   # needs GITHUB_TOKEN</pre></div></div>
+  </section>
+  <section class="section" aria-labelledby="action-title">
+    <h2 id="action-title" class="section-title">2. GitHub Action</h2>
+    <p class="lede">The composite Action lives in <span class="mono">.github/actions/latch</span>. The workflow below is the example we ship (<span class="mono">latch/loop/github/latch.yml</span>), minus its comments. It needs a repository secret named NEBIUS_API_KEY. Pull requests from forks get no secrets, so Latch reports an error there and fails closed.</p>
+    <div class="ship-code"><div class="pane"><div class="pane-head"><h3>.github/workflows/latch.yml</h3><button type="button" class="btn ghost small" data-copy="wf">Copy</button></div><pre id="wf" tabindex="0">name: latch
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write   # post or update the single Latch comment
+
+concurrency:
+  group: latch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  latch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # Latch needs the base and head commits
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the project's own test dependencies
+        run: python -m pip install -e . pytest
+      - uses: kamalbuilds/latch/.github/actions/latch@main   # or ./.github/actions/latch inside the Latch repo
+        with:
+          mode: prove                      # "loop" lets Nemotron repair a shut gate and re-judge
+          test-command: python -m pytest -q
+          nebius-api-key: ${{ secrets.NEBIUS_API_KEY }}
+          # post-comment: "false"          # only write the receipt and the job summary
+          # fail-on-shut: "false"          # report, but do not fail the check</pre></div></div>
+    <p class="hint">Inputs: mode (prove or loop), test-command, base, head, issue, max-iterations, nebius-api-key, github-token, post-comment, fail-on-shut, python-version. Outputs: verdict and receipt. See <span class="mono">.github/actions/latch/action.yml</span>.</p>
+  </section>
+  <section class="section" aria-labelledby="comment-title">
+    <h2 id="comment-title" class="section-title">3. What the comment says</h2>
+    <dl class="rows">
+      <div class="row"><dt>Verdict</dt><dd>PROVEN or NOT PROVEN, with the reason when it is not proven.</dd></div>
+      <div class="row"><dt>Evidence</dt><dd>The proof test name, what happened on base and head, the revert check, and the triage verdict.</dd></div>
+      <div class="row"><dt>Models</dt><dd>A collapsed table of the model calls the receipt recorded, and the generated test source.</dd></div>
+      <div class="row"><dt>Update</dt><dd>One comment per pull request, updated in place on each push.</dd></div>
+    </dl>
+  </section>
+  <section class="section" aria-labelledby="limits-title">
+    <h2 id="limits-title" class="section-title">Limits</h2>
+    <ul class="ship-limits">
+      <li>Python repositories with pytest. Other languages are not supported.</li>
+      <li>The pull request description must link the issue it fixes, for example Fixes #123.</li>
+      <li>Every run makes model calls with your own key and costs credit. Latch does not run on a pull request unless the workflow does.</li>
+      <li>The Action and the comment renderer are tested against fixtures. This site has not posted a comment to a real pull request.</li>
+    </ul>
+  </section>
+</main>
+<footer class="foot"><div class="foot-in">
+  <p>Latch proves that a patch changes behaviour the issue asked for. It does not review code quality.</p>
+</div></footer>
+<script src="/static/ship.js"></script>
+</body>
+</html>

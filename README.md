@@ -146,12 +146,17 @@ Tests:
 python3 -m unittest latch.test_prove latch.harness.test_parse latch.harness.test_kill_check latch.harness.test_prose latch.screen.test_render
 ```
 
+## The hosted site
+
+`python3 -m latch.web.app` serves a paste-a-PR page, shareable receipts at `/r/owner/repo/pr`, an evidence page at `/eval` (it shows "Eval pending" until `latch/runs/eval-summary.json` is committed) and a CLI and GitHub Action page at `/ship`. Every model call, token count and cost on a receipt is read from the receipt; anything missing shows as "not recorded". Run, API and deploy notes are in `latch/web/README.md`; the visual system is in `latch/web/DESIGN.md`.
+
 ## Layout
 
 - `latch/run.py`: the gate. Runs the suite, moves the line, calls Lightning and Ultra, runs the new test both ways.
 - `latch/prove.py`: the issue-to-regression CLI for real Python repositories and commit pairs.
 - `latch/loop/`: the patch gate, its human timeline, and the eval harness (`latch/loop/eval/`).
 - `latch/cli.py`, `latch/pr_comment.py`, `.github/actions/latch/`: the `latch` command and the PR comment.
+- `latch/web/`: the hosted site (paste a PR, receipts, evidence, CI page).
 - `latch/serve.py`: local server for the screen and the run API.
 - `latch/screen/page.py`: the screen.
 - `latch/harness/`: parser and the AssertionError check, with tests.
