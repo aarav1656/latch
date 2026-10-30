@@ -1,0 +1,3017 @@
+{
+  "date": "2026-10-30",
+  "generated_at": "2026-10-30T15:14:04+05:30",
+  "max_iterations": 3,
+  "jobs": 3,
+  "provider": "nebius",
+  "tag": "repair",
+  "test_repair_enabled": true,
+  "models": {
+    "proof_test": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "fix": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "triage": "nvidia/Nemotron-3_5-Lightning"
+  },
+  "elapsed_seconds": 1254.9,
+  "summary": {
+    "cases_run": 21,
+    "dropped_cases": [
+      {
+        "id": "cachetools-221",
+        "repo": "tkem/cachetools",
+        "fix": "91aa4c63f5716d8717ee2f898a01f40ce26986ae",
+        "reason": "no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly.",
+        "source": "dropped before the run (record only)"
+      },
+      {
+        "id": "boltons-4457decc",
+        "repo": "mahmoud/boltons",
+        "fix": "4457decc",
+        "reason": "the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply",
+        "source": "dropped before the run (record only)"
+      },
+      {
+        "id": "boltons-8177b933",
+        "repo": "mahmoud/boltons",
+        "fix": "8177b933",
+        "reason": "same as boltons-4457decc",
+        "source": "dropped before the run (record only)"
+      }
+    ],
+    "real_proven": 10,
+    "real_total": 21,
+    "real_gave_up": 11,
+    "real_error": 0,
+    "wrong_total": 9,
+    "wrong_false_accept": 0,
+    "wrong_shut_gave_up": 9,
+    "wrong_repaired_oracle_pass": 0,
+    "wrong_repaired_but_oracle_fails": 0,
+    "wrong_error": 0,
+    "nofix_total": 12,
+    "nofix_fix_correct": 0,
+    "nofix_green_but_wrong": 0,
+    "nofix_gave_up": 12,
+    "nofix_error": 0,
+    "total_wall_seconds_sum": 3537.5,
+    "gave_up_reasons": {
+      "cachetools-423.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "cachetools-423.wrong": "Lightning triage did not confirm the failure reproduces the issue (unclear): ; not patching",
+      "boltons-319.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "tabulate-180.real": "the proof test does not pin the fix down: 2/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)",
+      "tabulate-180.wrong": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "tabulate-190.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "toolz-602.real": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "toolz-602.wrong": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "packaging-810.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "more-itertools-409.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "click-3360.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "click-3019.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "click-3019.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-21612.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-21612.nofix": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-21614.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-21627.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-21627.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-21847.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-22005.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-22714.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-22714.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-24066.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-24066.nofix": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-24213.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-24213.nofix": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "sympy-24909.real": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-24909.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-21055.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-20590.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "sympy-23262.real": "Lightning triage did not confirm the failure reproduces the issue (unclear): ; not patching",
+      "sympy-23262.nofix": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green"
+    },
+    "error_reasons": {}
+  },
+  "cases": [
+    {
+      "id": "cachetools-423",
+      "repo": "tkem/cachetools",
+      "title": "RRCache.popitem() on an empty cache raises the choice function's exception instead of KeyError",
+      "base": "eadb91cc9d54a57d6738386bc5c575ff3c7d22ec",
+      "fix": "bcf9e8176ebe16da58751fce971c98ffe045ede1",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/tkem/cachetools/issues/423",
+        "fix_commit": "https://github.com/tkem/cachetools/commit/bcf9e8176ebe16da58751fce971c98ffe045ede1"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "also convert StopIteration from the choice function (covers next(iter(...)) choosers) but not ValueError from min/max",
+      "wrong_patch_file": "src/cachetools/__init__.py",
+      "wrong_patch_edits": [
+        [
+          "key = self.__choice(self.__keys)\n        except IndexError:",
+          "key = self.__choice(self.__keys)\n        except (IndexError, StopIteration):"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_rr.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "cachetools-423",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 5.6,
+          "summary": "337 passed in 5.27s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 5.0,
+          "summary": "337 passed in 4.68s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 28 passed in 0.22s",
+          "oracle_files": [
+            "tests/test_rr.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "29 passed in 0.21s",
+          "oracle_files": [
+            "tests/test_rr.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 28 passed in 0.23s",
+          "oracle_files": [
+            "tests/test_rr.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "boltons-319",
+      "repo": "mahmoud/boltons",
+      "title": "boltons.timeutils daterange wrong when starting in December with a year step",
+      "base": "6c7fa3e05659fac6515f661153c89d4ad02df168",
+      "fix": "8ba3a7fa0d99b73f7f43c1aed82c571b941eecea",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/mahmoud/boltons/issues/319",
+        "fix_commit": "https://github.com/mahmoud/boltons/commit/8ba3a7fa0d99b73f7f43c1aed82c571b941eecea"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "fix the month rollover into December for month-only steps, but not for year steps",
+      "wrong_patch_file": "boltons/timeutils.py",
+      "wrong_patch_edits": [
+        [
+          "now = now.replace(year=now.year + y_step + m_y_step,",
+          "now = now.replace(year=now.year + y_step + m_y_step - (1 if cur_month == 0 and not y_step else 0),"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_timeutils.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "boltons-319",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.5,
+          "summary": "396 passed, 24 warnings in 2.21s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 4.7,
+          "summary": "396 passed, 24 warnings in 4.42s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 3 passed, 1 warning in 0.42s",
+          "oracle_files": [
+            "tests/test_timeutils.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "4 passed, 1 warning in 0.16s",
+          "oracle_files": [
+            "tests/test_timeutils.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 3 passed, 1 warning in 0.18s",
+          "oracle_files": [
+            "tests/test_timeutils.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "tabulate-180",
+      "repo": "astanin/python-tabulate",
+      "title": "Exception when tabulating empty data and using maxcolwidths",
+      "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+      "fix": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/astanin/python-tabulate/issues/180",
+        "fix_commit": "https://github.com/astanin/python-tabulate/commit/20c6370d5da2dae89b305bfb6c7f12a0f8b7236c"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "guard the empty-data case in tabulate() but not in _wrap_text_to_colwidths()",
+      "wrong_patch_file": "tabulate/__init__.py",
+      "wrong_patch_edits": [
+        [
+          "    if maxcolwidths is not None:\n        num_cols = len(list_of_lists[0])\n",
+          "    if maxcolwidths is not None:\n        num_cols = len(list_of_lists[0]) if list_of_lists else 0\n"
+        ]
+      ],
+      "oracle_files": [
+        "test/test_regression.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "tabulate-180",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.3,
+          "summary": "248 passed, 37 skipped in 1.08s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.2,
+          "summary": "248 passed, 37 skipped in 1.00s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 29 passed, 4 skipped in 0.27s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "30 passed, 4 skipped in 0.17s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 29 passed, 4 skipped in 0.23s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "tabulate-190",
+      "repo": "astanin/python-tabulate",
+      "title": "maxcolwidths does not preserve line breaks",
+      "base": "bf58e37e6b35e3cc9a0bd740f752abfd32b6e6f8",
+      "fix": "6c48142c0b57ea6108cb1d304b69b90b18748e45",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/astanin/python-tabulate/issues/190",
+        "fix_commit": "https://github.com/astanin/python-tabulate/commit/6c48142c0b57ea6108cb1d304b69b90b18748e45"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "keep line breaks by not wrapping multi-line cells at all",
+      "wrong_patch_file": "tabulate/__init__.py",
+      "wrong_patch_edits": [
+        [
+          "wrapped = wrapper.wrap(casted_cell)",
+          "wrapped = casted_cell.split(\"\\n\") if \"\\n\" in casted_cell else wrapper.wrap(casted_cell)"
+        ]
+      ],
+      "oracle_files": [
+        "test/test_regression.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "tabulate-190",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.2,
+          "summary": "247 passed, 37 skipped in 1.00s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.2,
+          "summary": "247 passed, 37 skipped in 1.00s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 28 passed, 4 skipped in 0.21s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "29 passed, 4 skipped in 0.17s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 28 passed, 4 skipped in 0.21s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "toolz-602",
+      "repo": "pytoolz/toolz",
+      "title": "partition_all outputs padding tokens on sequences with inaccurate __len__",
+      "base": "1fb2b9f1b69ab664a264944f4eafc290acce127d",
+      "fix": "5a7e078c941c990dcaca53ac6920e5d5c0b1475f",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pytoolz/toolz/issues/602",
+        "fix_commit": "https://github.com/pytoolz/toolz/commit/5a7e078c941c990dcaca53ac6920e5d5c0b1475f",
+        "pr": "https://github.com/pytoolz/toolz/pull/603"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "raise LookupError only when __len__ over-reports, not when it under-reports",
+      "wrong_patch_file": "toolz/itertoolz.py",
+      "wrong_patch_edits": [
+        [
+          "            yield prev[:len(seq) % n]\n",
+          "            end = len(seq) % n\n            if prev[end - 1] is no_pad:\n                raise LookupError('The sequence passed to `partition_all` has invalid length')\n            yield prev[:end]\n"
+        ]
+      ],
+      "oracle_files": [
+        "toolz/tests/test_itertoolz.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider --ignore=bench --ignore=toolz/tests/test_package.py",
+      "validation": {
+        "id": "toolz-602",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.2,
+          "summary": "185 passed in 1.00s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.3,
+          "summary": "185 passed in 1.07s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 49 passed in 0.39s",
+          "oracle_files": [
+            "toolz/tests/test_itertoolz.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "50 passed in 0.31s",
+          "oracle_files": [
+            "toolz/tests/test_itertoolz.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 49 passed in 0.33s",
+          "oracle_files": [
+            "toolz/tests/test_itertoolz.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "packaging-810",
+      "repo": "pypa/packaging",
+      "title": "Specifier greater-than comparison returns incorrect result for a version with dev+local parts",
+      "base": "65ed5e92673aaabbfbeafa9b70463ba41bbae9db",
+      "fix": "16f558722612e8ad637c37f11464d5de62c8bb33",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pypa/packaging/issues/810",
+        "fix_commit": "https://github.com/pypa/packaging/commit/16f558722612e8ad637c37f11464d5de62c8bb33",
+        "pr": "https://github.com/pypa/packaging/pull/1097"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "special-case the issue's example: stop the local-version guard from rejecting only when both versions carry differing dev segments",
+      "wrong_patch_file": "src/packaging/specifiers.py",
+      "wrong_patch_edits": [
+        [
+          "if prospective.local is not None and _base_version(\n            prospective\n        ) == _base_version(spec):",
+          "if (\n            prospective.local is not None\n            and _base_version(prospective) == _base_version(spec)\n            and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev)\n        ):"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_specifiers.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "packaging-810",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 28.2,
+          "summary": "27530 passed, 1 skipped in 26.41s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 23.7,
+          "summary": "27530 passed, 1 skipped in 22.13s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "9 failed, 1224 passed in 1.41s",
+          "oracle_files": [
+            "tests/test_specifiers.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1233 passed in 1.14s",
+          "oracle_files": [
+            "tests/test_specifiers.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "5 failed, 1228 passed in 1.52s",
+          "oracle_files": [
+            "tests/test_specifiers.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "more-itertools-409",
+      "repo": "more-itertools/more-itertools",
+      "title": "spy: changing the result list changes the returned iterable",
+      "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+      "fix": "62411c1618493f94b16901746c34e72ad415061e",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/more-itertools/more-itertools/issues/409",
+        "fix_commit": "https://github.com/more-itertools/more-itertools/commit/62411c1618493f94b16901746c34e72ad415061e",
+        "pr": "https://github.com/more-itertools/more-itertools/pull/412"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "wrap the head in iter() so it looks decoupled, but the iterator still reads the live list",
+      "wrong_patch_file": "more_itertools/more.py",
+      "wrong_patch_edits": [
+        [
+          "return head, chain(head, it)",
+          "return head, chain(iter(head), it)"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_more.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "more-itertools-409",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.1,
+          "summary": "396 passed, 5 warnings in 0.90s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.1,
+          "summary": "396 passed, 5 warnings in 0.91s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 322 passed, 5 warnings in 1.15s",
+          "oracle_files": [
+            "tests/test_more.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "323 passed, 5 warnings in 0.86s",
+          "oracle_files": [
+            "tests/test_more.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 322 passed, 5 warnings in 0.91s",
+          "oracle_files": [
+            "tests/test_more.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "click-3360",
+      "repo": "pallets/click",
+      "title": "Empty output from HelpFormatter.write_usage for a program without arguments",
+      "base": "7c99ebe23b931f27562d926814423cce85fd9766",
+      "fix": "0551bf53588ae87f462d336f24f853a156fefe3a",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pallets/click/issues/3360",
+        "fix_commit": "https://github.com/pallets/click/commit/0551bf53588ae87f462d336f24f853a156fefe3a",
+        "pr": "https://github.com/pallets/click/pull/3434"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "emit the prefix line when args are empty, but keep its trailing space",
+      "wrong_patch_file": "src/click/formatting.py",
+      "wrong_patch_edits": [
+        [
+          "        if text_width >= (term_len(usage_prefix) + 20):\n            # The arguments will fit",
+          "        if not args:\n            self.write(usage_prefix)\n            self.write(\"\\n\")\n            return\n\n        if text_width >= (term_len(usage_prefix) + 20):\n            # The arguments will fit"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_formatting.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "click-3360",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 6.9,
+          "summary": "1601 passed, 25 skipped, 30000 deselected, 1 xfailed in 5.54s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 6.6,
+          "summary": "1601 passed, 25 skipped, 30000 deselected, 1 xfailed in 5.18s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "7 failed, 28 passed in 0.33s",
+          "oracle_files": [
+            "tests/test_formatting.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "35 passed in 0.28s",
+          "oracle_files": [
+            "tests/test_formatting.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "7 failed, 28 passed in 0.24s",
+          "oracle_files": [
+            "tests/test_formatting.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "click-3019",
+      "repo": "pallets/click",
+      "title": "click.prompt and click.confirm argument prompt_suffix no longer works when suffix is empty",
+      "base": "a8b41c077b225c30921a78190507a463a20ebb1b",
+      "fix": "812b8000f79c1fbb747a2de5114fc74515558857",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pallets/click/issues/3019",
+        "fix_commit": "https://github.com/pallets/click/commit/812b8000f79c1fbb747a2de5114fc74515558857",
+        "pr": "https://github.com/pallets/click/pull/3021"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "fix the empty prompt_suffix rendering in prompt() only, not in confirm()",
+      "wrong_patch_file": "src/click/termui.py",
+      "wrong_patch_edits": [
+        [
+          "echo(text.rstrip(\" \"), nl=False, err=err)",
+          "echo(text[:-1], nl=False, err=err)"
+        ],
+        [
+          "return f(\" \")",
+          "return f(text[-1:])"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_utils.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "click-3019",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.7,
+          "summary": "896 passed, 22 skipped, 1 xfailed in 2.45s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 2.6,
+          "summary": "896 passed, 22 skipped, 1 xfailed in 2.31s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 141 passed in 1.03s",
+          "oracle_files": [
+            "tests/test_utils.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "142 passed in 0.93s",
+          "oracle_files": [
+            "tests/test_utils.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 141 passed in 0.94s",
+          "oracle_files": [
+            "tests/test_utils.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-21612",
+      "repo": "sympy/sympy",
+      "title": "Latex parsing of fractions yields wrong expression due to missing brackets",
+      "base": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+      "fix": "0d1ca4d35c039ee915f912bb85411056cae50112",
+      "source": "SWE-bench Lite instance sympy__sympy-21612",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-21612)",
+        "pr": "https://github.com/sympy/sympy/pull/21612"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_Mul"
+      ],
+      "oracle_files": [
+        "sympy/printing/tests/test_str.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/printing/tests/test_str.py",
+      "validation": {
+        "id": "sympy-21612",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.6,
+          "summary": "100 passed, 2 warnings in 1.28s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 2.9,
+          "summary": "100 passed, 2 warnings in 1.52s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 99 deselected, 2 warnings in 0.96s",
+          "oracle_files": [
+            "sympy/printing/tests/test_str.py"
+          ],
+          "oracle_tests": [
+            "test_Mul"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 99 deselected, 2 warnings in 0.90s",
+          "oracle_files": [
+            "sympy/printing/tests/test_str.py"
+          ],
+          "oracle_tests": [
+            "test_Mul"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-21614",
+      "repo": "sympy/sympy",
+      "title": "Wrong Derivative kind attribute",
+      "base": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+      "fix": "e8d6ffca4dc6c2b849e2e2feebd38fe1be646625",
+      "source": "SWE-bench Lite instance sympy__sympy-21614",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-21614)",
+        "pr": "https://github.com/sympy/sympy/pull/21614"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_Derivative_kind"
+      ],
+      "oracle_files": [
+        "sympy/core/tests/test_kind.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/core/tests/test_kind.py",
+      "validation": {
+        "id": "sympy-21614",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.0,
+          "summary": "7 passed, 2 warnings in 0.65s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 2.6,
+          "summary": "7 passed, 2 warnings in 0.47s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 7 deselected, 2 warnings in 0.31s",
+          "oracle_files": [
+            "sympy/core/tests/test_kind.py"
+          ],
+          "oracle_tests": [
+            "test_Derivative_kind"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 7 deselected, 2 warnings in 0.28s",
+          "oracle_files": [
+            "sympy/core/tests/test_kind.py"
+          ],
+          "oracle_tests": [
+            "test_Derivative_kind"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-21627",
+      "repo": "sympy/sympy",
+      "title": "Bug: maximum recusion depth error when checking is_zero of cosh expression",
+      "base": "126f80578140e752ad5135aac77b8ff887eede3e",
+      "fix": "d113186e81315755f2dbe3b78b9358fe894359e7",
+      "source": "SWE-bench Lite instance sympy__sympy-21627",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-21627)",
+        "pr": "https://github.com/sympy/sympy/pull/21627"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_Abs"
+      ],
+      "oracle_files": [
+        "sympy/functions/elementary/tests/test_complexes.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/functions/elementary/tests/test_complexes.py",
+      "validation": {
+        "id": "sympy-21627",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 3.6,
+          "summary": "28 passed, 3 xfailed, 2 warnings in 1.97s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 3.2,
+          "summary": "28 passed, 3 xfailed, 2 warnings in 1.90s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 4 passed, 26 deselected, 2 warnings in 1.38s",
+          "oracle_files": [
+            "sympy/functions/elementary/tests/test_complexes.py"
+          ],
+          "oracle_tests": [
+            "test_Abs"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "5 passed, 26 deselected, 2 warnings in 1.07s",
+          "oracle_files": [
+            "sympy/functions/elementary/tests/test_complexes.py"
+          ],
+          "oracle_tests": [
+            "test_Abs"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-21847",
+      "repo": "sympy/sympy",
+      "title": "itermonomials returns incorrect monomials when using min_degrees argument",
+      "base": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+      "fix": "e5661cbec7497a49925d10b50ca3d33b3e76ec97",
+      "source": "SWE-bench Lite instance sympy__sympy-21847",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-21847)",
+        "pr": "https://github.com/sympy/sympy/pull/21847"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_monomials"
+      ],
+      "oracle_files": [
+        "sympy/polys/tests/test_monomials.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/polys/tests/test_monomials.py",
+      "validation": {
+        "id": "sympy-21847",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.9,
+          "summary": "11 passed, 1 warning in 0.51s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 3.1,
+          "summary": "11 passed, 1 warning in 1.01s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 10 passed, 1 warning in 0.55s",
+          "oracle_files": [
+            "sympy/polys/tests/test_monomials.py"
+          ],
+          "oracle_tests": [
+            "test_monomials"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "11 passed, 1 warning in 0.48s",
+          "oracle_files": [
+            "sympy/polys/tests/test_monomials.py"
+          ],
+          "oracle_tests": [
+            "test_monomials"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-22005",
+      "repo": "sympy/sympy",
+      "title": "detection of infinite solution request",
+      "base": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+      "fix": "777e5e4b800e884bfcdc64c78138d176aa4b9000",
+      "source": "SWE-bench Lite instance sympy__sympy-22005",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-22005)",
+        "pr": "https://github.com/sympy/sympy/pull/22005"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_solve_poly_system"
+      ],
+      "oracle_files": [
+        "sympy/solvers/tests/test_polysys.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/solvers/tests/test_polysys.py",
+      "validation": {
+        "id": "sympy-22005",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.6,
+          "summary": "4 passed, 1 warning in 1.23s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 2.7,
+          "summary": "4 passed, 1 warning in 1.33s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 3 deselected, 1 warning in 0.71s",
+          "oracle_files": [
+            "sympy/solvers/tests/test_polysys.py"
+          ],
+          "oracle_tests": [
+            "test_solve_poly_system"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 3 deselected, 1 warning in 0.70s",
+          "oracle_files": [
+            "sympy/solvers/tests/test_polysys.py"
+          ],
+          "oracle_tests": [
+            "test_solve_poly_system"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-22714",
+      "repo": "sympy/sympy",
+      "title": "simpify gives `Imaginary coordinates are not permitted.` with evaluate(False)",
+      "base": "3ff4717b6aef6086e78f01cdfa06f64ae23aed7e",
+      "fix": "706cc25ef1536eec86b9b47727c189fcb2888d1b",
+      "source": "SWE-bench Lite instance sympy__sympy-22714",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-22714)",
+        "pr": "https://github.com/sympy/sympy/pull/22714"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_issue_22684"
+      ],
+      "oracle_files": [
+        "sympy/geometry/tests/test_point.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/geometry/tests/test_point.py",
+      "validation": {
+        "id": "sympy-22714",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 3.8,
+          "summary": "12 passed, 1 warning in 1.93s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 5.0,
+          "summary": "12 passed, 1 warning in 1.94s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 12 deselected in 0.43s",
+          "oracle_files": [
+            "sympy/geometry/tests/test_point.py"
+          ],
+          "oracle_tests": [
+            "test_issue_22684"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 12 deselected in 0.40s",
+          "oracle_files": [
+            "sympy/geometry/tests/test_point.py"
+          ],
+          "oracle_tests": [
+            "test_issue_22684"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-24066",
+      "repo": "sympy/sympy",
+      "title": "SI._collect_factor_and_dimension() cannot properly detect that exponent is dimensionless",
+      "base": "514579c655bf22e2af14f0743376ae1d7befe345",
+      "fix": "5c006e9b76dd417ec9c5e869df951b1f816ba67d",
+      "source": "SWE-bench Lite instance sympy__sympy-24066",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-24066)",
+        "pr": "https://github.com/sympy/sympy/pull/24066"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_issue_24062"
+      ],
+      "oracle_files": [
+        "sympy/physics/units/tests/test_quantities.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/physics/units/tests/test_quantities.py",
+      "validation": {
+        "id": "sympy-24066",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.2,
+          "summary": "31 passed, 1 xfailed in 0.81s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 2.2,
+          "summary": "31 passed, 1 xfailed in 0.78s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 32 deselected in 0.62s",
+          "oracle_files": [
+            "sympy/physics/units/tests/test_quantities.py"
+          ],
+          "oracle_tests": [
+            "test_issue_24062"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 32 deselected in 0.56s",
+          "oracle_files": [
+            "sympy/physics/units/tests/test_quantities.py"
+          ],
+          "oracle_tests": [
+            "test_issue_24062"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-24213",
+      "repo": "sympy/sympy",
+      "title": "collect_factor_and_dimension does not detect equivalent dimensions in addition",
+      "base": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+      "fix": "83458382ebab6f78e340d457a503ac23d9f233e9",
+      "source": "SWE-bench Lite instance sympy__sympy-24213",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-24213)",
+        "pr": "https://github.com/sympy/sympy/pull/24213"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_issue_24211"
+      ],
+      "oracle_files": [
+        "sympy/physics/units/tests/test_quantities.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/physics/units/tests/test_quantities.py",
+      "validation": {
+        "id": "sympy-24213",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.2,
+          "summary": "32 passed, 1 xfailed in 0.80s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 2.1,
+          "summary": "32 passed, 1 xfailed in 0.79s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 33 deselected in 0.78s",
+          "oracle_files": [
+            "sympy/physics/units/tests/test_quantities.py"
+          ],
+          "oracle_tests": [
+            "test_issue_24211"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 33 deselected in 0.56s",
+          "oracle_files": [
+            "sympy/physics/units/tests/test_quantities.py"
+          ],
+          "oracle_tests": [
+            "test_issue_24211"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-24909",
+      "repo": "sympy/sympy",
+      "title": "Bug with milli prefix",
+      "base": "d3b4158dea271485e3daa11bf82e69b8dab348ce",
+      "fix": "38018cd16008e812e9ca7890e7663c5c2b926701",
+      "source": "SWE-bench Lite instance sympy__sympy-24909",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-24909)",
+        "pr": "https://github.com/sympy/sympy/pull/24909"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_prefix_operations"
+      ],
+      "oracle_files": [
+        "sympy/physics/units/tests/test_prefixes.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/physics/units/tests/test_prefixes.py",
+      "validation": {
+        "id": "sympy-24909",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.9,
+          "summary": "4 passed in 0.47s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 1.9,
+          "summary": "4 passed in 0.45s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 3 deselected in 0.51s",
+          "oracle_files": [
+            "sympy/physics/units/tests/test_prefixes.py"
+          ],
+          "oracle_tests": [
+            "test_prefix_operations"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 3 deselected in 0.45s",
+          "oracle_files": [
+            "sympy/physics/units/tests/test_prefixes.py"
+          ],
+          "oracle_tests": [
+            "test_prefix_operations"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-21055",
+      "repo": "sympy/sympy",
+      "title": "`refine()` does not understand how to simplify complex arguments",
+      "base": "748ce73479ee2cd5c861431091001cc18943c735",
+      "fix": "079f9e41be23518444b818fbdc90d6db34c18245",
+      "source": "SWE-bench Lite instance sympy__sympy-21055",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-21055)",
+        "pr": "https://github.com/sympy/sympy/pull/21055"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_arg"
+      ],
+      "oracle_files": [
+        "sympy/assumptions/tests/test_refine.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/assumptions/tests/test_refine.py",
+      "validation": {
+        "id": "sympy-21055",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 3.9,
+          "summary": "14 passed, 2 warnings in 2.53s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 4.1,
+          "summary": "14 passed, 2 warnings in 2.49s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 14 deselected, 2 warnings in 0.41s",
+          "oracle_files": [
+            "sympy/assumptions/tests/test_refine.py"
+          ],
+          "oracle_tests": [
+            "test_arg"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 14 deselected, 2 warnings in 0.42s",
+          "oracle_files": [
+            "sympy/assumptions/tests/test_refine.py"
+          ],
+          "oracle_tests": [
+            "test_arg"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-20590",
+      "repo": "sympy/sympy",
+      "title": "Symbol instances have __dict__ since 1.7?",
+      "base": "cffd4e0f86fefd4802349a9f9b19ed70934ea354",
+      "fix": "5cf0d0b14703cd4ffa45d97d830b6bfb829e08b3",
+      "source": "SWE-bench Lite instance sympy__sympy-20590",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-20590)",
+        "pr": "https://github.com/sympy/sympy/pull/20590"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_immutable"
+      ],
+      "oracle_files": [
+        "sympy/core/tests/test_basic.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/core/tests/test_basic.py",
+      "validation": {
+        "id": "sympy-20590",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.4,
+          "summary": "22 passed, 2 warnings in 0.67s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 1.8,
+          "summary": "22 passed, 2 warnings in 0.45s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 22 deselected, 2 warnings in 0.55s",
+          "oracle_files": [
+            "sympy/core/tests/test_basic.py"
+          ],
+          "oracle_tests": [
+            "test_immutable"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 22 deselected, 2 warnings in 0.34s",
+          "oracle_files": [
+            "sympy/core/tests/test_basic.py"
+          ],
+          "oracle_tests": [
+            "test_immutable"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "sympy-23262",
+      "repo": "sympy/sympy",
+      "title": "Python code printer not respecting tuple with one element",
+      "base": "fdc707f73a65a429935c01532cd3970d3355eab6",
+      "fix": "5208f58fac237806f105445f0c6a9e2aa8d24faf",
+      "source": "SWE-bench Lite instance sympy__sympy-23262",
+      "links": {
+        "swe_bench_instance": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite (sympy__sympy-23262)",
+        "pr": "https://github.com/sympy/sympy/pull/23262"
+      },
+      "real_fix_label": "real (SWE-bench gold patch)",
+      "oracle_tests": [
+        "test_issue_14941"
+      ],
+      "oracle_files": [
+        "sympy/utilities/tests/test_lambdify.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider sympy/utilities/tests/test_lambdify.py",
+      "validation": {
+        "id": "sympy-23262",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.4,
+          "summary": "63 passed, 54 skipped in 1.06s"
+        },
+        "suite_gold": {
+          "returncode": 0,
+          "seconds": 2.4,
+          "summary": "63 passed, 54 skipped in 1.08s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 116 deselected in 0.52s",
+          "oracle_files": [
+            "sympy/utilities/tests/test_lambdify.py"
+          ],
+          "oracle_tests": [
+            "test_issue_14941"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1 passed, 116 deselected in 0.45s",
+          "oracle_files": [
+            "sympy/utilities/tests/test_lambdify.py"
+          ],
+          "oracle_tests": [
+            "test_issue_14941"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "ok": true
+      }
+    }
+  ],
+  "runs": [
+    {
+      "case": "cachetools-423",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 18.6,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-84508be87ee4ba7e",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.008114,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_rr_popitem_empty_custom_choice",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:12: in test_rr_popitem_empty_custom_choice\n    cache.popitem()\nE   ValueError: min() arg is an empty sequence",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-84508be87ee4ba7e",
+        "error_after": "latch_issue_test.py:13: in test_rr_popitem_empty_custom_choice\n    cache.popitem()\nE   ValueError: min() arg is an empty sequence"
+      },
+      "receipt": "latch/runs/eval-repair/cachetools-423-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "cachetools-423",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "Lightning triage did not confirm the failure reproduces the issue (unclear): ; not patching",
+      "wall_seconds": 28.0,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b84d6d87de177da1",
+        "triage": "chatcmpl-43c6d7eb",
+        "fix": []
+      },
+      "triage_verdict": "unclear",
+      "model_cost_usd": 0.005638,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_rrcache_popitem_empty_raises_keyerror",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/cachetools-423-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "boltons-319",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 98.3,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "4 passed, 1 warning in 0.15s",
+        "oracle_files": [
+          "tests/test_timeutils.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-bf91fe091ab5cc30",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.01087,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_daterange_december_year_step",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/boltons-319-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "boltons-319",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 103.1,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-8873c1c816935ec4",
+        "triage": "chatcmpl-17bb0a96",
+        "fix": [
+          "chatcmpl-896014369a97c7cb",
+          "chatcmpl-9ed333a19396c78f",
+          "chatcmpl-a943d6849e5c2df4"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.104615,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_daterange_year_step_with_december_start",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/boltons-319-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "MUTATION_SURVIVED",
+      "reason": "the proof test does not pin the fix down: 2/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)",
+      "wall_seconds": 60.5,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-8d42b34951d227a8",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.027846,
+      "model_calls": 4,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_exception_on_empty_data_with_maxcolwidths",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   IndexError: list index out of range",
+        "ok": true,
+        "outcome": "adopted",
+        "reason": null,
+        "completion_id": "chatcmpl-8d42b34951d227a8"
+      },
+      "receipt": "latch/runs/eval-repair/tabulate-180-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 24.2,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-99f48fd1bb36f22e",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.013981,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_empty_data_with_maxcolwidths",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\nE   IndexError: list index out of range",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-99f48fd1bb36f22e",
+        "error_after": "latch_issue_test.py:9: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\nE   IndexError: list index out of range\nlatch_issue_test.py:11: in test_empty_data_with_maxcolwidths\n    pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\nE   Failed: Unexpected exception with empty data and maxcolwidths: list index out of range"
+      },
+      "receipt": "latch/runs/eval-repair/tabulate-180-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "tabulate-190",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 19.4,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "29 passed, 4 skipped in 0.16s",
+        "oracle_files": [
+          "test/test_regression.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-8fe108a4dcffeb14",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.009369,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_maxcolwidths_preserves_line_breaks",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/tabulate-190-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "tabulate-190",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 135.6,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b58c8a3231d186d8",
+        "triage": "chatcmpl-dafcb37c",
+        "fix": [
+          "chatcmpl-9db452e382885585",
+          "chatcmpl-991a7a656e17bd16",
+          "chatcmpl-b3a3e61902e1e10c"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.088115,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_maxcolwidths_preserves_line_breaks",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/tabulate-190-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "wall_seconds": 30.1,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-80aa4390a5eb157e",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.018903,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_partition_all_invalid_len",
+      "test_repair": {
+        "attempted": true,
+        "side": "head",
+        "error_before": "latch_issue_test.py:19: in test_partition_all_invalid_len\n    result_long = list(partition_all(10, seq_long))\nE   LookupError: The sequence passed to `parition_all` has invalid length",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on head",
+        "completion_id": "chatcmpl-80aa4390a5eb157e",
+        "error_after": "latch_issue_test.py:21: in test_partition_all_invalid_len\n    result_long = list(partition_all(10, seq_long))\nE   LookupError: The sequence passed to `parition_all` has invalid length\nlatch_issue_test.py:23: in test_partition_all_invalid_len\n    pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\nE   Failed: partition_all raised LookupError: The sequence passed to `parition_all` has invalid length"
+      },
+      "receipt": "latch/runs/eval-repair/toolz-602-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "wall_seconds": 23.9,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-aacde6376225a269",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.011545,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_partition_all_inaccurate_len",
+      "test_repair": {
+        "attempted": true,
+        "side": "head",
+        "error_before": "latch_issue_test.py:25: in test_partition_all_inaccurate_len\n    result = list(partition_all(10, seq))\nE   LookupError: The sequence passed to `partition_all` has invalid length",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on head",
+        "completion_id": "chatcmpl-aacde6376225a269",
+        "error_after": "latch_issue_test.py:27: in test_partition_all_inaccurate_len\n    result = list(partition_all(10, seq))\nE   LookupError: The sequence passed to `partition_all` has invalid length\nlatch_issue_test.py:29: in test_partition_all_inaccurate_len\n    pytest.fail(f\"partition_all raised an exception: {e}\")\nE   Failed: partition_all raised an exception: The sequence passed to `partition_all` has invalid length"
+      },
+      "receipt": "latch/runs/eval-repair/toolz-602-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "packaging-810",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 68.0,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "1233 passed in 1.31s",
+        "oracle_files": [
+          "tests/test_specifiers.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-90f58eff15d9fa30",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.010707,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_specifier_greater_than_with_local_and_dev",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/packaging-810-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "packaging-810",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 154.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-bf19ef943312ffa4",
+        "triage": "chatcmpl-91fc02b3",
+        "fix": [
+          "chatcmpl-a6894d7ff710d780",
+          "chatcmpl-8ebd6907cd611c9e",
+          "chatcmpl-a3d49ad540650a45"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.136702,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_specifier_greater_than_with_dev_and_local",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/packaging-810-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 16.7,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "323 passed, 5 warnings in 0.84s",
+        "oracle_files": [
+          "tests/test_more.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-a723da5dda710d65",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.003986,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_spy_head_immutability",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/more-itertools-409-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 110.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-8de7d42d0e6d9e3d",
+        "triage": "chatcmpl-8bec472b",
+        "fix": [
+          "chatcmpl-b1abe6a365ab7e65",
+          "chatcmpl-882ac9d136e431e6",
+          "chatcmpl-ba1b0e2eaa805cbf"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.066433,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_spy_head_mutation_does_not_affect_iterable",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/more-itertools-409-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "click-3360",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 29.7,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "35 passed in 0.22s",
+        "oracle_files": [
+          "tests/test_formatting.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-862e0eff4a2d44c7",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.008726,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_help_formatter_write_usage_empty_args",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/click-3360-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "click-3360",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 102.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-82fbe0a7f758457d",
+        "triage": "chatcmpl-8cb15ba8",
+        "fix": [
+          "chatcmpl-b63d96fad820195e",
+          "chatcmpl-b573ba96613a169d",
+          "chatcmpl-abc48ecad3fa66b2"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.119868,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_write_usage_without_args",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/click-3360-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "click-3019",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 25.3,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-bbbffe9c6ea51222",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.014006,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_prompt_suffix_empty_string",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:5: in test_prompt_suffix_empty_string\n    runner = CliRunner()\nE   NameError: name 'CliRunner' is not defined",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-bbbffe9c6ea51222",
+        "error_after": "E   KeyError: 'prog_name'\nlatch_issue_test.py:11: in test_prompt_suffix_empty_string\n    result = runner.invoke(click.prompt, input=\"test\\n\", args=(\"Enter value\",), kwargs={\"prompt_suffix\": \"\"})\nE   AttributeError: 'function' object has no attribute 'name'"
+      },
+      "receipt": "latch/runs/eval-repair/click-3019-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "click-3019",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 128.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-8d06fb02ef2ae641",
+        "triage": "chatcmpl-3fec4482",
+        "fix": [
+          "chatcmpl-9397c03f327f8010",
+          "chatcmpl-805397faa47f4a96",
+          "chatcmpl-a1484818f999580e"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.135753,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_prompt_suffix_empty",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/click-3019-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "sympy-21612",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 78.6,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-91f437d969b6fb8a",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.02436,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_latex_frac_nested_brackets",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:8: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-91f437d969b6fb8a",
+        "error_after": "latch_issue_test.py:10: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21612-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-21612",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 57.4,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-86f796707f3d0811",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.016447,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_latex_fraction_nested_brackets",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:8: in test_latex_fraction_nested_brackets\n    parsed = parse_latex(latex_expr)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-86f796707f3d0811",
+        "error_after": "latch_issue_test.py:12: in test_latex_fraction_nested_brackets\n    parsed = parse_latex(latex_expr)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21612-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-21614",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 72.1,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "1 passed, 7 deselected, 2 warnings in 0.28s",
+        "oracle_files": [
+          "sympy/core/tests/test_kind.py"
+        ],
+        "oracle_tests": [
+          "test_Derivative_kind"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-aa186b518652cb8c",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.002674,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_derivative_kind_attribute",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21614-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "sympy-21614",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 154.0,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b87a12462471e67d",
+        "triage": "chatcmpl-d6ada1f1",
+        "fix": [
+          "chatcmpl-a7045efff95baad3",
+          "chatcmpl-b31f172d9c5b6e44",
+          "chatcmpl-884987709901eeea"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.135408,
+      "model_calls": 7,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_derivative_kind_attribute",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:7: in test_derivative_kind_attribute\n    from sympy.core.kind import MatrixKind, NumberKind, UndefinedKind\nE   ImportError: cannot import name 'MatrixKind' from 'sympy.core.kind' (/private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-3jph0q0b/base/sympy/core/kind.py)",
+        "ok": true,
+        "outcome": "adopted",
+        "reason": null,
+        "completion_id": "chatcmpl-b87a12462471e67d"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21614-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-21627",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "NO_REGRESSION_FOUND",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 69.0,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b4c9f1fc7a50264f",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.013503,
+      "model_calls": 3,
+      "proof_test_rejections": 1,
+      "proof_test_name": "test_cosh_acos_acosh_recursion_depth",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21627-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-21627",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 125.2,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b8b5d191f889b38c",
+        "triage": "chatcmpl-6c18e0c4",
+        "fix": [
+          "chatcmpl-99e50426173ab024",
+          "chatcmpl-a3a1fb91c2412698",
+          "chatcmpl-80200537c242fe6f"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.116098,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_cosh_acos_acosh_is_zero_recursion",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21627-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-21847",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 131.9,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "11 passed, 1 warning in 0.48s",
+        "oracle_files": [
+          "sympy/polys/tests/test_monomials.py"
+        ],
+        "oracle_tests": [
+          "test_monomials"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-95c0a8c7a1a11ff1",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.024257,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_itermonomials_min_degrees",
+      "test_repair": {
+        "attempted": true,
+        "side": "head",
+        "error_before": "latch_issue_test.py:40: in test_itermonomials_min_degrees\n    monomials_nc = sorted(itermonomials(states_nc, max_degrees, min_degrees=min_degrees),\nE   sympy.polys.polyerrors.GeneratorsError: non-commutative generators: (y1, y2, y3)",
+        "ok": true,
+        "outcome": "adopted",
+        "reason": null,
+        "completion_id": "chatcmpl-95c0a8c7a1a11ff1"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21847-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "sympy-21847",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 114.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-9a967ada96b0e612",
+        "triage": "chatcmpl-cd012914",
+        "fix": [
+          "chatcmpl-ba3281ae1891030e",
+          "chatcmpl-be40a7eeffbab1c8",
+          "chatcmpl-b05ed99776b32989"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.1145,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_itermonomials_min_degrees",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21847-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-22005",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 113.4,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "1 passed, 3 deselected, 1 warning in 0.66s",
+        "oracle_files": [
+          "sympy/solvers/tests/test_polysys.py"
+        ],
+        "oracle_tests": [
+          "test_solve_poly_system"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-85768ad60cf16693",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.005181,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_solve_poly_system_infinite_solutions",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-22005-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "sympy-22005",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 122.1,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-a5360635bdb27e45",
+        "triage": "chatcmpl-75ecad60",
+        "fix": [
+          "chatcmpl-b7e011781f3d4ed3",
+          "chatcmpl-a9d764b77c269040",
+          "chatcmpl-9e64fa8440157705"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.127024,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_infinite_solution_detection",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-22005-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-22714",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 71.9,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b3b6b5e2cead17db",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.027217,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_point2d_with_evaluate_false",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:6: in test_point2d_with_evaluate_false\n    point = sp.S('Point2D(Integer(1),Integer(2))')\nE   ValueError: Imaginary coordinates are not permitted.",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-b3b6b5e2cead17db",
+        "error_after": "latch_issue_test.py:8: in test_point2d_with_evaluate_false\n    point = sp.S('Point2D(Integer(1),Integer(2))')\nE   ValueError: Imaginary coordinates are not permitted.\nlatch_issue_test.py:10: in test_point2d_with_evaluate_false\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Imaginary coordinates are not permitted."
+      },
+      "receipt": "latch/runs/eval-repair/sympy-22714-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-22714",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 137.9,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-83860a4f166bec22",
+        "triage": "chatcmpl-e1deca5d",
+        "fix": [
+          "chatcmpl-891294c9fc1196d4",
+          "chatcmpl-a46360c71f89a9e3",
+          "chatcmpl-b851204a41e864ee"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.133801,
+      "model_calls": 7,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_evaluate_false_context_manager_with_point2d",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:21: in test_evaluate_false_context_manager_with_point2d\n    expr3 = sp.S('Point2D(Integer(1),Integer(2))')\nE   ValueError: Imaginary coordinates are not permitted.",
+        "ok": true,
+        "outcome": "adopted",
+        "reason": null,
+        "completion_id": "chatcmpl-83860a4f166bec22"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-22714-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-24066",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 73.5,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b5b9bbffb0d77acd",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.012373,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_collect_factor_and_dimension_exp_dimensionless",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:13: in test_collect_factor_and_dimension_exp_dimensionless\n    factor, dimension = SI._collect_factor_and_dimension(buggy_expr)\nE   ValueError: Dimension of \"exp(second/(farad*ohm))\" is Dimension(time/(capacitance*impedance)), but it should be Dimension(1)",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-b5b9bbffb0d77acd",
+        "error_after": "latch_issue_test.py:15: in test_collect_factor_and_dimension_exp_dimensionless\n    factor, dimension = SI._collect_factor_and_dimension(buggy_expr)\nE   ValueError: Dimension of \"exp(second/(farad*ohm))\" is Dimension(time/(capacitance*impedance)), but it should be Dimension(1)\nlatch_issue_test.py:17: in test_collect_factor_and_dimension_exp_dimensionless\n    pytest.fail(f\"Unexpected exception: {e}\")\nE   Failed: Unexpected exception: Dimension of \"exp(second/(farad*ohm))\" is Dimension(time/(capacitance*impedance)), but it should be Dimension(1)"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-24066-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-24066",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 59.8,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-9654bb8496f9a230",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.006993,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_collect_factor_and_dimension_exp_dimensionless",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:13: in test_collect_factor_and_dimension_exp_dimensionless\n    factor, dim = SI._collect_factor_and_dimension(buggy_expr)\nE   ValueError: Dimension of \"exp(second/(farad*ohm))\" is Dimension(time/(capacitance*impedance)), but it should be Dimension(1)",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-9654bb8496f9a230",
+        "error_after": "latch_issue_test.py:15: in test_collect_factor_and_dimension_exp_dimensionless\n    factor, dim = SI._collect_factor_and_dimension(buggy_expr)\nE   ValueError: Dimension of \"exp(second/(farad*ohm))\" is Dimension(time/(capacitance*impedance)), but it should be Dimension(1)\nlatch_issue_test.py:17: in test_collect_factor_and_dimension_exp_dimensionless\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Dimension of \"exp(second/(farad*ohm))\" is Dimension(time/(capacitance*impedance)), but it should be Dimension(1)"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-24066-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-24213",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 54.5,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-81ba2ac2e6712f52",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.01216,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_collect_factor_and_dimension_equivalent_dimensions_in_addition",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:20: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-81ba2ac2e6712f52",
+        "error_after": "latch_issue_test.py:23: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\nlatch_issue_test.py:25: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-24213-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-24213",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 48.1,
+      "provider": "nebius",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-905bc943ff595711",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.011196,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_collect_factor_and_dimension_equivalent_dimensions_in_addition",
+      "test_repair": {
+        "attempted": true,
+        "side": "base",
+        "error_before": "latch_issue_test.py:21: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)",
+        "ok": false,
+        "outcome": "adopted",
+        "reason": "the repaired test still errored on base",
+        "completion_id": "chatcmpl-905bc943ff595711",
+        "error_after": "latch_issue_test.py:22: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\nlatch_issue_test.py:24: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    pytest.fail(f\"_collect_factor_and_dimension raised ValueError unexpectedly: {e}\")\nE   Failed: _collect_factor_and_dimension raised ValueError unexpectedly: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-24213-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-24909",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 139.4,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-957347c211b70e18",
+        "triage": "chatcmpl-c0432418",
+        "fix": [
+          "chatcmpl-9ecf77e0ab5797a7",
+          "chatcmpl-aefc95f5b6e7f2e6",
+          "chatcmpl-8438dd5ece01ea43"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.134748,
+      "model_calls": 7,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_milli_prefix_multiplication",
+      "test_repair": {
+        "attempted": true,
+        "side": "head",
+        "error_before": "latch_issue_test.py:11: in test_milli_prefix_multiplication\n    assert result.abbrev == 'mW'\nE   AttributeError: 'Mul' object has no attribute 'abbrev'",
+        "ok": true,
+        "outcome": "adopted",
+        "reason": null,
+        "completion_id": "chatcmpl-957347c211b70e18"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-24909-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-24909",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 115.2,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-94e06046419ab163",
+        "triage": "chatcmpl-071066b5",
+        "fix": [
+          "chatcmpl-b0e65d5693e3c320",
+          "chatcmpl-913b444a27ceba1b",
+          "chatcmpl-a9dd027a2817c153"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.117936,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_milli_prefix_multiplication",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-24909-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-21055",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 114.3,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "1 passed, 14 deselected, 2 warnings in 0.44s",
+        "oracle_files": [
+          "sympy/assumptions/tests/test_refine.py"
+        ],
+        "oracle_tests": [
+          "test_arg"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-b87638eff3d742a8",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.005429,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_refine_arg_simplification",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21055-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "sympy-21055",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 124.6,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b1d990acabbac6df",
+        "triage": "chatcmpl-8a459de9",
+        "fix": [
+          "chatcmpl-8e319902057aa239",
+          "chatcmpl-a367106b033a9858",
+          "chatcmpl-b6308570155a3855"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.116107,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_refine_complex_arguments",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-21055-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-20590",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 62.9,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "1 passed, 22 deselected, 2 warnings in 0.35s",
+        "oracle_files": [
+          "sympy/core/tests/test_basic.py"
+        ],
+        "oracle_tests": [
+          "test_immutable"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-837d38b9d1d556d7",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.004989,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_symbol_no_dict",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-20590-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "sympy-20590",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 127.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-966a1e2af749e3b8",
+        "triage": "chatcmpl-f11800ef",
+        "fix": [
+          "chatcmpl-ad8d81a29f271a43",
+          "chatcmpl-98138ad657feef52",
+          "chatcmpl-9244893ce6dcdc39"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.122144,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_symbol_has_no_dict",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-20590-nofix.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-23262",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "Lightning triage did not confirm the failure reproduces the issue (unclear): ; not patching",
+      "wall_seconds": 70.5,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-a60b7f30ce7b1bd5",
+        "triage": "chatcmpl-08ef70d0",
+        "fix": []
+      },
+      "triage_verdict": "unclear",
+      "model_cost_usd": 0.011871,
+      "model_calls": 3,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_lambdify_tuple_one_element",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-23262-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "sympy-23262",
+      "variant": "nofix",
+      "label": "no fix: Nemotron writes the patch",
+      "expected_gate": "open only if the fix is right",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 120.0,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-a96c37d57946caa0",
+        "triage": "chatcmpl-f550987f",
+        "fix": [
+          "chatcmpl-a3728809e93475d0",
+          "chatcmpl-9c592d368236197d",
+          "chatcmpl-878b16ceac25f8b1"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.132292,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_lambdify_tuple_single_element",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-repair/sympy-23262-nofix.json",
+      "outcome": "gave_up"
+    }
+  ]
+}

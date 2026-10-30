@@ -1,0 +1,364 @@
+{
+  "run_id": "moreitertools409.real",
+  "provider": "nebius",
+  "repo": "more-itertools/more-itertools@62411c1618",
+  "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+  "head": "62411c1618493f94b16901746c34e72ad415061e",
+  "issue": "spy: changing the result list changes the returned iterable\n\nChanging the result list of `spy` also alters the iterable.\r\n\r\n```python\r\nIn [1]: from more_itertools import spy\r\n\r\nIn [2]: it = range(10)\r\n\r\nIn [3]: head, it = spy(it, 3)\r\n\r\nIn [4]: head[1] = 'bad'\r\n\r\nIn [5]: list(it)\r\nOut[5]: [0, 'bad', 2, 3, 4, 5, 6, 7, 8, 9]\r\n```\r\n\r\n I think it is a case of implementation details leaking out.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:26:43.008Z",
+  "proof_test": {
+    "name": "test_spy_head_immutability",
+    "source": "import pytest\n\ndef test_spy_head_immutability():\n    from more_itertools import spy\n    \n    # Test case from issue report\n    it = range(10)\n    head, it = spy(it, 3)\n    head[1] = 'bad'\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], \"Modifying head should not affect returned iterable\"\n    \n    # Additional test cases from the diff's test_immutable\n    original_iterable = iter('abcdefg')\n    head, new_iterable = spy(original_iterable, 3)\n    head[0] = 'A'\n    assert head == ['A', 'b', 'c'], \"Head should be modifiable\"\n    assert list(new_iterable) == ['a', 'b', 'c', 'd', 'e', 'f', 'g'], \"Iterable should remain unchanged\"\n    \n    # Test with n=1 (single element)\n    original_iterable = iter('abcdefg')\n    head, new_iterable = spy(original_iterable, 1)\n    head[0] = 'Z'\n    assert head == ['Z']\n    assert list(new_iterable) == ['a', 'b', 'c', 'd', 'e', 'f', 'g']\n    \n    # Test with n=0 (empty head)\n    original_iterable = iter('abc')\n    head, new_iterable = spy(original_iterable, 0)\n    assert head == []\n    assert list(new_iterable) == ['a', 'b', 'c']\n    \n    # Test with n larger than iterable\n    original_iterable = iter('abc')\n    head, new_iterable = spy(original_iterable, 10)\n    head[0] = 'X'\n    assert head == ['X', 'b', 'c']\n    assert list(new_iterable) == ['a', 'b', 'c']\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-a723da5dda710d65"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________________ test_spy_head_immutability ______________________________________________________________________________________\nlatch_issue_test.py:10: in test_spy_head_immutability\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], \"Modifying head should not affect returned iterable\"\nE   AssertionError: Modifying head should not affect returned iterable\nE   assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\nE     \nE     At index 1 diff: 'bad' != 1\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutability - AssertionError: Modifying head should not affect returned iterable\n1 failed in 0.16s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "................................................................................................................................................................................................ [ 48%]\n................................................................................................................................................................................................ [ 96%]\n.............                                                                                                                                                                                    [100%]\n=========================================================================================== warnings summary ===========================================================================================\ntests/test_more.py::CollateTests::test_default\ntests/test_more.py::CollateTests::test_empty\ntests/test_more.py::CollateTests::test_key\ntests/test_more.py::CollateTests::test_one\ntests/test_more.py::CollateTests::test_reverse\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-jlpwxerg/work/more_itertools/more.py:399: DeprecationWarning: collate is no longer part of more_itertools, use heapq.merge\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n397 passed, 5 warnings in 0.92s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": true
+  },
+  "iterations": [],
+  "gate": "gate_open",
+  "verdict": "VALIDATED",
+  "reason": "the submitted fix already passes the proof test; no loop needed",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-5f7b07fd",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 3,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-a723da5dda710d65",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_spy_head_immutability():\n    from more_itertools import spy\n    \n    # Test case from issue report\n    it = range(10)\n    head, it = spy(it, 3)\n    head[1] = 'bad'\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], \"Modifying head should not affect returned iterable\"\n    \n    # Additional test cases from the diff's test_immutable\n    original_iterable = iter('abcdefg')\n    head, new_iterable = spy(original_iterable, 3)\n    head[0] = 'A'\n    assert head == ['A', 'b', 'c'], \"Head should be modifiable\"\n    assert list(new_iterable) == ['a', 'b', 'c', 'd', 'e', 'f', 'g'], \"Iterable should remain unchanged\"\n    \n    # Test with n=1 (single element)\n    original_iterable = iter('abcdefg')\n    head, new_iterable = spy(original_iterable, 1)\n    head[0] = 'Z'\n    assert head == ['Z']\n    assert list(new_iterable) == ['a', 'b', 'c', 'd', 'e', 'f', 'g']\n    \n    # Test with n=0 (empty head)\n    original_iterable = iter('abc')\n    head, new_iterable = spy(original_iterable, 0)\n    assert head == []\n    assert list(new_iterable) == ['a', 'b', 'c']\n    \n    # Test with n larger than iterable\n    original_iterable = iter('abc')\n    head, new_iterable = spy(original_iterable, 10)\n    head[0] = 'X'\n    assert head == ['X', 'b', 'c']\n    assert list(new_iterable) == ['a', 'b', 'c']",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "spy"
+        ],
+        "asserted_symbols": [
+          "spy"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "unzip"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "spy"
+    ],
+    "asserted_symbols": [
+      "spy"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "unzip"
+    ],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": false,
+    "reason": "not needed: the proof test did not error"
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "more_itertools/more.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________________ test_spy_head_immutability ______________________________________________________________________________________\nlatch_issue_test.py:10: in test_spy_head_immutability\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], \"Modifying head should not affect returned iterable\"\nE   AssertionError: Modifying head should not affect returned iterable\nE   assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\nE     \nE     At index 1 diff: 'bad' != 1\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutability - AssertionError: Modifying head should not affect returned iterable\n1 failed in 0.15s\n",
+        "identical_to_base": false,
+        "note": "all non-test files the change touched were set back to base"
+      }
+    ],
+    "tests_kept": [
+      "tests/test_more.py"
+    ],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "return_none",
+        "file": "more_itertools/more.py",
+        "line": 935,
+        "what": "return None instead of the computed value",
+        "diff": "--- a/more_itertools/more.py\n+++ b/more_itertools/more.py\n@@ -934,3 +934,3 @@\n \n-    return head.copy(), chain(head, it)\n+    return None\n \n",
+        "killed": true,
+        "output_excerpt": "__________________ test_spy_head_immutability ______________________________________________________________________________________\nlatch_issue_test.py:8: in test_spy_head_immutability\n    head, it = spy(it, 3)\nE   TypeError: cannot unpack non-iterable NoneType object\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutability - TypeError: cannot unpack non-iterable NoneType object\n1 failed in 0.15s\n"
+      }
+    ],
+    "killed": 1,
+    "total": 1,
+    "kill_rate": 1.0,
+    "threshold": 0.6,
+    "not_run": 0,
+    "incomplete": false,
+    "ok": true,
+    "note": "1/1 mutants of the changed lines were killed by the frozen proof test (needs 60%)"
+  },
+  "inspection": {
+    "oracle_pass": true,
+    "oracle_summary": "323 passed, 5 warnings in 0.84s",
+    "oracle_files": [
+      "tests/test_more.py"
+    ]
+  },
+  "finished_at": "2026-10-30T09:26:59.619Z",
+  "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 1/1 mutants",
+  "proven": true,
+  "base_sha": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+  "head_sha": "62411c1618493f94b16901746c34e72ad415061e",
+  "verdict_logs": {
+    "base": "______________________________________________________________________________________\nlatch_issue_test.py:10: in test_spy_head_immutability\n    assert list(it) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], \"Modifying head should not affect returned iterable\"\nE   AssertionError: Modifying head should not affect returned iterable\nE   assert [0, 'bad', 2, 3, 4, 5, ...] == [0, 1, 2, 3, 4, 5, ...]\nE     \nE     At index 1 diff: 'bad' != 1\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_spy_head_immutability - AssertionError: Modifying head should not affect returned iterable\n1 failed in 0.16s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n",
+    "survivors": []
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 542,
+      "completion_tokens": 1024,
+      "latency_ms": 6527,
+      "completion_id": "chatcmpl-5f7b07fd",
+      "cost_usd": 0.000278,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1878,
+      "completion_tokens": 610,
+      "latency_ms": 3369,
+      "completion_id": "chatcmpl-a723da5dda710d65",
+      "cost_usd": 0.003708,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.003986,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:26:43.009Z",
+      "detail": {
+        "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+        "head": "62411c1618493f94b16901746c34e72ad415061e"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:26:43.216Z",
+      "detail": {
+        "base": "c0465331cbc0",
+        "head": "62411c161849",
+        "changed_files": [
+          "more_itertools/more.py",
+          "tests/test_more.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:26:43.341Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:26:49.882Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:26:49.882Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:26:53.257Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-a723da5dda710d65"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:26:53.258Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:26:53.621Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:26:53.621Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:26:55.067Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": true
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T09:26:55.068Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T09:26:57.754Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T09:26:57.754Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T09:26:58.099Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T09:26:58.099Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "done",
+      "ts": "2026-10-30T09:26:58.530Z",
+      "detail": {
+        "killed": 1,
+        "total": 1,
+        "kill_rate": 1.0
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:26:59.619Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 1/1 mutants"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

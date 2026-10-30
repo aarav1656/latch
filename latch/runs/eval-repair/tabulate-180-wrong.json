@@ -1,0 +1,337 @@
+{
+  "run_id": "tabulate180.wrong",
+  "provider": "nebius",
+  "repo": "astanin/python-tabulate@20c6370d5d + constructed wrong patch",
+  "base": "8088e76e9096c8363793aa7fcbd0c27d94e6e5bd",
+  "head": "eeefb2b2a68cd23e588018e51d0b8afaa64e028b",
+  "issue": "Exception when tabulating empty data and using maxcolwidths\n\n```\r\nFile \"/usr/local/lib/python3.9/site-packages/tabulate.py\", line 1585, in tabulate\r\n   num_cols = len(list_of_lists[0])\r\n   IndexError: list index out of range\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:24:40.340Z",
+  "proof_test": {
+    "name": "test_empty_data_with_maxcolwidths",
+    "source": "import pytest\n\ndef test_empty_data_with_maxcolwidths():\n    import pytest\n    from tabulate import tabulate\n\n    # Empty data without headers\n    try:\n        result = tabulate([], maxcolwidths=[10, 20])\n    except Exception as e:\n        pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\n    assert isinstance(result, str)\n\n    # Empty data with headers\n    try:\n        result = tabulate([], headers=(\"A\", \"B\"), maxcolwidths=[10, 20])\n    except Exception as e:\n        pytest.fail(f\"Unexpected exception with empty data, headers, and maxcolwidths: {e}\")\n    assert isinstance(result, str)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-99f48fd1bb36f22e",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:9: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:11: in test_empty_data_with_maxcolwidths\n    pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\nE   Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n1 failed in 0.23s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:9: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\ntabulate/__init__.py:2072: in tabulate\n    list_of_lists = _wrap_text_to_colwidths(\ntabulate/__init__.py:1506: in _wrap_text_to_colwidths\n    numparses = _expand_iterable(numparses, len(list_of_lists[0]), True)\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:11: in test_empty_data_with_maxcolwidths\n    pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\nE   Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n1 failed in 0.30s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s.............sss.....                                                                                                    [100%]\n248 passed, 37 skipped in 1.01s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-c4bd97f1",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 2,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-b1612d4dd7c5bae5",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n\n    # Empty data without headers\n    result = tabulate([], maxcolwidths=[10, 20])\n    assert result == \"\"\n\n    # Empty data with headers\n    result = tabulate([], headers=(\"A\", \"B\"), maxcolwidths=[10, 20])\n    assert isinstance(result, str)",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-99f48fd1bb36f22e",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_empty_data_with_maxcolwidths():\n    import pytest\n    from tabulate import tabulate\n\n    # Empty data without headers\n    try:\n        result = tabulate([], maxcolwidths=[10, 20])\n    except Exception as e:\n        pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\n    assert isinstance(result, str)\n\n    # Empty data with headers\n    try:\n        result = tabulate([], headers=(\"A\", \"B\"), maxcolwidths=[10, 20])\n    except Exception as e:\n        pytest.fail(f\"Unexpected exception with empty data, headers, and maxcolwidths: {e}\")\n    assert isinstance(result, str)",
+      "test_repair": true,
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "tabulate"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark"
+    ],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "base",
+    "error_before": "latch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\nE   IndexError: list index out of range",
+    "ok": false,
+    "outcome": "adopted",
+    "reason": "the repaired test still errored on base",
+    "completion_id": "chatcmpl-99f48fd1bb36f22e",
+    "error_after": "latch_issue_test.py:9: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\nE   IndexError: list index out of range\nlatch_issue_test.py:11: in test_empty_data_with_maxcolwidths\n    pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\nE   Failed: Unexpected exception with empty data and maxcolwidths: list index out of range"
+  },
+  "finished_at": "2026-10-30T09:25:02.155Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)",
+  "proven": false,
+  "base_sha": "8088e76e9096c8363793aa7fcbd0c27d94e6e5bd",
+  "head_sha": "eeefb2b2a68cd23e588018e51d0b8afaa64e028b",
+  "verdict_logs": {
+    "base": "ths=[10, 20])\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:11: in test_empty_data_with_maxcolwidths\n    pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\nE   Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n1 failed in 0.23s\n",
+    "head": "ext_to_colwidths\n    numparses = _expand_iterable(numparses, len(list_of_lists[0]), True)\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:11: in test_empty_data_with_maxcolwidths\n    pytest.fail(f\"Unexpected exception with empty data and maxcolwidths: {e}\")\nE   Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - Failed: Unexpected exception with empty data and maxcolwidths: list index out of range\n1 failed in 0.30s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 427,
+      "completion_tokens": 1024,
+      "latency_ms": 4644,
+      "completion_id": "chatcmpl-c4bd97f1",
+      "cost_usd": 0.000271,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 999,
+      "completion_tokens": 2013,
+      "latency_ms": 6814,
+      "completion_id": "chatcmpl-b1612d4dd7c5bae5",
+      "cost_usd": 0.007038,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1266,
+      "completion_tokens": 1802,
+      "latency_ms": 6451,
+      "completion_id": "chatcmpl-99f48fd1bb36f22e",
+      "cost_usd": 0.006672,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.013981,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:24:40.340Z",
+      "detail": {
+        "base": "8088e76e9096c8363793aa7fcbd0c27d94e6e5bd",
+        "head": "eeefb2b2a68cd23e588018e51d0b8afaa64e028b"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:24:40.869Z",
+      "detail": {
+        "base": "8088e76e9096",
+        "head": "eeefb2b2a68c",
+        "changed_files": [
+          "tabulate/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:24:41.164Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:24:45.834Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:24:45.834Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:24:52.651Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-b1612d4dd7c5bae5"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:24:52.652Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:24:53.071Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:24:53.071Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:24:54.703Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:24:54.703Z",
+      "detail": {
+        "side": "base",
+        "error_before": "latch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 20])\nE   IndexError: list index out of range"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:25:01.156Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:25:01.603Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:25:01.603Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:25:02.155Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "failed",
+      "ts": "2026-10-30T09:25:02.155Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:25:02.156Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

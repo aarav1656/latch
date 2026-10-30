@@ -1,0 +1,604 @@
+{
+  "run_id": "tabulate180.real",
+  "provider": "nebius",
+  "repo": "astanin/python-tabulate@20c6370d5d",
+  "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+  "head": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+  "issue": "Exception when tabulating empty data and using maxcolwidths\n\n```\r\nFile \"/usr/local/lib/python3.9/site-packages/tabulate.py\", line 1585, in tabulate\r\n   num_cols = len(list_of_lists[0])\r\n   IndexError: list index out of range\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:23:37.421Z",
+  "proof_test": {
+    "name": "test_exception_on_empty_data_with_maxcolwidths",
+    "source": "import pytest\n\ndef test_exception_on_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    try:\n        result = tabulate([], maxcolwidths=5)\n    except IndexError:\n        assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\n    assert result == \"\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-8d42b34951d227a8",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:8: in test_exception_on_empty_data_with_maxcolwidths\n    assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\nE   AssertionError: IndexError raised when tabulating empty data with maxcolwidths\nE   assert False\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - AssertionError: IndexError raised when tabulating empty data with maxcolwidths\n1 failed in 0.22s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s..............sss.....                                                                                                   [100%]\n249 passed, 37 skipped in 2.32s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": true
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "MUTATION_SURVIVED",
+  "reason": "the proof test does not pin the fix down: 2/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-e35d1dfd",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 2,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-bd0dcfc6f3252528",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_exception_on_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    # Regression: exception on empty data when using maxcolwidths (github issue #180)\n    result = tabulate([], maxcolwidths=5)\n    assert result == \"\"",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_wrap_text_to_colwidths",
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-8d42b34951d227a8",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_exception_on_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    try:\n        result = tabulate([], maxcolwidths=5)\n    except IndexError:\n        assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\n    assert result == \"\"",
+      "test_repair": true,
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_wrap_text_to_colwidths",
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "_wrap_text_to_colwidths",
+      "tabulate"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark"
+    ],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "base",
+    "error_before": "latch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   IndexError: list index out of range",
+    "ok": true,
+    "outcome": "adopted",
+    "reason": null,
+    "completion_id": "chatcmpl-8d42b34951d227a8"
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "tabulate/__init__.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:8: in test_exception_on_empty_data_with_maxcolwidths\n    assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\nE   AssertionError: IndexError raised when tabulating empty data with maxcolwidths\nE   assert False\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - AssertionError: IndexError raised when tabulating empty data with maxcolwidths\n1 failed in 0.19s\n",
+        "identical_to_base": false,
+        "note": "all non-test files the change touched were set back to base"
+      }
+    ],
+    "tests_kept": [
+      "test/test_regression.py"
+    ],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "negate_condition",
+        "file": "tabulate/__init__.py",
+        "line": 1506,
+        "what": "negated the condition",
+        "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -1505,3 +1505,3 @@\n def _wrap_text_to_colwidths(list_of_lists, colwidths, numparses=True):\n-    if len(list_of_lists):\n+    if not (len(list_of_lists)):\n         num_cols = len(list_of_lists[0])\n",
+        "killed": true,
+        "output_excerpt": "exception_on_empty_data_with_maxcolwidths\n    assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\nE   AssertionError: IndexError raised when tabulating empty data with maxcolwidths\nE   assert False\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - AssertionError: IndexError raised when tabulating empty data with maxcolwidths\n1 failed in 0.25s\n"
+      },
+      {
+        "id": "m2",
+        "operator": "const_off_by_one",
+        "file": "tabulate/__init__.py",
+        "line": 1507,
+        "what": "constant 0 -> 1",
+        "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -1506,3 +1506,3 @@\n     if len(list_of_lists):\n-        num_cols = len(list_of_lists[0])\n+        num_cols = len(list_of_lists[1])\n     else:\n",
+        "killed": false,
+        "output_excerpt": ".                                                                                                                                                                                                [100%]\n1 passed in 0.15s\n"
+      },
+      {
+        "id": "m3",
+        "operator": "negate_condition",
+        "file": "tabulate/__init__.py",
+        "line": 2069,
+        "what": "negated the condition",
+        "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -2068,3 +2068,3 @@\n     if maxcolwidths is not None:\n-        if len(list_of_lists):\n+        if not (len(list_of_lists)):\n             num_cols = len(list_of_lists[0])\n",
+        "killed": true,
+        "output_excerpt": "exception_on_empty_data_with_maxcolwidths\n    assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\nE   AssertionError: IndexError raised when tabulating empty data with maxcolwidths\nE   assert False\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - AssertionError: IndexError raised when tabulating empty data with maxcolwidths\n1 failed in 0.19s\n"
+      },
+      {
+        "id": "m4",
+        "operator": "const_off_by_one",
+        "file": "tabulate/__init__.py",
+        "line": 1509,
+        "what": "constant 0 -> 1",
+        "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -1508,3 +1508,3 @@\n     else:\n-        num_cols = 0\n+        num_cols = 1\n     numparses = _expand_iterable(numparses, num_cols, True)\n",
+        "killed": false,
+        "output_excerpt": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+      },
+      {
+        "id": "m5",
+        "operator": "const_off_by_one",
+        "file": "tabulate/__init__.py",
+        "line": 2070,
+        "what": "constant 0 -> 1",
+        "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -2069,3 +2069,3 @@\n         if len(list_of_lists):\n-            num_cols = len(list_of_lists[0])\n+            num_cols = len(list_of_lists[1])\n         else:\n",
+        "killed": false,
+        "output_excerpt": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+      }
+    ],
+    "killed": 2,
+    "total": 5,
+    "kill_rate": 0.4,
+    "threshold": 0.6,
+    "not_run": 0,
+    "incomplete": false,
+    "ok": false,
+    "note": "2/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)",
+    "strengthened": {
+      "attempted": true,
+      "survivors_before": [
+        {
+          "id": "m2",
+          "operator": "const_off_by_one",
+          "file": "tabulate/__init__.py",
+          "line": 1507,
+          "what": "constant 0 -> 1",
+          "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -1506,3 +1506,3 @@\n     if len(list_of_lists):\n-        num_cols = len(list_of_lists[0])\n+        num_cols = len(list_of_lists[1])\n     else:\n"
+        },
+        {
+          "id": "m4",
+          "operator": "const_off_by_one",
+          "file": "tabulate/__init__.py",
+          "line": 1509,
+          "what": "constant 0 -> 1",
+          "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -1508,3 +1508,3 @@\n     else:\n-        num_cols = 0\n+        num_cols = 1\n     numparses = _expand_iterable(numparses, num_cols, True)\n"
+        },
+        {
+          "id": "m5",
+          "operator": "const_off_by_one",
+          "file": "tabulate/__init__.py",
+          "line": 2070,
+          "what": "constant 0 -> 1",
+          "diff": "--- a/tabulate/__init__.py\n+++ b/tabulate/__init__.py\n@@ -2069,3 +2069,3 @@\n         if len(list_of_lists):\n-            num_cols = len(list_of_lists[0])\n+            num_cols = len(list_of_lists[1])\n         else:\n"
+        }
+      ],
+      "killed_before": 2,
+      "total_before": 5,
+      "kill_rate_before": 0.4,
+      "threshold": 0.6,
+      "test_before": "test_exception_on_empty_data_with_maxcolwidths",
+      "completion_id": "chatcmpl-97c0b257273db0d7",
+      "outcome": "kept_original",
+      "reason": "the stronger test does not fail on the base revision with an assertion"
+    }
+  },
+  "finished_at": "2026-10-30T09:24:36.227Z",
+  "verdict_reason": "mutation kill rate 40% is below the 60% threshold (2/5 mutants of the changed lines killed)",
+  "proven": false,
+  "base_sha": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+  "head_sha": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+  "verdict_logs": {
+    "base": "_.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:8: in test_exception_on_empty_data_with_maxcolwidths\n    assert False, \"IndexError raised when tabulating empty data with maxcolwidths\"\nE   AssertionError: IndexError raised when tabulating empty data with maxcolwidths\nE   assert False\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - AssertionError: IndexError raised when tabulating empty data with maxcolwidths\n1 failed in 0.22s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n",
+    "survivors": [
+      {
+        "id": "m2",
+        "operator": "const_off_by_one",
+        "file": "tabulate/__init__.py",
+        "line": 1507,
+        "output_excerpt": ".                                                                                                                                                                                                [100%]\n1 passed in 0.15s\n"
+      },
+      {
+        "id": "m4",
+        "operator": "const_off_by_one",
+        "file": "tabulate/__init__.py",
+        "line": 1509,
+        "output_excerpt": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+      },
+      {
+        "id": "m5",
+        "operator": "const_off_by_one",
+        "file": "tabulate/__init__.py",
+        "line": 2070,
+        "output_excerpt": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+      }
+    ]
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 433,
+      "completion_tokens": 1024,
+      "latency_ms": 7687,
+      "completion_id": "chatcmpl-e35d1dfd",
+      "cost_usd": 0.000272,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2094,
+      "completion_tokens": 499,
+      "latency_ms": 2281,
+      "completion_id": "chatcmpl-bd0dcfc6f3252528",
+      "cost_usd": 0.003591,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2330,
+      "completion_tokens": 1167,
+      "latency_ms": 4122,
+      "completion_id": "chatcmpl-8d42b34951d227a8",
+      "cost_usd": 0.005831,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2621,
+      "completion_tokens": 5177,
+      "latency_ms": 15002,
+      "completion_id": "chatcmpl-97c0b257273db0d7",
+      "cost_usd": 0.018152,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.027846,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:23:37.421Z",
+      "detail": {
+        "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+        "head": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:23:37.616Z",
+      "detail": {
+        "base": "90fbd7e5b127",
+        "head": "20c6370d5da2",
+        "changed_files": [
+          "tabulate/__init__.py",
+          "test/test_regression.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:23:37.735Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:23:45.436Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:23:45.436Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:23:47.719Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-bd0dcfc6f3252528"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:23:47.719Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:23:48.318Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:23:48.318Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:23:51.183Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:23:51.183Z",
+      "detail": {
+        "side": "base",
+        "error_before": "latch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   IndexError: list index out of range"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:23:55.310Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:23:57.119Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:23:57.119Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:23:57.463Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": true
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "done",
+      "ts": "2026-10-30T09:23:57.463Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": true
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T09:23:57.463Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T09:24:02.611Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T09:24:02.611Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T09:24:03.016Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T09:24:03.016Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "failed",
+      "ts": "2026-10-30T09:24:05.256Z",
+      "detail": {
+        "killed": 2,
+        "total": 5,
+        "kill_rate": 0.4
+      }
+    },
+    {
+      "step": "strengthen",
+      "status": "started",
+      "ts": "2026-10-30T09:24:05.256Z",
+      "detail": {
+        "survivors": 3,
+        "killed": 2,
+        "total": 5,
+        "kill_rate_before": 0.4
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:24:20.264Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:24:36.210Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "strengthen",
+      "status": "failed",
+      "ts": "2026-10-30T09:24:36.227Z",
+      "detail": {
+        "outcome": "kept_original",
+        "reason": "the stronger test does not fail on the base revision with an assertion",
+        "kill_rate_before": 0.4,
+        "kill_rate_after": null
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:24:36.263Z",
+      "detail": {
+        "verdict": "MUTATION_SURVIVED",
+        "reason": "mutation kill rate 40% is below the 60% threshold (2/5 mutants of the changed lines killed)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

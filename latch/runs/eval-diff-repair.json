@@ -1,0 +1,568 @@
+{
+  "before": {
+    "file": "eval-summary.json",
+    "latch_git_sha": "74c9f417584131d9aadd1f43e179cd84ad2e9a76"
+  },
+  "after": {
+    "file": "eval-summary-repair.json",
+    "date": "2026-10-30",
+    "tag": "repair",
+    "label": "repair",
+    "test_repair_enabled": true,
+    "latch_git_sha": "b4924a53212190bea971bfcb0001e5451dd16c33"
+  },
+  "headline": {
+    "real_validated": {
+      "before": "7/21",
+      "after": "10/21"
+    },
+    "invalid_test": {
+      "before": 23,
+      "after": 14
+    },
+    "wrong_patches_failed_by_valid_test": {
+      "before": 3,
+      "after": 6
+    },
+    "false_accepts": {
+      "before": [
+        "packaging-810"
+      ],
+      "after": []
+    },
+    "cost_usd": {
+      "before": 1.3823,
+      "after": 2.2239
+    },
+    "test_repair": {
+      "before": null,
+      "after": 17,
+      "ok_after": 5
+    }
+  },
+  "verdicts": {
+    "before": {
+      "INVALID_TEST": 23,
+      "FLAKY": 0,
+      "NO_REGRESSION_FOUND": 1,
+      "FIX_FAILS_TEST": 10,
+      "MUTATION_SURVIVED": 0,
+      "VALIDATED": 8
+    },
+    "after": {
+      "INVALID_TEST": 14,
+      "FLAKY": 0,
+      "NO_REGRESSION_FOUND": 1,
+      "FIX_FAILS_TEST": 16,
+      "MUTATION_SURVIVED": 1,
+      "VALIDATED": 10
+    }
+  },
+  "cases": [
+    {
+      "case": "boltons-319",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "gave_up",
+      "outcome_after": "proven",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/boltons-319-real.json",
+      "receipt_after": "latch/runs/eval-repair/boltons-319-real.json"
+    },
+    {
+      "case": "boltons-319",
+      "variant": "wrong",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/boltons-319-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/boltons-319-wrong.json"
+    },
+    {
+      "case": "cachetools-423",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/cachetools-423-real.json",
+      "receipt_after": "latch/runs/eval-repair/cachetools-423-real.json"
+    },
+    {
+      "case": "cachetools-423",
+      "variant": "wrong",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/cachetools-423-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/cachetools-423-wrong.json"
+    },
+    {
+      "case": "click-3019",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/click-3019-real.json",
+      "receipt_after": "latch/runs/eval-repair/click-3019-real.json"
+    },
+    {
+      "case": "click-3019",
+      "variant": "wrong",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/click-3019-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/click-3019-wrong.json"
+    },
+    {
+      "case": "click-3360",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/click-3360-real.json",
+      "receipt_after": "latch/runs/eval-repair/click-3360-real.json"
+    },
+    {
+      "case": "click-3360",
+      "variant": "wrong",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/click-3360-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/click-3360-wrong.json"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "gave_up",
+      "outcome_after": "proven",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/more-itertools-409-real.json",
+      "receipt_after": "latch/runs/eval-repair/more-itertools-409-real.json"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "wrong",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/more-itertools-409-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/more-itertools-409-wrong.json"
+    },
+    {
+      "case": "packaging-810",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/packaging-810-real.json",
+      "receipt_after": "latch/runs/eval-repair/packaging-810-real.json"
+    },
+    {
+      "case": "packaging-810",
+      "variant": "wrong",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "false_accept",
+      "outcome_after": "shut_gave_up",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/packaging-810-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/packaging-810-wrong.json"
+    },
+    {
+      "case": "sympy-20590",
+      "variant": "nofix",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-20590-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-20590-nofix.json"
+    },
+    {
+      "case": "sympy-20590",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-20590-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-20590-real.json"
+    },
+    {
+      "case": "sympy-21055",
+      "variant": "nofix",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-21055-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21055-nofix.json"
+    },
+    {
+      "case": "sympy-21055",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-21055-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21055-real.json"
+    },
+    {
+      "case": "sympy-21612",
+      "variant": "nofix",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-21612-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21612-nofix.json"
+    },
+    {
+      "case": "sympy-21612",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-21612-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21612-real.json"
+    },
+    {
+      "case": "sympy-21614",
+      "variant": "nofix",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-21614-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21614-nofix.json"
+    },
+    {
+      "case": "sympy-21614",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-21614-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21614-real.json"
+    },
+    {
+      "case": "sympy-21627",
+      "variant": "nofix",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-21627-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21627-nofix.json"
+    },
+    {
+      "case": "sympy-21627",
+      "variant": "real",
+      "verdict_before": "NO_REGRESSION_FOUND",
+      "verdict_after": "NO_REGRESSION_FOUND",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-21627-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21627-real.json"
+    },
+    {
+      "case": "sympy-21847",
+      "variant": "nofix",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-21847-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21847-nofix.json"
+    },
+    {
+      "case": "sympy-21847",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-21847-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-21847-real.json"
+    },
+    {
+      "case": "sympy-22005",
+      "variant": "nofix",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-22005-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-22005-nofix.json"
+    },
+    {
+      "case": "sympy-22005",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "gave_up",
+      "outcome_after": "proven",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-22005-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-22005-real.json"
+    },
+    {
+      "case": "sympy-22714",
+      "variant": "nofix",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": true,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-22714-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-22714-nofix.json"
+    },
+    {
+      "case": "sympy-22714",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-22714-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-22714-real.json"
+    },
+    {
+      "case": "sympy-23262",
+      "variant": "nofix",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-23262-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-23262-nofix.json"
+    },
+    {
+      "case": "sympy-23262",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-23262-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-23262-real.json"
+    },
+    {
+      "case": "sympy-24066",
+      "variant": "nofix",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-24066-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-24066-nofix.json"
+    },
+    {
+      "case": "sympy-24066",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-24066-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-24066-real.json"
+    },
+    {
+      "case": "sympy-24213",
+      "variant": "nofix",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-24213-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-24213-nofix.json"
+    },
+    {
+      "case": "sympy-24213",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-24213-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-24213-real.json"
+    },
+    {
+      "case": "sympy-24909",
+      "variant": "nofix",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": true,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/sympy-24909-nofix.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-24909-nofix.json"
+    },
+    {
+      "case": "sympy-24909",
+      "variant": "real",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/sympy-24909-real.json",
+      "receipt_after": "latch/runs/eval-repair/sympy-24909-real.json"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "MUTATION_SURVIVED",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": true,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/tabulate-180-real.json",
+      "receipt_after": "latch/runs/eval-repair/tabulate-180-real.json"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "wrong",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/tabulate-180-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/tabulate-180-wrong.json"
+    },
+    {
+      "case": "tabulate-190",
+      "variant": "real",
+      "verdict_before": "VALIDATED",
+      "verdict_after": "VALIDATED",
+      "outcome_before": "proven",
+      "outcome_after": "proven",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/tabulate-190-real.json",
+      "receipt_after": "latch/runs/eval-repair/tabulate-190-real.json"
+    },
+    {
+      "case": "tabulate-190",
+      "variant": "wrong",
+      "verdict_before": "FIX_FAILS_TEST",
+      "verdict_after": "FIX_FAILS_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": false,
+      "test_repair": null,
+      "receipt_before": "latch/runs/eval/tabulate-190-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/tabulate-190-wrong.json"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "real",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "gave_up",
+      "outcome_after": "gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/toolz-602-real.json",
+      "receipt_after": "latch/runs/eval-repair/toolz-602-real.json"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "wrong",
+      "verdict_before": "INVALID_TEST",
+      "verdict_after": "INVALID_TEST",
+      "outcome_before": "shut_gave_up",
+      "outcome_after": "shut_gave_up",
+      "changed": false,
+      "test_repair": "adopted",
+      "receipt_before": "latch/runs/eval/toolz-602-wrong.json",
+      "receipt_after": "latch/runs/eval-repair/toolz-602-wrong.json"
+    }
+  ],
+  "note": "The first run is reported unchanged. Rates over a few single runs with a non-deterministic model carry wide uncertainty; a verdict that changed between runs is not by itself an effect of the repair."
+}
