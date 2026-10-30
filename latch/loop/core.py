@@ -26,7 +26,7 @@ from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
 from .. import provider as providers
 from .. import strengthen as strengthening
-from ..run import LIGHTNING, MODEL, call_model, load_key
+from ..run import LIGHTNING, MODEL, SUPER, call_model, load_key
 from ..steps import StepLog
 from ..flake import clamp_runs, flake_check
 from ..tautology import repo_modules, safe_changed_symbols
@@ -35,6 +35,7 @@ from ..verdict import FLAKE_RUNS, step_detail, verdict_fields
 ULTRA = MODEL
 DEFAULT_MODEL = ULTRA
 ALLOWED_MODELS = (ULTRA, LIGHTNING)
+TEST_MODELS = (*ALLOWED_MODELS, SUPER)  # who may write the proof test: the fix model stays ALLOWED_MODELS
 TEST_FILE = "latch_issue_test.py"
 TEXT_LIMIT = 20 * 1024
 SOURCE_LIMIT = 60 * 1024
@@ -187,9 +188,9 @@ def apply_files(work, files):
     return "".join(diff), changed
 
 
-def validate_model(model, name="model"):
-    if model not in ALLOWED_MODELS:
-        raise ValueError(f"{name} must be one of {', '.join(ALLOWED_MODELS)}; got {model!r}")
+def validate_model(model, name="model", allowed=ALLOWED_MODELS):
+    if model not in allowed:
+        raise ValueError(f"{name} must be one of {', '.join(allowed)}; got {model!r}")
     return model
 
 
@@ -258,7 +259,7 @@ def run_loop(
     (after an `error` event has been emitted and, when possible, an error receipt written).
     """
     validate_model(model)
-    validate_model(test_model, "test_model")
+    validate_model(test_model, "test_model", TEST_MODELS)
     providers.check_write(receipt_path)
     if max_iterations < 0 or max_iterations > 10:
         raise ValueError("max_iterations must be between 0 and 10")

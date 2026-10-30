@@ -24,6 +24,7 @@ MODELS_JSON = os.path.join(os.path.dirname(ROOT), "research", "token-factory", "
 URL = "https://api.tokenfactory.nebius.com/v1/chat/completions"
 MODEL = "nvidia/Nemotron-3-Ultra-550b-a55b"
 LIGHTNING = "nvidia/Nemotron-3_5-Lightning"
+SUPER = "nvidia/Nemotron-3.5-Super-VL"  # the proof-test writer in the `latch eval run --test-model` A/B only; never a default
 SYSTEM = (
     "Output one Python function and no prose. "
     "It must fail on the flipped source and pass on the restored source. "

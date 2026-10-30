@@ -1,0 +1,2486 @@
+{
+  "schema_version": 2,
+  "mode": "live",
+  "fixture": false,
+  "latch_git_sha": "324f08d5208fc91e8ac558a00f6c71f13a7e0b77",
+  "verdicts": {
+    "INVALID_TEST": 0,
+    "FLAKY": 0,
+    "NO_REGRESSION_FOUND": 0,
+    "FIX_FAILS_TEST": 4,
+    "MUTATION_SURVIVED": 0,
+    "VALIDATED": 6
+  },
+  "flaky": {
+    "n_cases_checked": 6,
+    "n_flaky": 0,
+    "median_flake_rate": 0.0
+  },
+  "benchmark": {
+    "runs": 10,
+    "errors": 0,
+    "not_run": 32,
+    "named_verdicts_by_variant": {
+      "real": {
+        "VALIDATED": 5
+      },
+      "wrong": {
+        "FIX_FAILS_TEST": 4,
+        "VALIDATED": 1
+      },
+      "nofix": {}
+    },
+    "real_validated": {
+      "k": 5,
+      "n": 5,
+      "rate": 1.0
+    },
+    "real_fail_to_pass": {
+      "k": 5,
+      "n": 5,
+      "rate": 1.0
+    },
+    "real_fail_on_base": {
+      "k": 5,
+      "n": 5,
+      "rate": 1.0
+    },
+    "wrong_patch_rejection": {
+      "k": 4,
+      "n": 5,
+      "rate": 0.8,
+      "without_contested": {
+        "k": 3,
+        "n": 4,
+        "rate": 0.75
+      },
+      "by_valid_test": {
+        "k": 4,
+        "n": 5,
+        "rate": 0.8
+      },
+      "by_valid_test_without_contested": {
+        "k": 3,
+        "n": 4,
+        "rate": 0.75
+      }
+    },
+    "nofix_gate_open": {
+      "k": 0,
+      "n": 0,
+      "rate": null
+    },
+    "gate_accepted_but_oracle_fails": {
+      "n": 1,
+      "cases": [
+        "packaging-810"
+      ],
+      "note": "gate opened (at iteration 0, or after repair) on code the oracle rejects; listed, never hidden"
+    },
+    "mutation": {
+      "runs_with_data": 6,
+      "mutants_killed": 17,
+      "mutants_total": 17,
+      "pooled_kill_rate": 1.0,
+      "mean_kill_rate": 1.0
+    },
+    "prompt_tokens": 147020,
+    "completion_tokens": 153292,
+    "model_calls": 37,
+    "cost_usd": 0.4309,
+    "runs_with_known_cost": 10,
+    "cost_usd_per_run": 0.0431,
+    "wall_s": {
+      "total": 905.0,
+      "median": 79.8
+    }
+  },
+  "slopgate_comparison": {
+    "slopgate": {
+      "name": "Slopgate",
+      "repo_url": "https://github.com/agno-nymous/slopgate",
+      "readme_url": "https://github.com/agno-nymous/slopgate#readme",
+      "results_url": "https://github.com/agno-nymous/slopgate/blob/main/bench/results/swebench/swebench.md",
+      "run_date": "2026-10-25",
+      "task": "removes injected code slop (redundant checks, wrappers, dead code, duplicates) and proves the rewrite keeps behavior",
+      "dataset": "15 SWE-bench Lite instances from 7 repositories",
+      "items": 45,
+      "items_what": "injected slop items",
+      "flagged": 41,
+      "flagged_rate": 0.911,
+      "proven": 14,
+      "proven_of": 41,
+      "proven_rate_of_flagged": 0.341,
+      "proven_what": "flagged items that got a proven one-click fix",
+      "review_note_only": 27,
+      "broke_hidden_test": 0,
+      "broke_hidden_test_of": 14,
+      "cost_usd": 1.1632,
+      "cost_note": "the README rounds it to $1.16 for the whole run (15 instances)",
+      "judge": "the hidden SWE-bench tests of each instance, never shown to the gate",
+      "models": "nvidia/nemotron-3-super-120b-a12b (tests and rewrites), nvidia/Nemotron-3-Ultra-550b-a55b (retry and summary)",
+      "per_kind_note": "per-kind results (for example redundant_check 0/9 accepted, dead 5/6) are in the results file linked above"
+    },
+    "latch": {
+      "dataset": "0 SWE-bench Lite instances (1 repository, sympy) plus 5 upstream bug fixes",
+      "swe_bench_lite_instances": 0,
+      "cases_with_a_run": 5,
+      "runs": 10,
+      "wrong_patches_rejected": {
+        "k": 4,
+        "n": 5,
+        "rate": 0.8,
+        "without_contested": {
+          "k": 3,
+          "n": 4,
+          "rate": 0.75
+        },
+        "by_valid_test": {
+          "k": 4,
+          "n": 5,
+          "rate": 0.8
+        },
+        "by_valid_test_without_contested": {
+          "k": 3,
+          "n": 4,
+          "rate": 0.75
+        }
+      },
+      "real_fixes_validated": {
+        "k": 5,
+        "n": 5,
+        "rate": 1.0
+      },
+      "nofix_gate_open": {
+        "k": 0,
+        "n": 0,
+        "rate": null
+      },
+      "gate_accepted_but_oracle_fails": 1,
+      "cost_usd": 0.4309,
+      "cost_usd_per_run": 0.0431
+    },
+    "caveat": "These two benchmarks measure different tasks, so the columns are parallel in shape, not in meaning. Slopgate removes injected slop and proves the rewrite keeps behavior; Latch proves that a PR's fix is correct. Slopgate's numbers are quoted from its own repo (link above), not re-run by Latch. The datasets, the instances and the judges differ, and Latch's instance set is smaller and pools hand-built wrong patches with real fixes."
+  },
+  "oracle_baseline": {
+    "schema_version": 1,
+    "label": "oracle baseline (no model)",
+    "kind": "oracle_baseline",
+    "model_free": true,
+    "generated_at": "2026-10-30T05:20:15+00:00",
+    "wall_s_elapsed": 185.1,
+    "cost_usd": 0.0,
+    "model_calls": 0,
+    "dropped": [
+      {
+        "id": "cachetools-221",
+        "reason": "no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly."
+      },
+      {
+        "id": "boltons-4457decc",
+        "reason": "the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply"
+      },
+      {
+        "id": "boltons-8177b933",
+        "reason": "same as boltons-4457decc"
+      }
+    ],
+    "totals": {
+      "cases": 21,
+      "errors": 0,
+      "oracle_fails_on_base": {
+        "k": 21,
+        "n": 21,
+        "rate": 1.0
+      },
+      "oracle_passes_on_real_fix": {
+        "k": 21,
+        "n": 21,
+        "rate": 1.0
+      },
+      "oracle_rejects_wrong_patch": {
+        "k": 9,
+        "n": 9,
+        "rate": 1.0
+      },
+      "oracle_separates_real_from_wrong": {
+        "k": 9,
+        "n": 9,
+        "rate": 1.0
+      },
+      "cost_usd": 0.0,
+      "model_calls": 0,
+      "wall_s": {
+        "total": 534.0,
+        "median": 25.3
+      }
+    },
+    "cases": [
+      {
+        "case": "cachetools-423",
+        "suite": "upstream",
+        "repo": "tkem/cachetools",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 13.2,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 28 passed in 0.36s",
+          "oracle_head": "29 passed in 0.28s",
+          "oracle_wrong": "1 failed, 28 passed in 0.33s"
+        }
+      },
+      {
+        "case": "boltons-319",
+        "suite": "upstream",
+        "repo": "mahmoud/boltons",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 9.7,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 3 passed, 1 warning in 0.26s",
+          "oracle_head": "4 passed, 1 warning in 0.30s",
+          "oracle_wrong": "1 failed, 3 passed, 1 warning in 0.19s"
+        }
+      },
+      {
+        "case": "tabulate-180",
+        "suite": "upstream",
+        "repo": "astanin/python-tabulate",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 6.8,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 29 passed, 4 skipped in 0.39s",
+          "oracle_head": "30 passed, 4 skipped in 0.30s",
+          "oracle_wrong": "1 failed, 29 passed, 4 skipped in 0.34s"
+        }
+      },
+      {
+        "case": "tabulate-190",
+        "suite": "upstream",
+        "repo": "astanin/python-tabulate",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 8.3,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 28 passed, 4 skipped in 0.35s",
+          "oracle_head": "29 passed, 4 skipped in 0.44s",
+          "oracle_wrong": "1 failed, 28 passed, 4 skipped in 0.43s"
+        }
+      },
+      {
+        "case": "toolz-602",
+        "suite": "upstream",
+        "repo": "pytoolz/toolz",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 9.0,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 49 passed in 0.82s",
+          "oracle_head": "50 passed in 0.61s",
+          "oracle_wrong": "1 failed, 49 passed in 0.62s"
+        }
+      },
+      {
+        "case": "packaging-810",
+        "suite": "upstream",
+        "repo": "pypa/packaging",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 85.4,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "9 failed, 1224 passed in 2.21s",
+          "oracle_head": "1233 passed in 2.19s",
+          "oracle_wrong": "5 failed, 1228 passed in 2.53s"
+        }
+      },
+      {
+        "case": "more-itertools-409",
+        "suite": "upstream",
+        "repo": "more-itertools/more-itertools",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 11.6,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 322 passed, 5 warnings in 1.66s",
+          "oracle_head": "323 passed, 5 warnings in 1.55s",
+          "oracle_wrong": "1 failed, 322 passed, 5 warnings in 1.44s"
+        }
+      },
+      {
+        "case": "click-3360",
+        "suite": "upstream",
+        "repo": "pallets/click",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 25.3,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "7 failed, 28 passed in 0.37s",
+          "oracle_head": "35 passed in 0.26s",
+          "oracle_wrong": "7 failed, 28 passed in 0.47s"
+        }
+      },
+      {
+        "case": "click-3019",
+        "suite": "upstream",
+        "repo": "pallets/click",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": true,
+        "base_suite_green": true,
+        "wall_s": 15.8,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 141 passed in 1.55s",
+          "oracle_head": "142 passed in 1.61s",
+          "oracle_wrong": "1 failed, 141 passed in 1.59s"
+        }
+      },
+      {
+        "case": "sympy-21612",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 25.5,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 99 deselected, 2 warnings in 1.65s",
+          "oracle_head": "1 passed, 99 deselected, 2 warnings in 1.62s"
+        }
+      },
+      {
+        "case": "sympy-21614",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 18.6,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 7 deselected, 2 warnings in 0.48s",
+          "oracle_head": "1 passed, 7 deselected, 2 warnings in 0.41s"
+        }
+      },
+      {
+        "case": "sympy-21627",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 33.9,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 4 passed, 26 deselected, 2 warnings in 2.89s",
+          "oracle_head": "5 passed, 26 deselected, 2 warnings in 1.81s"
+        }
+      },
+      {
+        "case": "sympy-21847",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 26.6,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 10 passed, 1 warning in 1.38s",
+          "oracle_head": "11 passed, 1 warning in 0.69s"
+        }
+      },
+      {
+        "case": "sympy-22005",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 32.6,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 3 deselected, 1 warning in 1.74s",
+          "oracle_head": "1 passed, 3 deselected, 1 warning in 2.30s"
+        }
+      },
+      {
+        "case": "sympy-22714",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 35.9,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 12 deselected in 0.87s",
+          "oracle_head": "1 passed, 12 deselected in 0.86s"
+        }
+      },
+      {
+        "case": "sympy-24066",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 32.4,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 32 deselected in 1.14s",
+          "oracle_head": "1 passed, 32 deselected in 1.80s"
+        }
+      },
+      {
+        "case": "sympy-24213",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 33.3,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 33 deselected in 0.98s",
+          "oracle_head": "1 passed, 33 deselected in 1.08s"
+        }
+      },
+      {
+        "case": "sympy-24909",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 27.6,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 3 deselected in 0.87s",
+          "oracle_head": "1 passed, 3 deselected in 0.95s"
+        }
+      },
+      {
+        "case": "sympy-21055",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 36.6,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 14 deselected, 2 warnings in 0.79s",
+          "oracle_head": "1 passed, 14 deselected, 2 warnings in 0.66s"
+        }
+      },
+      {
+        "case": "sympy-20590",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 21.4,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 22 deselected, 2 warnings in 0.63s",
+          "oracle_head": "1 passed, 22 deselected, 2 warnings in 0.56s"
+        }
+      },
+      {
+        "case": "sympy-23262",
+        "suite": "swebench_lite",
+        "repo": "sympy/sympy",
+        "ok": true,
+        "fails_on_base": true,
+        "passes_on_real_fix": true,
+        "fails_on_wrong_patch": null,
+        "base_suite_green": true,
+        "wall_s": 24.5,
+        "error": null,
+        "checks": {
+          "base suite green": true,
+          "gold-patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on gold patch": true
+        },
+        "oracle_summary": {
+          "oracle_base": "1 failed, 116 deselected in 0.90s",
+          "oracle_head": "1 passed, 116 deselected in 0.67s"
+        }
+      }
+    ]
+  },
+  "manifest": {
+    "path": "latch/loop/eval/manifest.json",
+    "models": {
+      "proof_test_and_fix": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "triage_and_repo_map": "nvidia/Nemotron-3_5-Lightning",
+      "endpoint": "Nebius Token Factory (OpenAI-compatible)"
+    },
+    "latch": {
+      "sha": "4c3b87f59f81edc0d5f00b59b0d0060f2320688d",
+      "dirty": true
+    },
+    "prompts": [
+      {
+        "role": "proof_test_writer",
+        "path": "latch/loop/core.py",
+        "sha256": "bc6603e4e32653d21f2d6d0e9c605192a6bacc2fc3fc8f1ce65fd57e1a6dab78"
+      },
+      {
+        "role": "fixer",
+        "path": "latch/loop/core.py",
+        "sha256": "fa7b7053e2cbd39ba3f4327b1ce81609452d4f435dc48f76fa46c953d1e59315"
+      },
+      {
+        "role": "triage",
+        "path": "latch/prove.py",
+        "sha256": "a80910715accb642ea03c1aa7f577778ae8fce6161e4d5f0b18267d7a45523ac"
+      },
+      {
+        "role": "repo_map",
+        "path": "latch/repomap.py",
+        "sha256": "1c80c2f27f2b2c76e2a344d6a203a325f3271ab75043f8a31c82edbbff33e4b9"
+      },
+      {
+        "role": "lightning_system",
+        "path": "latch/run.py",
+        "sha256": "aac81294243fce5b05ada6d0bfc7bda4a88342e2d2fbf604620e25f41e5bb6a1"
+      }
+    ],
+    "dataset": {
+      "name": "princeton-nlp/SWE-bench_Lite",
+      "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+      "n_instances": 12
+    }
+  },
+  "generated_at": "2026-10-30T13:29:09Z",
+  "run": {
+    "date": "2026-10-30",
+    "tag": "ab-super",
+    "label": "ab-super",
+    "test_repair_enabled": true
+  },
+  "test_repair": {
+    "enabled": true,
+    "runs_with_record": 10,
+    "attempted": 0,
+    "adopted": 0,
+    "ok": 0,
+    "kept_original": 0,
+    "extra_writer_calls": 0,
+    "note": "ok = the repaired test no longer errors on base or head (the gate then decides the verdict as usual); one repair call per run at most",
+    "items": []
+  },
+  "source_run": "2026-10-30",
+  "models": {
+    "proof_test": "nvidia/Nemotron-3.5-Super-VL",
+    "fix": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "triage": "nvidia/Nemotron-3_5-Lightning"
+  },
+  "max_iterations": 3,
+  "suites": {
+    "upstream": {
+      "n": 5,
+      "proven": 5,
+      "proven_rate": 1.0,
+      "errors": 0,
+      "not_run": 4
+    },
+    "swebench_lite": {
+      "n": 0,
+      "proven": 0,
+      "proven_rate": null,
+      "errors": 0,
+      "not_run": 12,
+      "nemotron_fix": {
+        "n": 0,
+        "gate_open": 0,
+        "oracle_pass": 0,
+        "green_but_wrong": [],
+        "note": "no fix submitted: Nemotron wrote the patch; oracle = the instance's own FAIL_TO_PASS tests, never shown to the model"
+      }
+    }
+  },
+  "wrong_fixes": {
+    "n": 5,
+    "caught": 4,
+    "rule": "caught = the gate was shut at iteration 0 on the wrong patch (before any repair)",
+    "without_contested": {
+      "n": 4,
+      "caught": 3
+    },
+    "caught_by_valid_test": {
+      "n": 5,
+      "caught": 4,
+      "without_contested": {
+        "n": 4,
+        "caught": 3
+      }
+    },
+    "contested_cases": [
+      "click-3360"
+    ],
+    "contested_note": "A second reviewer (codex) judged the constructed wrong patches for these cases semantically equivalent to the real fix; I judge them wrong. Both counts are reported, with and without them.",
+    "false_accepts": [
+      "packaging-810"
+    ],
+    "errors": 0,
+    "not_run": 4,
+    "repaired_by_loop": {
+      "n": 0,
+      "oracle_pass": 0
+    }
+  },
+  "median_wall_s": 79.85,
+  "median_cost_usd": 0.01,
+  "runs_with_known_cost": 10,
+  "runs": 10,
+  "validator_rejections": {
+    "n": 1,
+    "runs_affected": 1,
+    "note": "proof tests the harness rejected as vacuous or malformed before running the gate",
+    "items": [
+      {
+        "case": "tabulate-190",
+        "variant": "real",
+        "attempt": 1,
+        "rejection": "the reply contained no test_ function",
+        "completion_id": "chatcmpl-91c9d058e601cf2b",
+        "receipt": "latch/runs/eval-ab-super/tabulate-190-real.json"
+      }
+    ]
+  },
+  "abstentions": {
+    "n": 4,
+    "note": "runs where the gate stayed shut and Latch gave up, or triage said the failure did not reproduce the issue",
+    "items": [
+      {
+        "case": "boltons-319",
+        "variant": "wrong",
+        "kind": "gave_up",
+        "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+        "receipt": "latch/runs/eval-ab-super/boltons-319-wrong.json"
+      },
+      {
+        "case": "tabulate-190",
+        "variant": "wrong",
+        "kind": "gave_up",
+        "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+        "receipt": "latch/runs/eval-ab-super/tabulate-190-wrong.json"
+      },
+      {
+        "case": "more-itertools-409",
+        "variant": "wrong",
+        "kind": "gave_up",
+        "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+        "receipt": "latch/runs/eval-ab-super/more-itertools-409-wrong.json"
+      },
+      {
+        "case": "click-3360",
+        "variant": "wrong",
+        "kind": "gave_up",
+        "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+        "receipt": "latch/runs/eval-ab-super/click-3360-wrong.json"
+      }
+    ]
+  },
+  "failures": {
+    "n": 0,
+    "items": []
+  },
+  "not_run": [
+    {
+      "case": "cachetools-423",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "cachetools-423",
+      "variant": "wrong",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "wrong",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "wrong",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "click-3019",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "click-3019",
+      "variant": "wrong",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21612",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21612",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21614",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21614",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21627",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21627",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21847",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21847",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-22005",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-22005",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-22714",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-22714",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-24066",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-24066",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-24213",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-24213",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-24909",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-24909",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21055",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-21055",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-20590",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-20590",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-23262",
+      "variant": "real",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "sympy-23262",
+      "variant": "nofix",
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)"
+    },
+    {
+      "case": "cachetools-221",
+      "variant": null,
+      "reason": "dropped before the run: no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly."
+    },
+    {
+      "case": "boltons-4457decc",
+      "variant": null,
+      "reason": "dropped before the run: the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply"
+    },
+    {
+      "case": "boltons-8177b933",
+      "variant": null,
+      "reason": "dropped before the run: same as boltons-4457decc"
+    }
+  ],
+  "dropped_cases": [
+    {
+      "id": "cachetools-221",
+      "reason": "no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly."
+    },
+    {
+      "id": "boltons-4457decc",
+      "reason": "the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply"
+    },
+    {
+      "id": "boltons-8177b933",
+      "reason": "same as boltons-4457decc"
+    }
+  ],
+  "baselines": [
+    {
+      "name": "Otter (GPT-4o)",
+      "metric": "fail-to-pass rate",
+      "value": 0.314,
+      "benchmark": "TDD-Bench-Verified (449 issues)",
+      "source_url": "https://arxiv.org/abs/2502.05368",
+      "note": "Otter++ (5-test ensemble) reaches 37.0%."
+    },
+    {
+      "name": "AssertFlip",
+      "metric": "fail-to-pass rate",
+      "value": 0.436,
+      "benchmark": "SWT-Bench-Verified (433 issues)",
+      "source_url": "https://arxiv.org/abs/2507.17542",
+      "note": "189 of 433 issues."
+    }
+  ],
+  "comparison": "On real fixes Latch proved 5/5 (100.0%) against Otter's 31.4% (TDD-Bench-Verified) and AssertFlip's 43.6% (SWT-Bench-Verified) fail-to-pass rates, but with only 5 cases, on different benchmarks and a different pass condition (proof test plus repo suite plus revert check), so treat it as a small-sample indication, not a like-for-like comparison.",
+  "caveat": "Small sample: the cases here are few, single runs, with an LLM that is not deterministic, so the rates carry wide uncertainty. The wrong patches are constructed by hand (not agent output). The baselines use different benchmarks and a different, weaker success condition (fail-to-pass only, no revert check, no wrong-patch test), so the numbers are not directly comparable.",
+  "featured_wrong_fix_receipt": "latch/runs/eval-ab-super/boltons-319-wrong.json",
+  "featured_wrong_fix_note": "NOT PROVEN: a valid proof test failed on the wrong patch",
+  "cases": [
+    {
+      "case": "cachetools-423",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "tkem/cachetools",
+      "title": "RRCache.popitem() on an empty cache raises the choice function's exception instead of KeyError",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "cachetools-423",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "tkem/cachetools",
+      "title": "RRCache.popitem() on an empty cache raises the choice function's exception instead of KeyError",
+      "contested": true,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "boltons-319",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "mahmoud/boltons",
+      "title": "boltons.timeutils daterange wrong when starting in December with a year step",
+      "contested": false,
+      "status": "ran",
+      "label": "real (upstream fix)",
+      "outcome": "proven",
+      "loop_verdict": "gate_open",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_s": 88.1,
+      "cost_usd": 0.003262,
+      "iterations_used": 0,
+      "gate_open_at_iteration_0": true,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b7476e57674f8673",
+        "triage": null,
+        "fix": []
+      },
+      "receipt": "latch/runs/eval-ab-super/boltons-319-real.json",
+      "links": {
+        "issue": "https://github.com/mahmoud/boltons/issues/319",
+        "fix_commit": "https://github.com/mahmoud/boltons/commit/8ba3a7fa0d99b73f7f43c1aed82c571b941eecea"
+      },
+      "verdict": "VALIDATED",
+      "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 5/5 mutants",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": true,
+      "fail_to_pass": true,
+      "suite_green_on_head": true,
+      "mutation": {
+        "killed": 5,
+        "total": 5,
+        "kill_rate": 1.0
+      },
+      "mutation_source": "mutation",
+      "flaky": {
+        "ran": true,
+        "runs": 5,
+        "flaky": false,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0,
+        "flake_rate": 0.0,
+        "outcomes": {
+          "base_passed": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "head_passed": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "note": "consistent over 5 runs on base and on head"
+      },
+      "wrong_patch_rejected": null,
+      "prompt_tokens": 4608,
+      "completion_tokens": 3532,
+      "model_calls": 2,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 2600,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000402
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 2008,
+          "completion_tokens": 2508,
+          "cost_usd": 0.00286
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "boltons-319",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "mahmoud/boltons",
+      "title": "boltons.timeutils daterange wrong when starting in December with a year step",
+      "contested": false,
+      "status": "ran",
+      "label": "constructed wrong patch",
+      "outcome": "shut_gave_up",
+      "loop_verdict": "gave_up",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_s": 136.0,
+      "cost_usd": 0.116525,
+      "iterations_used": 3,
+      "gate_open_at_iteration_0": false,
+      "completion_ids": {
+        "proof_test": "chatcmpl-bae9b47e20db4cae",
+        "triage": "chatcmpl-ced90168",
+        "fix": [
+          "chatcmpl-86e14f029e2c36d2",
+          "chatcmpl-94b107264ab3ae25",
+          "chatcmpl-8fe8e78e6bd57847"
+        ]
+      },
+      "receipt": "latch/runs/eval-ab-super/boltons-319-wrong.json",
+      "links": {
+        "issue": "https://github.com/mahmoud/boltons/issues/319",
+        "fix_commit": "https://github.com/mahmoud/boltons/commit/8ba3a7fa0d99b73f7f43c1aed82c571b941eecea"
+      },
+      "verdict": "FIX_FAILS_TEST",
+      "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": false,
+      "fail_to_pass": false,
+      "suite_green_on_head": true,
+      "mutation": null,
+      "mutation_source": null,
+      "flaky": null,
+      "wrong_patch_rejected": true,
+      "prompt_tokens": 42085,
+      "completion_tokens": 30877,
+      "model_calls": 6,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 2594,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000401
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 883,
+          "completion_tokens": 4366,
+          "cost_usd": 0.004194
+        },
+        "triage": {
+          "calls": 1,
+          "prompt_tokens": 664,
+          "completion_tokens": 911,
+          "cost_usd": 0.000258
+        },
+        "fixer": {
+          "calls": 3,
+          "prompt_tokens": 37944,
+          "completion_tokens": 24576,
+          "cost_usd": 0.111672
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "tabulate-180",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "astanin/python-tabulate",
+      "title": "Exception when tabulating empty data and using maxcolwidths",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "tabulate-180",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "astanin/python-tabulate",
+      "title": "Exception when tabulating empty data and using maxcolwidths",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "tabulate-190",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "astanin/python-tabulate",
+      "title": "maxcolwidths does not preserve line breaks",
+      "contested": false,
+      "status": "ran",
+      "label": "real (upstream fix)",
+      "outcome": "proven",
+      "loop_verdict": "gate_open",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_s": 68.6,
+      "cost_usd": 0.015624,
+      "iterations_used": 0,
+      "gate_open_at_iteration_0": true,
+      "completion_ids": {
+        "proof_test": "chatcmpl-8e4e51034ac70727",
+        "triage": null,
+        "fix": []
+      },
+      "receipt": "latch/runs/eval-ab-super/tabulate-190-real.json",
+      "links": {
+        "issue": "https://github.com/astanin/python-tabulate/issues/190",
+        "fix_commit": "https://github.com/astanin/python-tabulate/commit/6c48142c0b57ea6108cb1d304b69b90b18748e45"
+      },
+      "verdict": "VALIDATED",
+      "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 1/1 mutants",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": true,
+      "fail_to_pass": true,
+      "suite_green_on_head": true,
+      "mutation": {
+        "killed": 1,
+        "total": 1,
+        "kill_rate": 1.0
+      },
+      "mutation_source": "mutation",
+      "flaky": {
+        "ran": true,
+        "runs": 5,
+        "flaky": false,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0,
+        "flake_rate": 0.0,
+        "outcomes": {
+          "base_passed": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "head_passed": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "note": "consistent over 5 runs on base and on head"
+      },
+      "wrong_patch_rejected": null,
+      "prompt_tokens": 5985,
+      "completion_tokens": 16360,
+      "model_calls": 3,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 915,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000301
+        },
+        "test_writer": {
+          "calls": 2,
+          "prompt_tokens": 5070,
+          "completion_tokens": 15336,
+          "cost_usd": 0.015323
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "tabulate-190",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "astanin/python-tabulate",
+      "title": "maxcolwidths does not preserve line breaks",
+      "contested": false,
+      "status": "ran",
+      "label": "constructed wrong patch",
+      "outcome": "shut_gave_up",
+      "loop_verdict": "gave_up",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_s": 155.8,
+      "cost_usd": 0.089339,
+      "iterations_used": 3,
+      "gate_open_at_iteration_0": false,
+      "completion_ids": {
+        "proof_test": "chatcmpl-9cdc20e34137814a",
+        "triage": "chatcmpl-ed32b5d6",
+        "fix": [
+          "chatcmpl-87ac4f03778933c2",
+          "chatcmpl-b1eafb8f28a5f2e3",
+          "chatcmpl-9c9c5315b04a8469"
+        ]
+      },
+      "receipt": "latch/runs/eval-ab-super/tabulate-190-wrong.json",
+      "links": {
+        "issue": "https://github.com/astanin/python-tabulate/issues/190",
+        "fix_commit": "https://github.com/astanin/python-tabulate/commit/6c48142c0b57ea6108cb1d304b69b90b18748e45"
+      },
+      "verdict": "FIX_FAILS_TEST",
+      "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": false,
+      "fail_to_pass": false,
+      "suite_green_on_head": true,
+      "mutation": null,
+      "mutation_source": null,
+      "flaky": null,
+      "wrong_patch_rejected": true,
+      "prompt_tokens": 10747,
+      "completion_tokens": 34495,
+      "model_calls": 6,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 909,
+          "completion_tokens": 1024,
+          "cost_usd": 0.0003
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 1342,
+          "completion_tokens": 8024,
+          "cost_usd": 0.007624
+        },
+        "triage": {
+          "calls": 1,
+          "prompt_tokens": 1083,
+          "completion_tokens": 871,
+          "cost_usd": 0.000274
+        },
+        "fixer": {
+          "calls": 3,
+          "prompt_tokens": 7413,
+          "completion_tokens": 24576,
+          "cost_usd": 0.081141
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "toolz-602",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "pytoolz/toolz",
+      "title": "partition_all outputs padding tokens on sequences with inaccurate __len__",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "toolz-602",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "pytoolz/toolz",
+      "title": "partition_all outputs padding tokens on sequences with inaccurate __len__",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "packaging-810",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "pypa/packaging",
+      "title": "Specifier greater-than comparison returns incorrect result for a version with dev+local parts",
+      "contested": false,
+      "status": "ran",
+      "label": "real (upstream fix)",
+      "outcome": "proven",
+      "loop_verdict": "gate_open",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_s": 57.7,
+      "cost_usd": 0.004224,
+      "iterations_used": 0,
+      "gate_open_at_iteration_0": true,
+      "completion_ids": {
+        "proof_test": "chatcmpl-bb236514292b25ae",
+        "triage": null,
+        "fix": []
+      },
+      "receipt": "latch/runs/eval-ab-super/packaging-810-real.json",
+      "links": {
+        "issue": "https://github.com/pypa/packaging/issues/810",
+        "fix_commit": "https://github.com/pypa/packaging/commit/16f558722612e8ad637c37f11464d5de62c8bb33",
+        "pr": "https://github.com/pypa/packaging/pull/1097"
+      },
+      "verdict": "VALIDATED",
+      "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 4/4 mutants",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": true,
+      "fail_to_pass": true,
+      "suite_green_on_head": true,
+      "mutation": {
+        "killed": 4,
+        "total": 4,
+        "kill_rate": 1.0
+      },
+      "mutation_source": "mutation",
+      "flaky": {
+        "ran": true,
+        "runs": 5,
+        "flaky": false,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0,
+        "flake_rate": 0.0,
+        "outcomes": {
+          "base_passed": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "head_passed": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "note": "consistent over 5 runs on base and on head"
+      },
+      "wrong_patch_rejected": null,
+      "prompt_tokens": 5853,
+      "completion_tokens": 4142,
+      "model_calls": 2,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 2432,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000392
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 3421,
+          "completion_tokens": 3118,
+          "cost_usd": 0.003832
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "packaging-810",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "pypa/packaging",
+      "title": "Specifier greater-than comparison returns incorrect result for a version with dev+local parts",
+      "contested": false,
+      "status": "ran",
+      "label": "constructed wrong patch",
+      "outcome": "false_accept",
+      "loop_verdict": "gate_open",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_s": 71.6,
+      "cost_usd": 0.003649,
+      "iterations_used": 0,
+      "gate_open_at_iteration_0": true,
+      "completion_ids": {
+        "proof_test": "chatcmpl-96375df3e35bb4c1",
+        "triage": null,
+        "fix": []
+      },
+      "receipt": "latch/runs/eval-ab-super/packaging-810-wrong.json",
+      "links": {
+        "issue": "https://github.com/pypa/packaging/issues/810",
+        "fix_commit": "https://github.com/pypa/packaging/commit/16f558722612e8ad637c37f11464d5de62c8bb33",
+        "pr": "https://github.com/pypa/packaging/pull/1097"
+      },
+      "verdict": "VALIDATED",
+      "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 5/5 mutants",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": true,
+      "fail_to_pass": true,
+      "suite_green_on_head": true,
+      "mutation": {
+        "killed": 5,
+        "total": 5,
+        "kill_rate": 1.0
+      },
+      "mutation_source": "mutation",
+      "flaky": {
+        "ran": true,
+        "runs": 5,
+        "flaky": false,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0,
+        "flake_rate": 0.0,
+        "outcomes": {
+          "base_passed": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "head_passed": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "note": "consistent over 5 runs on base and on head"
+      },
+      "wrong_patch_rejected": false,
+      "prompt_tokens": 3847,
+      "completion_tokens": 4170,
+      "model_calls": 2,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 2426,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000391
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 1421,
+          "completion_tokens": 3146,
+          "cost_usd": 0.003258
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "more-itertools-409",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "more-itertools/more-itertools",
+      "title": "spy: changing the result list changes the returned iterable",
+      "contested": false,
+      "status": "ran",
+      "label": "real (upstream fix)",
+      "outcome": "proven",
+      "loop_verdict": "gate_open",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_s": 21.3,
+      "cost_usd": 0.001816,
+      "iterations_used": 0,
+      "gate_open_at_iteration_0": true,
+      "completion_ids": {
+        "proof_test": "chatcmpl-9b42b8845589ee90",
+        "triage": null,
+        "fix": []
+      },
+      "receipt": "latch/runs/eval-ab-super/more-itertools-409-real.json",
+      "links": {
+        "issue": "https://github.com/more-itertools/more-itertools/issues/409",
+        "fix_commit": "https://github.com/more-itertools/more-itertools/commit/62411c1618493f94b16901746c34e72ad415061e",
+        "pr": "https://github.com/more-itertools/more-itertools/pull/412"
+      },
+      "verdict": "VALIDATED",
+      "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 1/1 mutants",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": true,
+      "fail_to_pass": true,
+      "suite_green_on_head": true,
+      "mutation": {
+        "killed": 1,
+        "total": 1,
+        "kill_rate": 1.0
+      },
+      "mutation_source": "mutation",
+      "flaky": {
+        "ran": true,
+        "runs": 5,
+        "flaky": false,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0,
+        "flake_rate": 0.0,
+        "outcomes": {
+          "base_passed": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "head_passed": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "note": "consistent over 5 runs on base and on head"
+      },
+      "wrong_patch_rejected": null,
+      "prompt_tokens": 2420,
+      "completion_tokens": 2107,
+      "model_calls": 2,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 542,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000278
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 1878,
+          "completion_tokens": 1083,
+          "cost_usd": 0.001538
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "more-itertools-409",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "more-itertools/more-itertools",
+      "title": "spy: changing the result list changes the returned iterable",
+      "contested": false,
+      "status": "ran",
+      "label": "constructed wrong patch",
+      "outcome": "shut_gave_up",
+      "loop_verdict": "gave_up",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_s": 128.4,
+      "cost_usd": 0.091145,
+      "iterations_used": 3,
+      "gate_open_at_iteration_0": false,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b4920fe3a84c37b0",
+        "triage": "chatcmpl-8d3e8547",
+        "fix": [
+          "chatcmpl-97be3cb0392dae6b",
+          "chatcmpl-8c201eb34b5c46f9",
+          "chatcmpl-b99a051afbfff4fa"
+        ]
+      },
+      "receipt": "latch/runs/eval-ab-super/more-itertools-409-wrong.json",
+      "links": {
+        "issue": "https://github.com/more-itertools/more-itertools/issues/409",
+        "fix_commit": "https://github.com/more-itertools/more-itertools/commit/62411c1618493f94b16901746c34e72ad415061e",
+        "pr": "https://github.com/more-itertools/more-itertools/pull/412"
+      },
+      "verdict": "FIX_FAILS_TEST",
+      "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": false,
+      "fail_to_pass": false,
+      "suite_green_on_head": true,
+      "mutation": null,
+      "mutation_source": null,
+      "flaky": null,
+      "wrong_patch_rejected": true,
+      "prompt_tokens": 14096,
+      "completion_tokens": 31567,
+      "model_calls": 6,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 536,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000278
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 1013,
+          "completion_tokens": 5328,
+          "cost_usd": 0.005099
+        },
+        "triage": {
+          "calls": 1,
+          "prompt_tokens": 702,
+          "completion_tokens": 639,
+          "cost_usd": 0.000195
+        },
+        "fixer": {
+          "calls": 3,
+          "prompt_tokens": 11845,
+          "completion_tokens": 24576,
+          "cost_usd": 0.085573
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "click-3360",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "pallets/click",
+      "title": "Empty output from HelpFormatter.write_usage for a program without arguments",
+      "contested": false,
+      "status": "ran",
+      "label": "real (upstream fix)",
+      "outcome": "proven",
+      "loop_verdict": "gate_open",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_s": 39.5,
+      "cost_usd": 0.004425,
+      "iterations_used": 0,
+      "gate_open_at_iteration_0": true,
+      "completion_ids": {
+        "proof_test": "chatcmpl-a795ab4d9d4da72d",
+        "triage": null,
+        "fix": []
+      },
+      "receipt": "latch/runs/eval-ab-super/click-3360-real.json",
+      "links": {
+        "issue": "https://github.com/pallets/click/issues/3360",
+        "fix_commit": "https://github.com/pallets/click/commit/0551bf53588ae87f462d336f24f853a156fefe3a",
+        "pr": "https://github.com/pallets/click/pull/3434"
+      },
+      "verdict": "VALIDATED",
+      "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 1/1 mutants",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": true,
+      "fail_to_pass": true,
+      "suite_green_on_head": true,
+      "mutation": {
+        "killed": 1,
+        "total": 1,
+        "kill_rate": 1.0
+      },
+      "mutation_source": "mutation",
+      "flaky": {
+        "ran": true,
+        "runs": 5,
+        "flaky": false,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0,
+        "flake_rate": 0.0,
+        "outcomes": {
+          "base_passed": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "head_passed": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        "note": "consistent over 5 runs on base and on head"
+      },
+      "wrong_patch_rejected": null,
+      "prompt_tokens": 6249,
+      "completion_tokens": 4267,
+      "model_calls": 2,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 2557,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000399
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 3692,
+          "completion_tokens": 3243,
+          "cost_usd": 0.004026
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "click-3360",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "pallets/click",
+      "title": "Empty output from HelpFormatter.write_usage for a program without arguments",
+      "contested": true,
+      "status": "ran",
+      "label": "constructed wrong patch",
+      "outcome": "shut_gave_up",
+      "loop_verdict": "gave_up",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_s": 138.0,
+      "cost_usd": 0.100898,
+      "iterations_used": 3,
+      "gate_open_at_iteration_0": false,
+      "completion_ids": {
+        "proof_test": "chatcmpl-84b12d8dcf80e15d",
+        "triage": "chatcmpl-92647088",
+        "fix": [
+          "chatcmpl-8552a2b23fb9fc9f",
+          "chatcmpl-a254f0e0e92c0400",
+          "chatcmpl-89b3dcafa2272af0"
+        ]
+      },
+      "receipt": "latch/runs/eval-ab-super/click-3360-wrong.json",
+      "links": {
+        "issue": "https://github.com/pallets/click/issues/3360",
+        "fix_commit": "https://github.com/pallets/click/commit/0551bf53588ae87f462d336f24f853a156fefe3a",
+        "pr": "https://github.com/pallets/click/pull/3434"
+      },
+      "verdict": "FIX_FAILS_TEST",
+      "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+      "verdict_source": "receipt",
+      "fail_on_base": true,
+      "pass_on_head": false,
+      "fail_to_pass": false,
+      "suite_green_on_head": false,
+      "mutation": null,
+      "mutation_source": null,
+      "flaky": null,
+      "wrong_patch_rejected": true,
+      "prompt_tokens": 51130,
+      "completion_tokens": 21775,
+      "model_calls": 6,
+      "tokens_by_role": {
+        "repo_map": {
+          "calls": 1,
+          "prompt_tokens": 2551,
+          "completion_tokens": 1024,
+          "cost_usd": 0.000399
+        },
+        "test_writer": {
+          "calls": 1,
+          "prompt_tokens": 1005,
+          "completion_tokens": 2097,
+          "cost_usd": 0.002189
+        },
+        "triage": {
+          "calls": 1,
+          "prompt_tokens": 571,
+          "completion_tokens": 1699,
+          "cost_usd": 0.000442
+        },
+        "fixer": {
+          "calls": 3,
+          "prompt_tokens": 47003,
+          "completion_tokens": 16955,
+          "cost_usd": 0.097868
+        }
+      },
+      "test_repair": {
+        "attempted": false,
+        "side": null,
+        "outcome": null,
+        "ok": null,
+        "error_before": null,
+        "completion_id": null,
+        "reason": "not needed: the proof test did not error"
+      }
+    },
+    {
+      "case": "click-3019",
+      "suite": "upstream",
+      "variant": "real",
+      "repo": "pallets/click",
+      "title": "click.prompt and click.confirm argument prompt_suffix no longer works when suffix is empty",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "click-3019",
+      "suite": "upstream",
+      "variant": "wrong",
+      "repo": "pallets/click",
+      "title": "click.prompt and click.confirm argument prompt_suffix no longer works when suffix is empty",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21612",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "Latex parsing of fractions yields wrong expression due to missing brackets",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21612",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "Latex parsing of fractions yields wrong expression due to missing brackets",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21614",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "Wrong Derivative kind attribute",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21614",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "Wrong Derivative kind attribute",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21627",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "Bug: maximum recusion depth error when checking is_zero of cosh expression",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21627",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "Bug: maximum recusion depth error when checking is_zero of cosh expression",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21847",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "itermonomials returns incorrect monomials when using min_degrees argument",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21847",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "itermonomials returns incorrect monomials when using min_degrees argument",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-22005",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "detection of infinite solution request",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-22005",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "detection of infinite solution request",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-22714",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "simpify gives `Imaginary coordinates are not permitted.` with evaluate(False)",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-22714",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "simpify gives `Imaginary coordinates are not permitted.` with evaluate(False)",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-24066",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "SI._collect_factor_and_dimension() cannot properly detect that exponent is dimensionless",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-24066",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "SI._collect_factor_and_dimension() cannot properly detect that exponent is dimensionless",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-24213",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "collect_factor_and_dimension does not detect equivalent dimensions in addition",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-24213",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "collect_factor_and_dimension does not detect equivalent dimensions in addition",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-24909",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "Bug with milli prefix",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-24909",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "Bug with milli prefix",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21055",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "`refine()` does not understand how to simplify complex arguments",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-21055",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "`refine()` does not understand how to simplify complex arguments",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-20590",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "Symbol instances have __dict__ since 1.7?",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-20590",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "Symbol instances have __dict__ since 1.7?",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-23262",
+      "suite": "swebench_lite",
+      "variant": "real",
+      "repo": "sympy/sympy",
+      "title": "Python code printer not respecting tuple with one element",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    },
+    {
+      "case": "sympy-23262",
+      "suite": "swebench_lite",
+      "variant": "nofix",
+      "repo": "sympy/sympy",
+      "title": "Python code printer not respecting tuple with one element",
+      "contested": false,
+      "status": "not run",
+      "outcome": null,
+      "reason": "this case did not run in this evaluation (it is listed so the omission is visible)",
+      "verdict": null,
+      "verdict_reason": null,
+      "loop_verdict": null,
+      "flaky": null,
+      "mutation": null
+    }
+  ],
+  "provider": "nebius"
+}

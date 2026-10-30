@@ -1,0 +1,398 @@
+{
+  "run_id": "tabulate190.wrong",
+  "provider": "nebius",
+  "repo": "astanin/python-tabulate@6c48142c0b + constructed wrong patch",
+  "base": "472111d4fcbef25aba10f8da9cf7c0ec093b6802",
+  "head": "25be38d8b886cb3f8d3ff02b520c38e578ef1c6d",
+  "issue": "maxcolwidths does not preserve line breaks\n\nmaxcolwidths does not work well with multiline cells. Using the latest v0.8.10 I'm observing this behavior:\r\n\r\n```python\r\ndata = [ [\"123456789 bbb\\nccc\"] ]\r\nprint(tabulate.tabulate(data, tablefmt=\"fancy_grid\", maxcolwidths=10))\r\nprint(tabulate.tabulate(data, tablefmt=\"fancy_grid\"))\r\n```\r\n\r\n```\r\n\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\r\n\u2502 123456789 \u2502\r\n\u2502 bbb ccc   \u2502\r\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\r\n\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\r\n\u2502 123456789 bbb \u2502\r\n\u2502 ccc           \u2502\r\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\r\n```\r\nNote that the first one does not have a line break between `bbb` and `ccc`. The expected result is:\r\n```\r\n\u2552\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2555\r\n\u2502 123456789 \u2502\r\n\u2502 bbb       \u2502\r\n\u2502 ccc       \u2502\r\n\u2558\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255b\r\n```\r\n\r\nThis can be fixed by changing the `_wrap_text_to_colwidths` from:\r\n```python\r\n                wrapper = _CustomTextWrap(width=width)\r\n                wrapped = wrapper.wrap(cell)\r\n```\r\n\r\nto:\r\n```python\r\n                wrapper = _CustomTextWrap(width=width)\r\n                wrapped = ['\\n'.join(wrapper.wrap(line)) for line in cell.splitlines() if line.strip() != '']\r\n```\r\n\r\nAs described https://stackoverflow.com/a/26538082.\r\n\r\nI can send a PR if such change would be accepted.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3.5-Super-VL",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-ed32b5d6",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe test failure confirms the reported bug: `maxcolwidths` merges `bbb` and `ccc` onto one line instead of preserving the line break."
+  },
+  "started_at": "2026-10-30T13:24:16.884Z",
+  "proof_test": {
+    "name": "test_maxcolwidths_preserves_line_breaks",
+    "source": "import pytest\n\ndef test_maxcolwidths_preserves_line_breaks():\n    import tabulate\n\n    data = [[\"123456789 bbb\\nccc\"]]\n    out = tabulate.tabulate(data, tablefmt=\"fancy_grid\", maxcolwidths=10)\n\n    content_lines = [\n        line.strip(\"\u2502 \").strip()\n        for line in out.splitlines()\n        if line.startswith(\"\u2502\")\n    ]\n\n    assert content_lines == [\"123456789\", \"bbb\", \"ccc\"]\n",
+    "generated_by": "nvidia/Nemotron-3.5-Super-VL",
+    "completion_id": "chatcmpl-9cdc20e34137814a"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________ test_maxcolwidths_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:15: in test_maxcolwidths_preserves_line_breaks\n    assert content_lines == [\"123456789\", \"bbb\", \"ccc\"]\nE   AssertionError: assert ['123456789', 'bbb ccc'] == ['123456789', 'bbb', 'ccc']\nE     \nE     At index 1 diff: 'bbb ccc' != 'bbb'\nE     Right contains one more item: 'ccc'\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert ['123456789', 'bbb ccc'] == ['123456789', 'bbb', 'ccc']\n1 failed in 0.16s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_______________________________________________________________________________ test_maxcolwidths_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:15: in test_maxcolwidths_preserves_line_breaks\n    assert content_lines == [\"123456789\", \"bbb\", \"ccc\"]\nE   AssertionError: assert ['123456789 bbb', 'ccc'] == ['123456789', 'bbb', 'ccc']\nE     \nE     At index 0 diff: '123456789 bbb' != '123456789'\nE     Right contains one more item: 'ccc'\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert ['123456789 bbb', 'ccc'] == ['123456789', 'bbb', 'ccc']\n1 failed in 0.36s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s............sss.....                                                                                                     [100%]\n247 passed, 37 skipped in 1.48s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-87ac4f03778933c2",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    },
+    {
+      "iteration": 2,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-b1eafb8f28a5f2e3",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    },
+    {
+      "iteration": 3,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-9c9c5315b04a8469",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    }
+  ],
+  "gate": "gave_up",
+  "verdict": "FIX_FAILS_TEST",
+  "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-5e0e2f52",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 2,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-9cdc20e34137814a",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_maxcolwidths_preserves_line_breaks():\n    import tabulate\n\n    data = [[\"123456789 bbb\\nccc\"]]\n    out = tabulate.tabulate(data, tablefmt=\"fancy_grid\", maxcolwidths=10)\n\n    content_lines = [\n        line.strip(\"\u2502 \").strip()\n        for line in out.splitlines()\n        if line.startswith(\"\u2502\")\n    ]\n\n    assert content_lines == [\"123456789\", \"bbb\", \"ccc\"]",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_wrap_text_to_colwidths"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark",
+          "tabulate"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "_wrap_text_to_colwidths"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark",
+      "tabulate"
+    ],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": false,
+    "reason": "not needed: the proof test did not error"
+  },
+  "finished_at": "2026-10-30T13:26:49.994Z",
+  "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+  "proven": false,
+  "base_sha": "472111d4fcbef25aba10f8da9cf7c0ec093b6802",
+  "head_sha": "25be38d8b886cb3f8d3ff02b520c38e578ef1c6d",
+  "verdict_logs": {
+    "base": "s_preserves_line_breaks ________________________________________________________________________________\nlatch_issue_test.py:15: in test_maxcolwidths_preserves_line_breaks\n    assert content_lines == [\"123456789\", \"bbb\", \"ccc\"]\nE   AssertionError: assert ['123456789', 'bbb ccc'] == ['123456789', 'bbb', 'ccc']\nE     \nE     At index 1 diff: 'bbb ccc' != 'bbb'\nE     Right contains one more item: 'ccc'\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert ['123456789', 'bbb ccc'] == ['123456789', 'bbb', 'ccc']\n1 failed in 0.16s\n",
+    "head": "line_breaks ________________________________________________________________________________\nlatch_issue_test.py:15: in test_maxcolwidths_preserves_line_breaks\n    assert content_lines == [\"123456789\", \"bbb\", \"ccc\"]\nE   AssertionError: assert ['123456789 bbb', 'ccc'] == ['123456789', 'bbb', 'ccc']\nE     \nE     At index 0 diff: '123456789 bbb' != '123456789'\nE     Right contains one more item: 'ccc'\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_maxcolwidths_preserves_line_breaks - AssertionError: assert ['123456789 bbb', 'ccc'] == ['123456789', 'bbb', 'ccc']\n1 failed in 0.36s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 909,
+      "completion_tokens": 1024,
+      "latency_ms": 3832,
+      "completion_id": "chatcmpl-5e0e2f52",
+      "cost_usd": 0.0003,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3.5-Super-VL",
+      "prompt_tokens": 1342,
+      "completion_tokens": 8024,
+      "latency_ms": 24314,
+      "completion_id": "chatcmpl-9cdc20e34137814a",
+      "cost_usd": 0.007624,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1083,
+      "completion_tokens": 871,
+      "latency_ms": 3205,
+      "completion_id": "chatcmpl-ed32b5d6",
+      "cost_usd": 0.000274,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2456,
+      "completion_tokens": 8192,
+      "latency_ms": 50197,
+      "completion_id": "chatcmpl-87ac4f03778933c2",
+      "cost_usd": 0.027032,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2470,
+      "completion_tokens": 8192,
+      "latency_ms": 35785,
+      "completion_id": "chatcmpl-b1eafb8f28a5f2e3",
+      "cost_usd": 0.027046,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2487,
+      "completion_tokens": 8192,
+      "latency_ms": 31613,
+      "completion_id": "chatcmpl-9c9c5315b04a8469",
+      "cost_usd": 0.027063,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.089339,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T13:24:16.884Z",
+      "detail": {
+        "base": "472111d4fcbef25aba10f8da9cf7c0ec093b6802",
+        "head": "25be38d8b886cb3f8d3ff02b520c38e578ef1c6d"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T13:24:17.757Z",
+      "detail": {
+        "base": "472111d4fcbe",
+        "head": "25be38d8b886",
+        "changed_files": [
+          "tabulate/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T13:24:18.070Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T13:24:21.929Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T13:24:21.929Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3.5-Super-VL"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T13:24:46.244Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-9cdc20e34137814a"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T13:24:46.245Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T13:24:46.601Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T13:24:46.601Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T13:24:49.181Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T13:24:49.182Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T13:24:52.388Z",
+      "detail": {
+        "verdict": "reproduced",
+        "completion_id": "chatcmpl-ed32b5d6"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T13:24:52.388Z",
+      "detail": {
+        "iteration": 1,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T13:25:42.590Z",
+      "detail": {
+        "iteration": 1,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T13:25:42.590Z",
+      "detail": {
+        "iteration": 2,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T13:26:18.378Z",
+      "detail": {
+        "iteration": 2,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T13:26:18.378Z",
+      "detail": {
+        "iteration": 3,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T13:26:49.994Z",
+      "detail": {
+        "iteration": 3,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T13:26:49.994Z",
+      "detail": {
+        "verdict": "FIX_FAILS_TEST",
+        "reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)"
+      }
+    }
+  ],
+  "final_iteration": 3
+}

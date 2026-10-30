@@ -245,3 +245,55 @@ LATCH_EVAL_ROOT=/Volumes/PortableSSD/nvdia/loop latch eval run --jobs 3 --max-it
 
 A live run writes `latch/runs/eval-DATE.json`, `latch/runs/eval/<case>-<variant>.json`, `latch/runs/eval-summary.json` and
 `latch/runs/eval-report.md`. `latch eval summarize latch/runs/eval-DATE.json` rebuilds the last two.
+
+## Writer model A/B (live)
+
+Does a cheaper model write the proof test as well as Ultra? The same 5 cases, the same flags, one variable: the model that writes
+(and, if needed, repairs) the proof test. The fix model stays Ultra and triage stays Lightning in both arms. Super is
+`nvidia/Nemotron-3.5-Super-VL` (id read from `GET /v1/models` and confirmed with one chat call on 2026-10-30; list price $0.30 in, $0.90 out
+per million tokens against Ultra's $1.00 and $3.00). The Ultra arm is the repair run already on file (`latch/runs/eval-summary-repair.json`, same
+date, same flags, test repair on). The 5 cases are the real fixes that Ultra `VALIDATED` there and that are cheap to rerun: boltons-319,
+tabulate-190, packaging-810, more-itertools-409, click-3360. Each case runs its real fix and its constructed wrong patch (10 runs per arm).
+
+| Real fix, 5 cases | Ultra writes the test | Super writes the test |
+|---|---|---|
+| `VALIDATED` | 5 | 5 |
+| `INVALID_TEST` | 0 | 0 |
+| Cost per run (model_calls total) | $0.0087 | $0.0059 |
+| Cost per `VALIDATED` proof | $0.0087 | $0.0059 |
+| Test writer share of that | $0.0084 | $0.0055 |
+| Median wall time | 29.7 s | 57.7 s |
+| Median test writer latency | 7.8 s | 11.0 s |
+| Mean test writer output tokens | 1,932 | 5,058 |
+
+| Constructed wrong patch, 5 cases | Ultra writes the test | Super writes the test |
+|---|---|---|
+| Caught (`FIX_FAILS_TEST`) | 5 | 4 |
+| Wrong patch accepted | 0 | 1 (packaging-810) |
+| Cost, all 5 runs | $0.516 | $0.402 |
+| Median wall time | 110.8 s | 136.0 s |
+
+Whole arm, 10 runs: Ultra $0.559, Super $0.431 (about $0.056 and $0.043 per run). The wrong-patch runs dominate both totals because the
+Ultra fixer retries three times. Cost is Token Factory list price from each receipt's `model_calls`, cached-input discounts not applied.
+
+Read: on real fixes Super writes a valid, `VALIDATED` proof test every time and does it for about a third less money per proof ($0.0059 against
+$0.0087), because it is 3.3 times cheaper per token even though it writes 2.6 times more output tokens. It is slower per test (median 11.0 s against 7.8 s
+for the test writer call). The difference that matters is on the wrong patch: Super's packaging-810 test asserts only dev-segment cases, passes on
+the narrow wrong patch, and the gate opened (upstream's `tests/test_specifiers.py` fails 5 on that patch; receipt
+`latch/runs/eval-ab-super/packaging-810-wrong.json`). That is the same case recorded above as the one false accept; Ultra's repair-run test caught it, its
+first-run test did not. Five cases with one sample each cannot rank the models on that case. They do show the cheaper writer can let a narrow wrong
+patch through, and Ultra stays the default.
+
+The 5 cases were picked because Ultra validated their real fix in the repair run, so Ultra's 5/5 is by construction. In the untagged first run Ultra
+scored `INVALID_TEST` on two of the same five (boltons-319, more-itertools-409). Wall time includes the repo suite runs and 3 parallel jobs, so the
+median wall gap is noisier than the test writer latency.
+
+```
+cd ~/Desktop/nvdia && PATH=$HOME/.cache/latch-py314:$PATH LATCH_EVAL_ROOT=/Volumes/PortableSSD/nvdia/loop python3 -m latch eval run \
+  --only boltons-319 tabulate-190 packaging-810 more-itertools-409 click-3360 --jobs 3 --max-iterations 3 --tag ab-super \
+  --test-model nvidia/Nemotron-3.5-Super-VL
+```
+
+`--test-model` is recorded in the run doc and the summary under `models.proof_test`; the default is Ultra. Both arms with receipt paths:
+`latch/runs/eval-ab-super.json`; the Super run itself: `latch/runs/eval-2026-10-30-ab-super.json`, `latch/runs/eval-summary-ab-super.json`,
+`latch/runs/eval-ab-super/`.

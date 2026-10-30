@@ -1,0 +1,784 @@
+{
+  "date": "2026-10-30",
+  "generated_at": "2026-10-30T18:59:09+05:30",
+  "max_iterations": 3,
+  "jobs": 3,
+  "provider": "nebius",
+  "tag": "ab-super",
+  "test_repair_enabled": true,
+  "latch_git_sha": "324f08d5208fc91e8ac558a00f6c71f13a7e0b77",
+  "models": {
+    "proof_test": "nvidia/Nemotron-3.5-Super-VL",
+    "fix": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "triage": "nvidia/Nemotron-3_5-Lightning"
+  },
+  "elapsed_seconds": 363.8,
+  "summary": {
+    "cases_run": 5,
+    "dropped_cases": [
+      {
+        "id": "cachetools-221",
+        "repo": "tkem/cachetools",
+        "fix": "91aa4c63f5716d8717ee2f898a01f40ce26986ae",
+        "reason": "no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly.",
+        "source": "dropped before the run (record only)"
+      },
+      {
+        "id": "boltons-4457decc",
+        "repo": "mahmoud/boltons",
+        "fix": "4457decc",
+        "reason": "the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply",
+        "source": "dropped before the run (record only)"
+      },
+      {
+        "id": "boltons-8177b933",
+        "repo": "mahmoud/boltons",
+        "fix": "8177b933",
+        "reason": "same as boltons-4457decc",
+        "source": "dropped before the run (record only)"
+      }
+    ],
+    "real_proven": 5,
+    "real_total": 5,
+    "real_gave_up": 0,
+    "real_error": 0,
+    "wrong_total": 5,
+    "wrong_false_accept": 1,
+    "wrong_shut_gave_up": 4,
+    "wrong_repaired_oracle_pass": 0,
+    "wrong_repaired_but_oracle_fails": 0,
+    "wrong_error": 0,
+    "nofix_total": 0,
+    "nofix_fix_correct": 0,
+    "nofix_green_but_wrong": 0,
+    "nofix_gave_up": 0,
+    "nofix_error": 0,
+    "total_wall_seconds_sum": 905.0,
+    "gave_up_reasons": {
+      "boltons-319.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "tabulate-190.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "more-itertools-409.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "click-3360.wrong": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green"
+    },
+    "error_reasons": {}
+  },
+  "cases": [
+    {
+      "id": "boltons-319",
+      "repo": "mahmoud/boltons",
+      "title": "boltons.timeutils daterange wrong when starting in December with a year step",
+      "base": "6c7fa3e05659fac6515f661153c89d4ad02df168",
+      "fix": "8ba3a7fa0d99b73f7f43c1aed82c571b941eecea",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/mahmoud/boltons/issues/319",
+        "fix_commit": "https://github.com/mahmoud/boltons/commit/8ba3a7fa0d99b73f7f43c1aed82c571b941eecea"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "fix the month rollover into December for month-only steps, but not for year steps",
+      "wrong_patch_file": "boltons/timeutils.py",
+      "wrong_patch_edits": [
+        [
+          "now = now.replace(year=now.year + y_step + m_y_step,",
+          "now = now.replace(year=now.year + y_step + m_y_step - (1 if cur_month == 0 and not y_step else 0),"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_timeutils.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "boltons-319",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 2.1,
+          "summary": "396 passed, 24 warnings in 1.81s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.9,
+          "summary": "396 passed, 24 warnings in 1.69s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 3 passed, 1 warning in 0.14s",
+          "oracle_files": [
+            "tests/test_timeutils.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "4 passed, 1 warning in 0.13s",
+          "oracle_files": [
+            "tests/test_timeutils.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 3 passed, 1 warning in 0.14s",
+          "oracle_files": [
+            "tests/test_timeutils.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "tabulate-190",
+      "repo": "astanin/python-tabulate",
+      "title": "maxcolwidths does not preserve line breaks",
+      "base": "bf58e37e6b35e3cc9a0bd740f752abfd32b6e6f8",
+      "fix": "6c48142c0b57ea6108cb1d304b69b90b18748e45",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/astanin/python-tabulate/issues/190",
+        "fix_commit": "https://github.com/astanin/python-tabulate/commit/6c48142c0b57ea6108cb1d304b69b90b18748e45"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "keep line breaks by not wrapping multi-line cells at all",
+      "wrong_patch_file": "tabulate/__init__.py",
+      "wrong_patch_edits": [
+        [
+          "wrapped = wrapper.wrap(casted_cell)",
+          "wrapped = casted_cell.split(\"\\n\") if \"\\n\" in casted_cell else wrapper.wrap(casted_cell)"
+        ]
+      ],
+      "oracle_files": [
+        "test/test_regression.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "tabulate-190",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.1,
+          "summary": "247 passed, 37 skipped in 0.95s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.2,
+          "summary": "247 passed, 37 skipped in 0.96s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 28 passed, 4 skipped in 0.18s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "29 passed, 4 skipped in 0.16s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 28 passed, 4 skipped in 0.18s",
+          "oracle_files": [
+            "test/test_regression.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "packaging-810",
+      "repo": "pypa/packaging",
+      "title": "Specifier greater-than comparison returns incorrect result for a version with dev+local parts",
+      "base": "65ed5e92673aaabbfbeafa9b70463ba41bbae9db",
+      "fix": "16f558722612e8ad637c37f11464d5de62c8bb33",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pypa/packaging/issues/810",
+        "fix_commit": "https://github.com/pypa/packaging/commit/16f558722612e8ad637c37f11464d5de62c8bb33",
+        "pr": "https://github.com/pypa/packaging/pull/1097"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "special-case the issue's example: stop the local-version guard from rejecting only when both versions carry differing dev segments",
+      "wrong_patch_file": "src/packaging/specifiers.py",
+      "wrong_patch_edits": [
+        [
+          "if prospective.local is not None and _base_version(\n            prospective\n        ) == _base_version(spec):",
+          "if (\n            prospective.local is not None\n            and _base_version(prospective) == _base_version(spec)\n            and (prospective.dev is None or spec.dev is None or prospective.dev == spec.dev)\n        ):"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_specifiers.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "packaging-810",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 20.0,
+          "summary": "27530 passed, 1 skipped in 18.59s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 20.1,
+          "summary": "27530 passed, 1 skipped in 18.72s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "9 failed, 1224 passed in 1.33s",
+          "oracle_files": [
+            "tests/test_specifiers.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "1233 passed in 1.11s",
+          "oracle_files": [
+            "tests/test_specifiers.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "5 failed, 1228 passed in 1.25s",
+          "oracle_files": [
+            "tests/test_specifiers.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "more-itertools-409",
+      "repo": "more-itertools/more-itertools",
+      "title": "spy: changing the result list changes the returned iterable",
+      "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+      "fix": "62411c1618493f94b16901746c34e72ad415061e",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/more-itertools/more-itertools/issues/409",
+        "fix_commit": "https://github.com/more-itertools/more-itertools/commit/62411c1618493f94b16901746c34e72ad415061e",
+        "pr": "https://github.com/more-itertools/more-itertools/pull/412"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "wrap the head in iter() so it looks decoupled, but the iterator still reads the live list",
+      "wrong_patch_file": "more_itertools/more.py",
+      "wrong_patch_edits": [
+        [
+          "return head, chain(head, it)",
+          "return head, chain(iter(head), it)"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_more.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "more-itertools-409",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 1.1,
+          "summary": "396 passed, 5 warnings in 0.90s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 1.1,
+          "summary": "396 passed, 5 warnings in 0.88s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 322 passed, 5 warnings in 0.89s",
+          "oracle_files": [
+            "tests/test_more.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "323 passed, 5 warnings in 1.22s",
+          "oracle_files": [
+            "tests/test_more.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "1 failed, 322 passed, 5 warnings in 1.19s",
+          "oracle_files": [
+            "tests/test_more.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    },
+    {
+      "id": "click-3360",
+      "repo": "pallets/click",
+      "title": "Empty output from HelpFormatter.write_usage for a program without arguments",
+      "base": "7c99ebe23b931f27562d926814423cce85fd9766",
+      "fix": "0551bf53588ae87f462d336f24f853a156fefe3a",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pallets/click/issues/3360",
+        "fix_commit": "https://github.com/pallets/click/commit/0551bf53588ae87f462d336f24f853a156fefe3a",
+        "pr": "https://github.com/pallets/click/pull/3434"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "emit the prefix line when args are empty, but keep its trailing space",
+      "wrong_patch_file": "src/click/formatting.py",
+      "wrong_patch_edits": [
+        [
+          "        if text_width >= (term_len(usage_prefix) + 20):\n            # The arguments will fit",
+          "        if not args:\n            self.write(usage_prefix)\n            self.write(\"\\n\")\n            return\n\n        if text_width >= (term_len(usage_prefix) + 20):\n            # The arguments will fit"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_formatting.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": {
+        "id": "click-3360",
+        "suite_base": {
+          "returncode": 0,
+          "seconds": 8.3,
+          "summary": "1601 passed, 25 skipped, 30000 deselected, 1 xfailed in 6.83s"
+        },
+        "suite_wrong": {
+          "returncode": 0,
+          "seconds": 5.9,
+          "summary": "1601 passed, 25 skipped, 30000 deselected, 1 xfailed in 4.63s"
+        },
+        "oracle_base": {
+          "oracle_pass": false,
+          "oracle_summary": "7 failed, 28 passed in 0.24s",
+          "oracle_files": [
+            "tests/test_formatting.py"
+          ]
+        },
+        "oracle_head": {
+          "oracle_pass": true,
+          "oracle_summary": "35 passed in 0.18s",
+          "oracle_files": [
+            "tests/test_formatting.py"
+          ]
+        },
+        "oracle_wrong": {
+          "oracle_pass": false,
+          "oracle_summary": "7 failed, 28 passed in 0.24s",
+          "oracle_files": [
+            "tests/test_formatting.py"
+          ]
+        },
+        "checks": {
+          "base suite green": true,
+          "wrong patch suite green": true,
+          "oracle fails on base": true,
+          "oracle passes on real fix": true,
+          "oracle fails on wrong patch": true
+        },
+        "ok": true
+      }
+    }
+  ],
+  "runs": [
+    {
+      "case": "boltons-319",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 88.1,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "4 passed, 1 warning in 0.16s",
+        "oracle_files": [
+          "tests/test_timeutils.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-b7476e57674f8673",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.003262,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_daterange_year_step_starting_in_december",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/boltons-319-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "boltons-319",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 136.0,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-bae9b47e20db4cae",
+        "triage": "chatcmpl-ced90168",
+        "fix": [
+          "chatcmpl-86e14f029e2c36d2",
+          "chatcmpl-94b107264ab3ae25",
+          "chatcmpl-8fe8e78e6bd57847"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.116525,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_daterange_year_step_starting_in_december",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/boltons-319-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "tabulate-190",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 68.6,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "29 passed, 4 skipped in 0.37s",
+        "oracle_files": [
+          "test/test_regression.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-8e4e51034ac70727",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.015624,
+      "model_calls": 3,
+      "proof_test_rejections": 1,
+      "proof_test_name": "test_maxcolwidths_preserves_line_breaks",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/tabulate-190-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "tabulate-190",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 155.8,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-9cdc20e34137814a",
+        "triage": "chatcmpl-ed32b5d6",
+        "fix": [
+          "chatcmpl-87ac4f03778933c2",
+          "chatcmpl-b1eafb8f28a5f2e3",
+          "chatcmpl-9c9c5315b04a8469"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.089339,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_maxcolwidths_preserves_line_breaks",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/tabulate-190-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "packaging-810",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 57.7,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "1233 passed in 3.41s",
+        "oracle_files": [
+          "tests/test_specifiers.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-bb236514292b25ae",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.004224,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_specifier_greater_than_dev_with_local_segment",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/packaging-810-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "packaging-810",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 71.6,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": false,
+        "oracle_summary": "5 failed, 1228 passed in 1.42s",
+        "oracle_files": [
+          "tests/test_specifiers.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-96375df3e35bb4c1",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.003649,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_specifier_greater_than_dev_version_with_local_segment",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/packaging-810-wrong.json",
+      "outcome": "false_accept"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 21.3,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "323 passed, 5 warnings in 0.85s",
+        "oracle_files": [
+          "tests/test_more.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-9b42b8845589ee90",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.001816,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_spy_head_mutation_does_not_affect_returned_iterable",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/more-itertools-409-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 128.4,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-b4920fe3a84c37b0",
+        "triage": "chatcmpl-8d3e8547",
+        "fix": [
+          "chatcmpl-97be3cb0392dae6b",
+          "chatcmpl-8c201eb34b5c46f9",
+          "chatcmpl-b99a051afbfff4fa"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.091145,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_spy_head_mutation_does_not_affect_returned_iterable",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/more-itertools-409-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "click-3360",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 39.5,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "35 passed in 0.19s",
+        "oracle_files": [
+          "tests/test_formatting.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "chatcmpl-a795ab4d9d4da72d",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": 0.004425,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_help_formatter_write_usage_prints_usage_line_without_args",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/click-3360-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "click-3360",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 138.0,
+      "provider": "nebius",
+      "base_red": true,
+      "head_suite_green": false,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 3,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "chatcmpl-84b12d8dcf80e15d",
+        "triage": "chatcmpl-92647088",
+        "fix": [
+          "chatcmpl-8552a2b23fb9fc9f",
+          "chatcmpl-a254f0e0e92c0400",
+          "chatcmpl-89b3dcafa2272af0"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": 0.100898,
+      "model_calls": 6,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_write_usage_without_args_prints_usage_line",
+      "test_repair": {
+        "attempted": false,
+        "reason": "not needed: the proof test did not error"
+      },
+      "receipt": "latch/runs/eval-ab-super/click-3360-wrong.json",
+      "outcome": "shut_gave_up"
+    }
+  ]
+}
