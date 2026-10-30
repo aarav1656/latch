@@ -923,6 +923,24 @@ class StepEventTests(unittest.TestCase):
         self.assertIn("step", [e["event"] for e in events])  # legacy events are untouched
         self.assertEqual(events[-1]["event"], "result")
 
+    def test_the_strengthen_step_and_the_repeated_gate_steps_are_relayed_in_order_and_unknown_steps_pass_through(self):
+        order = [("mutation_check", "failed"), ("strengthen", "started"), ("base_run", "started"), ("base_run", "done"), ("mutation_check", "started"),
+                 ("mutation_check", "done"), ("strengthen", "done"), ("brand_new_step", "started"), ("verdict", "done")]
+
+        def run(url, path, command, on_step=None, runner=None, on_step_event=None):
+            for step, status in order:
+                on_step_event({"step": step, "status": status, "ts": "2026-10-30T08:00:00.000Z",
+                               "detail": {"outcome": "adopted"} if step == "strengthen" and status == "done" else None})
+            return receipt("b" * 40, "6" * 40)
+
+        h = Harness(self, run_pr=run)
+        events = h.events(h.post(h.add_pr(6))[2]["job_id"])
+        relayed = [e["data"] for e in events if e["event"] == "step_event"]
+        self.assertEqual([(e["step"], e["status"]) for e in relayed], order)  # repeats are not collapsed or reordered
+        self.assertEqual([e["seq"] for e in relayed], list(range(1, len(order) + 1)))
+        self.assertEqual(relayed[6]["detail"], {"outcome": "adopted"})
+        self.assertEqual(events[-1]["event"], "result")
+
     def test_step_events_replay_with_last_event_id(self):
         def run(url, path, command, on_step=None, runner=None, **kwargs):
             kwargs["on_step_event"]({"step": "fetch", "status": "started", "ts": "t", "detail": None})
