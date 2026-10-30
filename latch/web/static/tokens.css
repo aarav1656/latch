@@ -1,31 +1,52 @@
-/* Latch web design tokens: evidence ledger, dark warm graphite. See latch/web/DESIGN.md.
-   Three type sizes only: --t-hero, --t-base, --t-small. Colour is meaning: pass/fail only, plus one accent. */
+/* Latch web design tokens: the shear line. Warm charcoal, cream ink, one citron accent. See latch/web/DESIGN.md.
+   Verdict colours are meaning only: --pass for a check that held, --fail for one that did not. */
+@font-face {
+  font-family: "Mona Sans";
+  src: url("/static/fonts/mona-sans-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-stretch: 75% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Azeret Mono";
+  src: url("/static/fonts/azeret-mono-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
 :root {
   color-scheme: dark;
-  --bg: oklch(20.5% 0.008 70);
-  --surface: oklch(25% 0.009 70);
-  --inset: oklch(16.5% 0.008 70);
-  --line: oklch(35% 0.010 70);
-  --line-soft: oklch(30% 0.009 70);
-  --ink: oklch(94% 0.008 85);
-  --muted: oklch(78% 0.012 80);
-  --faint: oklch(63% 0.010 75);
-  --pass: oklch(80% 0.15 155);
-  --fail: oklch(74% 0.17 28);
-  --accent: oklch(83% 0.12 82);
-  --on-accent: oklch(20.5% 0.008 70);
-  --pass-wash: oklch(26% 0.04 155);
-  --fail-wash: oklch(26% 0.05 28);
+  --bg: #24201d;
+  --surface: #2e2925;
+  --inset: #1b1815;
+  --line: #4a433d;
+  --line-soft: #393430;
+  --ink: #f1f0ec;
+  --body: #e5e2da;
+  --muted: #b2a998;
+  --faint: #9d9484;
+  --accent: #dfe86a;
+  --on-accent: #23200f;
+  --pass: #86dba0;
+  --pass-field: #1d3b2b;
+  --fail: #ff8f7c;
+  --fail-field: #4b2520;
 
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-body: "Source Sans 3", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --t-hero: clamp(3rem, 9vw, 5.5rem);
+  --font-display: "Mona Sans", ui-sans-serif, "Helvetica Neue", sans-serif;
+  --font-body: "Mona Sans", ui-sans-serif, "Helvetica Neue", sans-serif;
+  --font-mono: "Azeret Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --t-hero: clamp(2.5rem, 7vw, 6.5rem);
+  --t-figure: clamp(3.25rem, 6.4vw, 5.75rem);
+  --t-title: clamp(1.5rem, 2.4vw, 2rem);
+  --t-lead: 1.1875rem;
   --t-base: 1.0625rem;
   --t-small: 0.875rem;
+  --t-label: 0.75rem;
 
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 72px;
-  --radius: 4px;
-  --measure: 62ch;
-  --page: 1120px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 72px; --space-9: 112px;
+  --radius: 3px;
+  --radius-panel: 4px;
+  --measure: 60ch;
+  --page: 1240px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --ease: cubic-bezier(0.22, 0.8, 0.3, 1);
 }

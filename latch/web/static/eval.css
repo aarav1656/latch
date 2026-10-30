@@ -1,24 +1,35 @@
 /* Evidence page. Tokens and shared primitives come from tokens.css and app.css. */
-.eval-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-7); min-width: 0; }
+.page-title { font: 600 clamp(2.25rem, 6.4vw, 5.5rem)/1 var(--font-display); font-stretch: 112%; letter-spacing: -0.04em; max-width: 16ch; }
+.eval-root .rows { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-7); }
+.eval-root .rows dd.mono { font: 400 1rem/1.55 var(--font-body); font-variant-numeric: tabular-nums; }
+@media (max-width: 52rem) { .eval-root .rows { grid-template-columns: minmax(0, 1fr); } }
+.page > .section:first-child { gap: var(--space-5); }
+.eval-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); min-width: 0; }
 .eval-root > * { min-width: 0; }
-.eval-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-5); background: var(--surface); }
-.eval-hero.is-pass { border-color: var(--pass); background: var(--pass-wash); }
-.eval-hero.is-fail { border-color: var(--fail); background: var(--fail-wash); }
-.eval-hero .hero-num { color: var(--ink); }
-.eval-hero.is-pass .hero-num { color: var(--pass); }
-.eval-hero p { max-width: var(--measure); }
-.eval-sub { color: var(--muted); font: 400 var(--t-small)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
+.eval-hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-8); padding: var(--space-7); background: var(--surface); border-radius: var(--radius-panel); }
+.eval-fig { display: grid; gap: var(--space-4); align-content: start; min-width: 0; }
+.eval-hero .hero-num { font: 600 var(--t-figure)/0.95 var(--font-display); font-stretch: 112%; letter-spacing: -0.04em; color: var(--ink); display: flex; align-items: baseline; gap: 0.25em; flex-wrap: wrap; }
+.fig-of { font-size: 0.42em; letter-spacing: -0.01em; color: var(--muted); font-weight: 500; }
+.eval-fig.is-clear .hero-num { color: var(--pass); }
+.eval-fig.is-breach .hero-num { color: var(--fail); }
+.eval-hero.is-pending { grid-template-columns: minmax(0, 1fr); }
+.fig-cap { color: var(--ink); font-size: var(--t-lead); max-width: 34ch; line-height: 1.35; }
+.eval-hero > .eval-notes { grid-column: 1 / -1; }
+.eval-sub { color: var(--muted); font-size: 0.9375rem; max-width: 52ch; }
+.eval-notes summary { cursor: pointer; color: var(--accent); font-weight: 500; }
 .eval-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
-.eval-featured { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); border-top: 1px solid var(--line); padding-top: var(--space-4); }
+.eval-featured { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+.eval-featured .gate { max-width: 40rem; background: var(--surface); border-radius: var(--radius-panel); padding: var(--space-5); }
 .eval-featured .verdict-line { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
 .eval-scroll { overflow-x: auto; }
 .eval-cases { min-width: 58rem; }
 .eval-cases th { white-space: nowrap; }
-@media (max-width: 52rem) { .eval-split { grid-template-columns: minmax(0, 1fr); } .eval-hero { padding: var(--space-4); } }
+@media (max-width: 52rem) { .eval-split, .eval-hero { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 30rem) { .eval-hero { padding: var(--space-5); } }
 .eval-scroll .ledger-table { min-width: 34rem; }
-.eval-state { font: 600 var(--t-base)/1.3 var(--font-display); color: var(--ink); }
+.eval-state { font: 600 1.5rem/1.3 var(--font-display); color: var(--ink); }
 
 .case-source, .case-loop { display: block; color: var(--muted); }
 .dropped { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
-.dropped-item { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: var(--space-2) 0; border-top: 1px solid var(--line-soft); }
+.dropped-item { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: var(--space-3) var(--space-4); background: var(--surface); margin-bottom: 2px; }
 .dropped-reason { flex: 1 1 14rem; color: var(--muted); overflow-wrap: anywhere; }

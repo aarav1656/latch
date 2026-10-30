@@ -42,6 +42,14 @@
     return node;
   }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  // `code` spans in server notes render as code, never as raw backticks.
+  function rich(node, text) {
+    clear(node);
+    String(text == null ? "" : text).split("`").forEach((part, i) => {
+      if (!part) return;
+      node.appendChild(i % 2 ? el("code", null, part) : document.createTextNode(part));
+    });
+  }
   function safeHref(url) {
     try { const u = new URL(url); return u.protocol === "https:" && u.hostname === "github.com" ? u.href : null; } catch (_) { return null; }
   }
@@ -79,7 +87,7 @@
     return p;
   }
   function pane(cls, title, badge, body, label) {
-    const box = el("div", "pane " + cls);
+    const box = el("div", "pane " + cls, null, { "data-ui": "" });
     const head = el("div", "pane-head");
     head.appendChild(el("h3", null, title));
     if (badge) head.appendChild(badge);
@@ -314,8 +322,8 @@
     if (o) {
       facts.append(row("Base runs", outcomeRun(o.base_passed, "pass", "fail"), true), row("Head runs", outcomeRun(o.head_passed, "pass", "fail"), true));
     }
-    sec.appendChild(facts);
     if (typeof f.note === "string" && f.note.trim()) sec.appendChild(el("p", "hint", f.note.trim()));
+    sec.appendChild(facts);
     return sec;
   }
   // receipt.tautology: the harness's pre-run check that the proof test asserts on code this change touched.
@@ -382,6 +390,14 @@
     const proven = vi.pass;
     const baseSha = r.base_sha || r.base, headSha = r.head_sha || r.head;
     clear(receiptEl);
+    renderHero(envelope, vi);
+
+    const head = el("header", "rc-head");
+    const repoNum = m.repo && m.number ? m.repo + " #" + m.number : null;
+    const title = el("h2", "rc-title");
+    title.appendChild(r.pull_request_url ? link(r.pull_request_url, r.pull_request_title || r.pull_request_url) : document.createTextNode(r.pull_request_title || "Pull request"));
+    head.append(title, el("span", "rc-id num", repoNum ? "Receipt for " + repoNum : "Receipt"));
+    receiptEl.appendChild(head);
 
     const verdict = el("div", "verdict " + (proven ? "is-pass" : "is-fail"), null, { "data-verdict": vi.code || (proven ? "proven" : "not_proven") });
     const word = el("h2", "verdict-word");
@@ -408,8 +424,9 @@
       const stack = el("div", "stack");
       const baseOk = (r.base_result || {}).returncode;
       const headOk = (r.head_result || {}).returncode === 0;
+      const baseHeld = typeof baseOk === "number" && baseOk !== 0 && r.base_failure_is_expected !== false;  // the test must fail on base
       stack.append(
-        pane("base", "Base " + short(baseSha), pill(false, (baseOk === 0 ? "passes" : "fails") + ", exit " + (typeof baseOk === "number" ? baseOk : "?")), tail(vl.base, r.base_result), "Base output, tail"),
+        pane("base" + (baseHeld ? " is-held" : ""), "Base " + short(baseSha), pill(baseHeld, (baseOk === 0 ? "passes" : "fails") + ", exit " + (typeof baseOk === "number" ? baseOk : "?")), tail(vl.base, r.base_result), "Base output, tail"),
         pane("head " + (headOk ? "is-pass" : "is-fail"), "Head " + short(headSha), pill(headOk, (headOk ? "passes" : "fails") + ", exit " + (typeof (r.head_result || {}).returncode === "number" ? r.head_result.returncode : "?")), tail(vl.head, r.head_result), "Head output, tail"),
       );
       pair.append(testPane, stack);
@@ -471,12 +488,12 @@
       actions.appendChild(live);
     }
     actions.appendChild(flash);
-    receiptEl.appendChild(actions);
     if (permalink) {
       const pl = el("p", "permalink");
       pl.append(el("span", "hint", "Permalink"), el("span", "mono", location.origin + permalink));
       receiptEl.appendChild(pl);
     }
+    receiptEl.appendChild(actions);
   }
 
   function button(label, onclick) {
@@ -493,6 +510,58 @@
     const a = el("a", null, "", { href: URL.createObjectURL(blob), download: "latch-receipt-" + short(envelope.receipt.head_sha || envelope.receipt.head) + ".json" });
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---- first screen: the gate for the receipt on show, and the evidence numbers ----
+  const heroGate = $("hero-gate"), heroTitle = $("hero-gate-title"), heroSource = $("hero-source"), heroVerdict = $("hero-verdict");
+  function renderHero(envelope, vi) {
+    const r = envelope.receipt, m = envelope.meta || {};
+    clear(heroGate);
+    heroGate.appendChild(window.LatchGate.build(window.LatchGate.fromReceipt(r), vi.pass));
+    heroTitle.textContent = m.repo && m.number ? m.repo + " #" + m.number : (r.pull_request_title || "Pull request");
+    heroSource.hidden = false;
+    heroSource.textContent = m.source === "recorded" ? "Recorded run" : m.source === "cached" ? "Cached receipt" : "Live run";
+    clear(heroVerdict);
+    heroVerdict.append(el("span", "pill " + (vi.pass ? "pass" : "fail"), vi.label));
+  }
+
+  const scoreEl = $("score");
+  function figure(num, of, caption, tallyEl, sub) {
+    const f = el("div", "fig");
+    const n = el("p", "fig-num num");
+    n.append(el("span", null, num));
+    if (of) n.appendChild(el("span", "fig-of", of));
+    f.append(n, el("p", "fig-cap", caption));
+    if (tallyEl) f.appendChild(tallyEl);
+    if (sub) f.appendChild(el("p", "fig-sub", sub));
+    return f;
+  }
+  async function loadScore() {
+    const note = el("p", "hint", "Loading the evaluation summary...");
+    scoreEl.appendChild(note);
+    try {
+      const data = await (await fetch("/api/eval")).json();
+      const s = data && data.available && data.summary ? data.summary : null;
+      const wf = s && s.wrong_fixes && typeof s.wrong_fixes === "object" ? s.wrong_fixes : null;
+      const rv = s && s.benchmark && s.benchmark.real_validated && typeof s.benchmark.real_validated === "object" ? s.benchmark.real_validated : null;
+      note.remove();
+      const accepted = wf && Array.isArray(wf.false_accepts) ? wf.false_accepts.length : null;
+      const wrongOk = wf && isNum(wf.n) && accepted != null;
+      const realOk = rv && isNum(rv.k) && isNum(rv.n);
+      scoreEl.appendChild(wrongOk
+        ? figure(String(accepted), "of " + wf.n, "constructed wrong patches accepted by the gate.",
+            window.LatchGate.tally(wf.n, accepted, "fail", accepted + " of " + wf.n + " wrong patches accepted"), null)
+        : figure(NR, "", "constructed wrong patches accepted by the gate.", null, null));
+      scoreEl.appendChild(realOk
+        ? figure(String(rv.k), "of " + rv.n, "real bug fixes proven" + (isNum(rv.rate) ? " (" + (rv.rate * 100).toFixed(1) + "%)." : "."),
+            window.LatchGate.tally(rv.n, rv.k, "pass", rv.k + " of " + rv.n + " real fixes proven"), null)
+        : figure(NR, "", "real bug fixes proven.", null, null));
+      const more = el("p", "score-link");
+      more.appendChild(el("a", null, "Every case, every baseline and the run details", { href: "/eval" }));
+      scoreEl.appendChild(more);
+    } catch (_) {
+      note.textContent = "The evaluation summary could not be loaded. It is " + NR + " here; /eval reads it directly.";
+    }
   }
 
   // ---- recent proofs (real cached receipts only) ----
@@ -632,7 +701,7 @@
     busy = on; runBtn.disabled = on; exampleBtn.disabled = on;
     runBtn.textContent = on ? "Working..." : "Prove it";
   }
-  function showNotice(text) { noticeEl.hidden = !text; noticeEl.textContent = text || ""; }
+  function showNotice(text) { noticeEl.hidden = !text; rich(noticeEl, text || ""); }
   function showError(err) {
     clear(errorEl);
     if (!err) { errorEl.hidden = true; return; }
@@ -647,9 +716,12 @@
   function applyConfig() {
     const paused = !config.live;
     liveNote.hidden = !paused;
-    liveNote.textContent = paused
+    rich(liveNote, paused
       ? (config.live_reason || "Live runs are paused.") + " The recorded Click receipt, saved proofs and the fix-loop example still load."
-      : "";
+      : "");
+    // With live runs off, the recorded receipt is the action that works, so it carries the primary style.
+    runBtn.classList.toggle("primary", !paused); runBtn.classList.toggle("ghost", paused);
+    exampleBtn.classList.toggle("primary", paused); exampleBtn.classList.toggle("ghost", !paused);
     const live = $("run-live");
     if (live) live.disabled = paused;
     runBtn.title = paused ? "Saved proofs open instantly. A new pull request needs a live run." : "";
@@ -777,6 +849,7 @@
   });
 
   applyConfig();
+  loadScore();
   renderRecent(boot.recent);
   setInterval(() => { if (!document.hidden && !busy) refreshConfig(); }, 60000);
   if (boot.initial) {

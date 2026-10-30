@@ -1,155 +1,78 @@
 ---
-name: Latch web, evidence ledger
-direction: A (evidence ledger), dark warm graphite
+name: Latch web, the shear line
+direction: Warp (agentic terminal, warm charcoal) adapted into a hardware-lock register. Replaces the earlier evidence-ledger system.
+macrostructure: "Tumbler gate (headline and PR form left, a four-pin tumbler drawn from the recorded receipt right, evidence scoreboard strip below, receipt as a stacked sheet)"
 colors:
-  bg: "oklch(20.5% 0.008 70)"
-  surface: "oklch(25% 0.009 70)"
-  inset: "oklch(16.5% 0.008 70)"
-  line: "oklch(35% 0.010 70)"
-  ink: "oklch(94% 0.008 85)"
-  muted: "oklch(74% 0.012 80)"
-  pass: "oklch(80% 0.15 155)"
-  fail: "oklch(74% 0.17 28)"
-  accent: "oklch(83% 0.12 82)"
+  bg: "#24201d"
+  surface: "#2e2925"
+  inset: "#1b1815"
+  line: "#4a433d"
+  line-soft: "#393430"
+  ink: "#f4efe4"
+  body: "#d8d0c0"
+  muted: "#b2a998"
+  faint: "#948b7c"
+  accent: "#dfe86a"
+  on-accent: "#23200f"
+  pass: "#86dba0"
+  pass-field: "#1d3b2b"
+  fail: "#ff8f7c"
+  fail-field: "#4b2520"
 typography:
-  hero: { family: "Space Grotesk 600", size: "clamp(3rem, 9vw, 5.5rem)", tracking: "-0.02em" }
-  base: { family: "Source Sans 3 400/600 (headings Space Grotesk 600)", size: "17px" }
-  small: { family: "JetBrains Mono 400/500", size: "13px", features: "tabular-nums" }
-rounded: { all: "4px" }
+  display: { family: "Mona Sans (variable, wdth 112-125, wght 560-660), self-hosted", tracking: "-0.02em", use: "h1, verdict word, hero figures" }
+  body: { family: "Mona Sans wdth 100, wght 400/560", size: "17px / 1.55" }
+  mono: { family: "Azeret Mono 400/500 (the face Warp loads), self-hosted", size: "13px", use: "code, receipts, hashes, numbers, nav and button labels", features: "tabular-nums" }
+  scale: "12 / 13 / 15 / 17 / 22 / 32 / 56-88 (hero, clamp)"
+rounded: { control: "3px", panel: "4px", pill: "none" }
+spacing: "4 / 8 / 12 / 16 / 24 / 32 / 48 / 72 / 112"
 ---
 
-# Latch web design: evidence ledger
+# Latch web design: the shear line
 
-Latch's claim is one sentence: the test written from the issue fails before the fix and passes after it.
-The page is built to make that sentence checkable at a glance. The verdict is the hero. The generated
-test and the base/head result pair sit side by side in mono. Everything else is a ruled ledger row.
+Latch's argument is a padlock only the harness can open. A pin tumbler lock opens when every pin sits on the
+shear line. Latch's four pins are the four checks: red on the base commit, green on the fix, red again when the
+fix is reverted, mutants killed. The first screen draws that lock from the recorded Click receipt, and the
+same drawing is the spine of every receipt and of the evidence page.
 
-## Rules
+## Decisions
 
-- Three type sizes only: `--t-hero` (verdict, one hero number per page), `--t-base` (17px, body and
-  headings, headings are weight 600 Space Grotesk), `--t-small` (13px mono, tabular-nums, for code,
-  hashes, numbers, meta). No tiny all-caps eyebrows; labels are sentence case.
-- Colour is meaning. `--pass` and `--fail` appear only on pass/fail facts. One accent (`--accent`, brass)
-  for the single primary action per group and focus rings. Nothing else is coloured.
-- Surfaces: `--bg` page, `--surface` raised panes, `--inset` code. Separation by 1px hairlines
-  (`--line`), not shadows. No nested cards, no glass, no gradients, no bento grids.
-- Radius 4px everywhere. Motion is transform/opacity only, short, and off under
-  `prefers-reduced-motion`. Nothing is hover-only. No timed fade-ins. No emoji.
-- Every number that is not in the data renders as "not recorded". Never invent a value.
+- **Surface**: warm charcoal `--bg`, raised panels one tone step up (`--surface`), code and terminals one step
+  down (`--inset`). Never pure black, never white. Separation is a tone step, not a box around everything.
+- **Ink**: cream `--ink` for headings and numbers, `--body` for running text, `--muted` and `--faint` for
+  secondary notes (both clear 4.5:1 on `--bg`).
+- **One accent**: `--accent` (citron, the colour of a machined brass bolt catching light). It is the primary
+  action, focus ring, the open bolt and links. Nothing else is coloured.
+- **Verdict colours are meaning only.** Green (`--pass`) means a check passed or a case was proven. Red
+  (`--fail`) means a check failed or a patch is not proven. They appear as flat fields and as the pins.
+  Colour is never the only signal: every state also has a word and a glyph.
+- **Type**: Mona Sans carries display and body (width axis does the display work, no second family), Azeret
+  Mono carries code, receipts, numbers and the small control labels (Warp sets its nav and buttons in a
+  mono). All figures are tabular. Fonts are self-hosted from `/static/fonts` (CSP `font-src 'self'`).
+- **Shape**: 3px radius controls, 4px panels, no pills, no glow, no gradients, no shadows at rest.
+- **Motion**: one move, the bolt sliding into the keeper when a receipt opens, `transform` only, 360ms,
+  removed under `prefers-reduced-motion`. Buttons press with a 1px translate.
 
-## Page chrome (all pages)
+## Macrostructure
 
-```html
-<a class="skip" href="#main">Skip to content</a>
-<header class="bar"><div class="bar-in">
-  <a class="mark" href="/">Latch</a>
-  <nav class="nav" aria-label="Pages">
-    <a href="/">Prove a PR</a><a href="/eval">Evidence</a><a href="/ship">Use in CI</a>
-  </nav>
-</div></header>
-<main id="main" class="page"> ... </main>
-<footer class="foot"> ... </footer>
-```
-The current page gets `aria-current="page"`. Stylesheets, in order: `/static/tokens.css`, `/static/app.css`,
-then the page file (`loop.css` on `/`, `eval.css` on `/eval`, `ship.css` on `/ship`). Page files define
-only classes prefixed by their page (`tl-`, `eval-`, `ship-`) and use tokens plus the shared primitives.
+1. **Bar**: the Latch mark (a bolt in a keeper) and the wordmark, the three pages in mono caps, the current
+   page marked with `aria-current="page"`.
+2. **First screen** (`/`): left, the claim in display type and the PR form (one primary action) with the link
+   to the recorded Click receipt. Right, the tumbler for pallets/click #3299 drawn from the recorded receipt.
+   Under it, the scoreboard: wrong patches accepted and real fixes proven, read from `/api/eval`.
+3. **Receipt**: a flat verdict field (green or red) beside the tumbler for that receipt, then the generated
+   test and the base and head terminals, then the mutation cells, rerun, tautology, models and the rest.
+4. **Evidence** (`/eval`): two huge standalone figures with tally strips (nine wrong patches, 21 real fixes),
+   then the tables.
+5. **Use in CI** (`/ship`): two columns on desktop, instructions left, the code pane right.
 
-## Shared primitives (defined in app.css)
+## Primitives
 
-`.btn` (neutral, bordered), `.btn.primary` (accent fill, one per group), `.btn.ghost`; `.section`
-with `.section-title`; `.lede` (62ch measure); `.mono` and `.num` (13px mono, tabular-nums); `.hint`
-(muted small); `.rows` (ruled key/value list: `.rows > .row > dt + dd`); `.pane` (inset code pane,
-`.pane-head` + `pre`); `.verdict` slab with `.verdict.is-pass`, `.verdict.is-fail`; `.pill.pass`,
-`.pill.fail` (bordered, text + icon, never colour alone); `.ledger-table` (ruled table, right-aligned
-tabular numbers); `.hero-num` (hero size, for the single headline figure on a page).
+`.btn` (mono caps 13px, 3px radius), `.btn.primary` (accent fill), `.btn.ghost` (outline); `.section` and
+`.section-title`; `.lede`; `.hint` (sans, muted); `.mono` and `.num`; `.rows` (key and value); `.pane` (a
+terminal: `.pane-head` plus `pre`); `.verdict` (flat field, `.is-pass`, `.is-fail`); `.pill.pass`, `.pill.fail`
+(glyph plus word); `.ledger-table`; `.gate` (the tumbler, built by `gate.js` from receipt fields).
 
-## Verdict, rerun check and mutation check (receipt contract, `latch/verdict.py`)
+## Honesty labels kept
 
-The harness decides the verdict; the page only displays it. `static/verdict.js` is the single place that
-maps a receipt to a headline, a one-line meaning and pass or fail (`window.LatchVerdict.info`). There are six
-verdicts, in the harness precedence order: INVALID_TEST, FLAKY, NO_REGRESSION_FOUND, FIX_FAILS_TEST,
-MUTATION_SURVIVED, VALIDATED. Only VALIDATED is a pass. Each fail has its own plain-English meaning line plus
-the harness `verdict_reason`; colour stays pass/fail, never one hue per verdict. FIX_FAILS_TEST is where wrong
-patches land, so it is what the wrong-fix demo (the /eval featured receipt and the fix-loop `gate_shut`
-pill) shows. A verdict that disagrees with `proven`, or one the page does not recognise, fails closed.
-Receipts without `verdict` render as before (Proven / Not proven), with the rerun and mutation sections
-"not run".
-
-- Base and head panes show the `verdict_logs.base` and `verdict_logs.head` tails; `verdict_logs.flake` folds
-  into a "Flake log" disclosure.
-- "Rerun check" (`receipt.flaky`) shows runs, base fail rate, head pass rate and flake rate in tabular
-  numerals, plus the per-run outcomes and the note. `ran` false or absent shows "not run".
-- "Mutation check" (`receipt.mutation`) shows `killed/total`, the percentage only when `kill_rate` is a number
-  (null is "not recorded", and with `ok` false it reads as could not complete), the threshold, what each
-  mutant changed, and the note. Survivors come first (`.mutant.is-survived`: fail rule on the left edge, diff
-  visible); killed mutants fold their diff away.
-- "Tautology check" (`receipt.tautology`, `latch/tautology.py`) comes first, since it runs before any test: changed
-  symbols, asserted symbols, callers affected and mode, with "rejected before any run" in the fail colour and the
-  reason quoted (it starts with `tautology check: `) when `ok` is false. The unchecked placeholder has no
-  `affected_symbols` or `mode`, so every key is optional; an absent `tautology` reads "not run".
-- /eval (summary schema v2, v1 still loads): a Verdicts section with the summary's own `verdicts` counts (v1:
-  counted from `cases[].verdict`), cases rerun, flaky cases, median flake rate (top-level `flaky`), the pooled
-  mutant kill rate (`benchmark.mutation.pooled_kill_rate`), a Benchmark totals section, a Run details section
-  (`latch_git_sha`, `dropped_cases` with each reason), and a Verdict and Rerun column on the cases table. A case
-  with `verdict_source: "derived"` says "derived from the receipt"; `loop_verdict` (gate_open, gave_up, error)
-  is shown as "loop result", never as a verdict. In v1 `verdict` held the loop result, so a value that is not
-  one of the six is shown as the outcome text.
-- Never shown on /eval: `oracle_baseline` (the no-model answer key, 100% by construction; the API strips it),
-  `slopgate_comparison` (third-party numbers on a different task), and any summary with `mode` other than
-  `live`, `fixture: true`, `dev_only: true` or a provider other than Token Factory / Nebius.
-- Fix-loop events carrying `verdict` or `verdict_code` get a verdict pill.
-- Mutant states: `killed`, `survived`, `timed out` (the harness counts it as killed, so it keeps the pass colour)
-  and `error` (the mutant could not be run: never counted as killed, listed first with its error line, and the
-  hint says so). `mutation.ran` false means the check did not run: the section reads "This is not a pass.",
-  lists no mutants, and a null `kill_rate` is "not recorded".
-- Budget-limited mutation check: `mutation.not_run` (int) and `mutation.incomplete` (bool) are always present when
-  `ran`. Mutants the budget never reached stay in `mutants[]` with `not_run: true`, `killed: false` and no `error`.
-  They are their own state, `not run (budget)`: dashed neutral pill (`.pill.neutral`), muted left edge
-  (`.mutant.is-notrun`), listed last, never counted as killed or survived. `total` and `kill_rate` count only the
-  mutants that ran, so the score reads "K/T killed of the mutants that ran, N not run". `incomplete` is `ok: true`
-  and does not block, so the VALIDATED hero stays `is-pass`, but it carries the line "Mutation check incomplete:
-  this verdict is not mutation-backed." inside the hero (`.verdict-caution`) and again in the mutation section
-  (`.mutation-caution`, `data-mutation="incomplete"`, amber rule). The caution follows `mutation.incomplete`, not the
-  verdict code.
-- The `mutation_check` step event is `{0, 0, null}` for both "no mutable lines" and an incomplete run, so the ledger
-  row is set from the saved receipt when it arrives (`mutationStepNote`): "incomplete: K/T ran and killed, N not run
-  (budget). Not mutation-backed." or "no mutable lines, so no mutants were generated" (total 0, not incomplete).
-- Ledger steps, in order: fetch, repo_map, test_writer, base_run, head_run, triage, fix, flake_check, revert_check,
-  mutation_check, verdict. `flake_check` detail is `{runs, flaky, flake_rate, base_fail_rate, head_pass_rate}`;
-  `mutation_check` detail is `{killed, total, kill_rate}` and its status is `failed` when the gate shuts; the
-  `verdict` detail is `{verdict, reason}`. The old step name `mutation` is mapped to `mutation_check` (`STEP_ALIAS`).
-  Unknown step names are ignored, never fatal.
-- Fix-loop final events (`gate_open`, `gave_up`, `error`): `receipt.gate` holds the gate and `receipt.verdict` the
-  named verdict. A null verdict (infrastructure error) reads "No verdict: infrastructure error. Nothing was
-  proven." and fails closed; `gate_open` next to a verdict other than VALIDATED reads "Gate open, not validated"
-  in the fail colour. Old receipts (verdict equal to the gate string, no `gate`) render as before.
-- Timeouts (live runs): `LATCH_SETUP_TIMEOUT` 240 s and `LATCH_TEST_TIMEOUT` 120 s apply per sandbox call, and the
-  rerun and mutation checks make many calls, so `LATCH_LOOP_TIMEOUT` is 900 s. The sandbox reuses a snapshot's
-  prepared virtualenv (`.latch-venv/.latch-ready`) instead of reinstalling for every rerun. The SSE stream sends a
-  keepalive every 5 s. There is no overall proof-job timeout.
-- Fixtures for all of this are built from the real `latch.verdict` in `test_verdict.py`.
-
-## What the site reads from `latch/runs/`
-
-Fixed paths only, nothing is globbed: `click-3298.json` (the recorded example), `loop-demo-events.jsonl`,
-`eval-summary.json`, and the one receipt that `eval-summary.json` names under `eval/`. `latch/runs/dev/`,
-`latch/runs/eval-dryrun*/` and `eval-oracle-baseline.*` are never read and are excluded from the Docker context.
-Receipts and summaries with `dev_only: true`, or a `provider` other than `tokenfactory` or `nebius`, are skipped
-by the store, the gallery, the fix-loop example and /eval (`provenance.py`). A record that names no provider is
-accepted. `test_eval_v2.py` pins each of these.
-
-## CSP
-
-`style-src 'self'` plus Google Fonts: no inline `<style>` and no `style=""` attributes in HTML. Setting
-`el.style.x` from JS is allowed. Scripts are `'self'` only, no inline scripts except the
-`application/json` boot block.
-
-## Strengthened test (`strengthen` step, `mutation.strengthened`)
-
-The engine may rewrite the proof test once, after a real MUTATION_SURVIVED. Everything the page says about it is read from the engine's own data and never softens the verdict.
-
-- **Live ledger (`app.js`).** After a failed `mutation_check` the engine emits `strengthen` (started, then done or failed), and `base_run`..`mutation_check` run again. The page opens a "Strengthened test" heading row; the repeats go under it (`li.in-round`). The last occurrence of a step is the current one: when the round counts (adopted, still_surviving) the first attempt's rows are marked `superseded` (struck through, still visible). When the stronger test did not clear the gate (kept_original) the first attempt stays current and the round's rows are marked `discarded`. Unknown step names are ignored, never rendered, never an error. The verdict row shows its reason in full.
-- **Receipt (`mutationSection`).** `mutation.strengthened` renders a plain line from `LatchVerdict.strengthened`: "First test let N mutants survive (kill rate X); Latch wrote a stronger test, which now kills K/T (Y%)." For still_surviving and kept_original it says the Mutation survived verdict stands (kept_original: the original test is the one judged). A missing or unknown outcome says only that the verdict stands as written. The first test's survivors are listed in a closed details block.
-- **Loop timeline (`loop.js`).** Only `strengthen` step events are shown; other step events stay hidden. `proof_test` with `strengthened: true` reads "Stronger proof test written and frozen".
-- **INVALID_TEST.** Reasons now name the error (up to 160 characters, often unbroken); `.verdict-reason` wraps with `overflow-wrap: anywhere` so nothing overflows at 390px.
-
+"Recorded run", "Cached receipt", "Live run" and "not recorded" are produced by the same code as before.
+A pin whose check is missing from the receipt is drawn dashed and labelled "not recorded", never as passed.

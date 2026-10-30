@@ -1,31 +1,31 @@
 /* Fix loop view (index page). Uses tokens and the shared primitives from app.css. */
 .loop-bar { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .loop-bar .spacer { flex: 1; }
-.gate-pill { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); font: 500 var(--t-small)/1 var(--font-mono); color: var(--muted); }
-.gate-pill[data-state="open"] { color: var(--pass); border-color: var(--pass); }
-.gate-pill[data-state="shut"] { color: var(--fail); border-color: var(--fail); }
-.gate-pill[data-state="working"] { color: var(--ink); border-color: var(--accent); }
+.gate-pill { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-4); background: var(--surface); border-radius: var(--radius); font: 600 0.9375rem/1 var(--font-body); color: var(--muted); }
+.gate-pill[data-state="open"] { color: var(--on-accent); background: var(--accent); }
+.gate-pill[data-state="shut"] { color: var(--fail); background: var(--fail-field); }
+.gate-pill[data-state="working"] { color: var(--ink); box-shadow: inset 0 -3px 0 var(--accent); }
 
-.timeline { border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr); }
-.tl-item { border-bottom: 1px solid var(--line-soft); padding: var(--space-4) 0 var(--space-4) var(--space-4); border-left: 2px solid var(--line); margin-left: var(--space-1); min-width: 0; }
+.timeline { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.tl-item { background: var(--surface); padding: var(--space-5); border-left: 3px solid var(--line); min-width: 0; }
 .tl-item[data-tone="shut"] { border-left-color: var(--fail); }
-.tl-item[data-tone="open"] { border-left-color: var(--pass); }
-.tl-item[data-tone="work"] { border-left-color: var(--accent); }
-.tl-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); min-width: 0; }
+.tl-item[data-tone="open"] { border-left-color: var(--accent); }
+.tl-item[data-tone="work"] { border-left-color: var(--faint); }
+.tl-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); min-width: 0; }
 .tl-head { display: flex; justify-content: space-between; gap: var(--space-3); align-items: baseline; flex-wrap: wrap; }
-.tl-title { font: 600 var(--t-base)/1.3 var(--font-display); }
+.tl-title { font: 600 1.125rem/1.3 var(--font-display); font-stretch: 106%; }
 .tl-time, .tl-meta { color: var(--muted); font: 400 var(--t-small)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.tl-text { max-width: var(--measure); }
+.tl-text { max-width: var(--measure); color: var(--body); }
 .chips { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.chip { padding: 2px var(--space-2); border: 1px solid var(--line); border-radius: var(--radius); font: 400 var(--t-small)/1.5 var(--font-mono); color: var(--muted); }
-.chip.ok { color: var(--pass); border-color: var(--pass); }
-.chip.bad { color: var(--fail); border-color: var(--fail); }
+.chip { padding: 3px var(--space-2); background: var(--line-soft); border-radius: var(--radius); font: 400 var(--t-small)/1.5 var(--font-mono); color: var(--muted); }
+.chip.ok { color: var(--pass); background: var(--pass-field); }
+.chip.bad { color: var(--fail); background: var(--fail-field); }
 .timeline details { border: 0; padding: 0; }
-.timeline summary { cursor: pointer; color: var(--accent); font-weight: 600; min-height: 24px; }
-.timeline pre { margin: var(--space-2) 0 0; padding: var(--space-3); background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); overflow-x: auto; max-height: 24rem; overflow-y: auto; white-space: pre; font: 400 var(--t-small)/1.55 var(--font-mono); }
+.timeline summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 24px; }
+.timeline pre { margin: var(--space-2) 0 0; padding: var(--space-4); background: var(--inset); border-radius: var(--radius-panel); overflow-x: auto; max-height: 24rem; overflow-y: auto; white-space: pre; font: 400 var(--t-small)/1.6 var(--font-mono); color: var(--body); }
 .timeline pre.diff .add { color: var(--pass); }
 .timeline pre.diff .del { color: var(--fail); }
 .timeline pre.diff .hunk { color: var(--muted); }
-@media (max-width: 30rem) { .loop-bar .spacer { display: none; } .tl-item { padding-left: var(--space-3); } }
+@media (max-width: 30rem) { .loop-bar .spacer { display: none; } .tl-item { padding: var(--space-4) var(--space-3); } }
 
 .tl-card details pre, pre.diff { overflow-x: auto; max-width: 100%; }
