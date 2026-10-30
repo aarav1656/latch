@@ -17,6 +17,7 @@ from pathlib import Path
 
 from latch.loop import ALLOWED_MODELS, DEFAULT_MODEL, LoopError, run_loop
 from latch.loop import core
+from latch.loop.cli import build_parser as cli_build_parser
 from latch.loop.cli import main as cli_main
 
 _SHIM = tempfile.TemporaryDirectory(prefix="latch-test-shim-")
@@ -769,6 +770,120 @@ class ProviderReceiptTests(unittest.TestCase):
             self.assertEqual(cli_main(["run", "--provider", "bogus", "--repo", self.repo, "--base", self.base, "--head", self.head,
                                        "--issue", "x"]), 64)
         self.assertIn("provider", err.getvalue())
+
+
+NAME_ERROR_TEST = ("def test_back_to_back():\n    from bookings import merge_bookings\n"
+                   "    assert merge_bookings([(540, 600), (600, 660)]) == expected_result_never_defined\n")
+
+
+class SeqStub(Stub):
+    """Stub whose successive test-writer replies come from a list (the last one repeats)."""
+
+    def __init__(self, tests, **kw):
+        super().__init__(**kw)
+        self.tests = list(tests)
+
+    def __call__(self, key, user, model=None, system=None, max_tokens=None, prose=False):
+        if "Write one self-contained" in (system or ""):
+            self.test = self.tests.pop(0) if len(self.tests) > 1 else self.tests[0]
+        return super().__call__(key, user, model=model, system=system, max_tokens=max_tokens, prose=prose)
+
+
+class TestRepairTests(unittest.TestCase):
+    """The one-round test repair: a proof test that ERRORS (not an assertion failure) gets exactly one repair call."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo, self.base, self.head = make_repo(self._tmp.name)
+        self.events = []
+
+    def run_it(self, stub, **kw):
+        kw.setdefault("receipt_path", str(Path(self._tmp.name) / "receipt.json"))
+        return run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append, model_fn=stub, **kw)
+
+    def writer_calls(self, receipt):
+        return [c for c in receipt["model_calls"] if c["role"] == "test_writer"]
+
+    def repair_steps(self):
+        return [e["status"] for e in self.events if e["type"] == "step" and e["step"] == "test_repair"]
+
+    def test_name_error_test_is_repaired_once_and_the_gate_then_decides(self):
+        stub = SeqStub([NAME_ERROR_TEST, GOOD_TEST], fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        receipt = self.run_it(stub)
+        repair = receipt["test_repair"]
+        self.assertEqual((repair["attempted"], repair["ok"], repair["outcome"], repair["side"]), (True, True, "adopted", "base"))
+        self.assertIn("NameError", repair["error_before"])
+        self.assertIn("expected_result_never_defined", repair["error_before"])
+        self.assertEqual(receipt["verdict"], "VALIDATED")
+        self.assertEqual(receipt["initial"]["base_proof"]["failure_type"], "assertion")
+        self.assertTrue(receipt["proof_test"]["test_repaired"])
+        self.assertEqual(len(self.writer_calls(receipt)), 2)
+        self.assertEqual(repair["completion_id"], self.writer_calls(receipt)[1]["completion_id"])
+        self.assertEqual(receipt["proof_test_attempts"][-1]["attempt"], "test_repair")
+        self.assertEqual(self.repair_steps(), ["started", "done"])
+
+    def test_repair_prompt_is_the_original_prompt_plus_the_tests_own_error_only(self):
+        stub = SeqStub([NAME_ERROR_TEST, GOOD_TEST], fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        self.run_it(stub)
+        first, second = stub.calls[0]["user"], stub.calls[1]["user"]  # repo-map calls are tracked apart
+        self.assertTrue(second.startswith(first))
+        added = second[len(first):]
+        self.assertIn("NameError", added)
+        self.assertIn("def test_back_to_back", added)
+        for forbidden in ("diff --git", "--- a/", "+++ b/", "@@", "start < merged", "start <= merged"):
+            self.assertNotIn(forbidden, added)
+        self.assertLess(len(added), 3000 + 1500 + 1500)  # previous test + capped excerpt + fixed instructions
+
+    def test_a_repair_that_still_errors_is_not_retried_and_the_original_verdict_stands(self):
+        stub = SeqStub([NAME_ERROR_TEST, NAME_ERROR_TEST.replace("never_defined", "still_undefined")])
+        receipt = self.run_it(stub)
+        repair = receipt["test_repair"]
+        self.assertEqual((repair["attempted"], repair["ok"], repair["outcome"]), (True, False, "adopted"))
+        self.assertIn("still_undefined", repair["error_after"])
+        self.assertEqual((receipt["gate"], receipt["verdict"]), ("gave_up", "INVALID_TEST"))
+        self.assertEqual(len(self.writer_calls(receipt)), 2)  # one repair, never a second
+        self.assertEqual(receipt["iterations"], [])
+        self.assertEqual(self.repair_steps(), ["started", "failed"])
+
+    def test_a_rejected_repair_keeps_the_original_test_and_has_no_stricter_retry(self):
+        stub = SeqStub([NAME_ERROR_TEST, "def test_x():\n    pass\n"])
+        receipt = self.run_it(stub)
+        repair = receipt["test_repair"]
+        self.assertEqual((repair["attempted"], repair["ok"], repair["outcome"]), (True, False, "kept_original"))
+        self.assertIn("rejected", repair["reason"])
+        self.assertEqual(receipt["proof_test"]["name"], "test_back_to_back")
+        self.assertNotIn("test_repaired", receipt["proof_test"])
+        self.assertEqual(receipt["verdict"], "INVALID_TEST")
+        self.assertEqual(len(self.writer_calls(receipt)), 2)
+
+    def test_no_test_repair_means_one_writer_call_and_no_step(self):
+        stub = SeqStub([NAME_ERROR_TEST, GOOD_TEST])
+        receipt = self.run_it(stub, test_repair=False)
+        self.assertFalse(receipt["test_repair"]["attempted"])
+        self.assertIn("disabled", receipt["test_repair"]["reason"])
+        self.assertEqual((receipt["verdict"], len(self.writer_calls(receipt))), ("INVALID_TEST", 1))
+        self.assertEqual(self.repair_steps(), [])
+
+    def test_assertion_failures_and_green_tests_are_not_repaired(self):
+        for test, verdict in ((GOOD_TEST, "FIX_FAILS_TEST"), (PASSING_ON_BASE_TEST, "NO_REGRESSION_FOUND")):
+            receipt = self.run_it(SeqStub([test, GOOD_TEST]), max_iterations=1)
+            self.assertFalse(receipt["test_repair"]["attempted"])
+            self.assertEqual(len(self.writer_calls(receipt)), 1)
+            self.assertEqual(receipt["verdict"], verdict)
+
+    def test_a_supplied_proof_test_is_never_repaired(self):
+        receipt = self.run_it(SeqStub([GOOD_TEST]), proof_test=NAME_ERROR_TEST)
+        self.assertFalse(receipt["test_repair"]["attempted"])
+        self.assertIn("supplied", receipt["test_repair"]["reason"])
+        self.assertEqual(receipt["verdict"], "INVALID_TEST")
+        self.assertEqual(self.writer_calls(receipt), [])
+
+    def test_cli_flag_and_documented_call_bound(self):
+        args = cli_build_parser().parse_args(["run", "--repo", "r", "--base", "b", "--head", "h", "--issue", "i", "--no-test-repair"])
+        self.assertTrue(args.no_test_repair)
+        self.assertFalse(cli_build_parser().parse_args(["run", "--repo", "r", "--base", "b", "--head", "h", "--issue", "i"]).no_test_repair)
+        self.assertRegex(run_loop.__doc__, r"(?s)at most 2 .*\+ 1 \(repair\) \+ 2 .*: 5")
 
 
 if __name__ == "__main__":

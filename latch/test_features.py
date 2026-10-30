@@ -455,8 +455,21 @@ class ProveIntegrationTests(unittest.TestCase):
             calls.append(1)
             return {"returncode": 2, "stdout": "ERROR collecting latch_issue_test.py\nImportError", "stderr": ""}
 
-        _, saved, _ = self.go(run)
+        # test_repair=False isolates the flake-check claim: an invalid test is run once on base and once on head, no more
+        _, saved, _ = self.go(run, test_repair=False)
         self.assertEqual((saved["verdict"], len(calls)), ("INVALID_TEST", 2))
+        self.assertFalse(saved["test_repair"]["attempted"])
+
+    def test_invalid_test_gets_one_repair_round_and_is_then_run_once_more_on_each_side(self):
+        calls = []
+
+        def run(snapshot, command):
+            calls.append(1)
+            return {"returncode": 2, "stdout": "ERROR collecting latch_issue_test.py\nImportError", "stderr": ""}
+
+        _, saved, _ = self.go(run)
+        self.assertEqual((saved["verdict"], len(calls)), ("INVALID_TEST", 4))
+        self.assertTrue(saved["test_repair"]["attempted"])
 
 
 if __name__ == "__main__":

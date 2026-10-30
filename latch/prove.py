@@ -140,6 +140,84 @@ def _stricter(prompt, reason, previous):
     )
 
 
+REPAIR_ERROR_CAP = 1500  # characters of the test's own error output the writer gets back in the repair round
+
+
+def test_error_excerpt(result, test_name, cap=REPAIR_ERROR_CAP):
+    """The proof test's OWN error output, for the one test-repair round: the `E ` lines pytest printed for that test plus the
+    frames of the test file itself (`latch_issue_test.py:N: in test_x` and its source line). Library frames are dropped, so the
+    writer learns what its test did wrong (NameError, ImportError, an exception the operation raised) and nothing else: no diff,
+    no other file. Capped at `cap` characters. Falls back to the tail of the output when pytest printed no `E ` line."""
+    output = (result.get("stdout") or "") + (result.get("stderr") or "")
+    header = re.search(rf"(?m)^_{{2,}}\s+{re.escape(str(test_name))}\s+_{{2,}}$", output)
+    if header:
+        rest = output[header.end():]
+        end = _SECTION_END.search(rest)
+        section = rest[:end.start()] if end else rest
+    else:  # collection / setup errors have no per-test section
+        section = output
+    lines, keep = section.splitlines(), []
+    for number, line in enumerate(lines):
+        if line.startswith("E "):
+            keep.append(line.rstrip())
+        elif re.match(r"latch_issue_test\.py:\d+: in ", line):
+            keep.append(line.rstrip())
+            if number + 1 < len(lines) and lines[number + 1].startswith(" "):
+                keep.append(lines[number + 1].rstrip())
+    text = "\n".join(keep) if any(k.startswith("E ") for k in keep) else output[-cap:]
+    return text[:cap]
+
+
+def needs_test_repair(base_result, head_result, test_name):
+    """("base"|"head", result) when the proof test ERRORED (collection, import or runtime error, an uncaught exception) instead of
+    failing an assertion: the INVALID_TEST cases the repair round is for. None otherwise: a test that passes on base
+    (NO_REGRESSION_FOUND), fails an assertion, or is green is not repaired."""
+    for side, result in (("base", base_result), ("head", head_result)):
+        if result is not None and result["returncode"] != 0 and expected_base_failure(result, test_name) is None:
+            return side, result
+    return None
+
+
+def _repair_prompt(prompt, previous, side, excerpt):
+    return (
+        f"{prompt}\n\nYOUR PREVIOUS TEST ERRORED INSTEAD OF FAILING AN ASSERTION (on the {side} revision), so it could not be used.\n"
+        f"Previous test:\n{previous[:3000]}\n\nIts error output:\n{excerpt}\n\n"
+        "Write a corrected test now. It must run without erroring on the code under test: import everything it uses inside "
+        "the test function, and where the operation under test can raise, catch the exception and fail the test explicitly "
+        "(or use `with pytest.raises(...)`), so a wrong result is an assertion failure, never an uncaught error. "
+        "Keep the same expected behavior from the issue. No placeholders, no prose."
+    )
+
+
+def repair_proof_test(ask, key, prompt, system, model, max_tokens, previous, side, excerpt, extra_check=None,
+                      what="Nebius test-repair"):
+    """ONE model call: the test writer gets its erroring test back with the test's own error output (no diff, no other
+    context beyond the original prompt). Returns (function_or_None, attempt); None means the repaired reply was rejected by the
+    same validators (or could not be parsed) and the caller keeps the original test. No stricter retry: exactly one call.
+    Raises ModelRequestError when the call itself fails."""
+    status, content, completion_id = ask(key, _repair_prompt(prompt, previous, side, excerpt), model=model, system=system,
+                                         max_tokens=max_tokens)
+    if status != 200 or not content:
+        raise ModelRequestError(what, status, [])
+    try:
+        function = extract_test_function(content)
+        reason = validate_proof_test(function)
+    except ValueError:
+        function, reason = None, "the reply contained no test_ function"
+    tautology = None
+    if reason is None and extra_check is not None:
+        reason, tautology = extra_check(function)
+    attempt = {"attempt": "test_repair", "completion_id": completion_id, "valid": reason is None, "rejection": reason,
+               "source": (function or content)[:4000], "test_repair": True,
+               **({"tautology": tautology} if tautology is not None else {})}
+    return (function if reason is None else None), attempt
+
+
+def repair_record(attempted, **fields):
+    """The receipt's `test_repair` dict: {attempted, side, error_before, ok, outcome, reason, completion_id, error_after}."""
+    return {"attempted": attempted, **fields}
+
+
 def generate_proof_test(ask, key, prompt, system, model, max_tokens, what="Nebius test-generation", extra_check=None):
     """Ask the model for a proof test; reject vacuous ones; retry once with a stricter prompt.
 
@@ -304,7 +382,7 @@ def run_triage(ask, key, issue, test_source, failure_text, where="the submitted 
 
 def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_tests=False, runner=None,
           on_step_event=None, revert=True, triage=True, repo_map=True, flake_runs=FLAKE_RUNS,
-          mutation=True, strengthen=True):
+          mutation=True, strengthen=True, test_repair=True):
     """Prove that a change fixes an issue: a generated test must fail on base and pass on head.
 
     on_step(name): legacy string callback (fetching ... receipt), unchanged.
@@ -318,6 +396,11 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     strengthen: when the mutation check really fails (MUTATION_SURVIVED), the test writer gets ONE retry with the
         surviving mutants' diffs; the new test goes through the whole gate again (the bar stays at 60%, the harness
         decides). Recorded as mutation.strengthened and as a `strengthen` step. False skips the retry.
+    test_repair: when the generated proof test ERRORS (NameError, ImportError, an uncaught exception: INVALID_TEST) instead of failing
+        an assertion, the test writer gets ONE repair call with only that test's own error output (capped); the repaired test goes
+        through the whole gate and its result decides. Recorded as `test_repair` in the receipt and as a `test_repair` step.
+        Test-writer calls per run: at most 2 (first test + the stricter retry for empty/tautological tests) + 1 (repair)
+        + 2 (survivor-driven strengthening, which needs an open gate): 5 in the worst case. False skips the repair.
     flake_runs: run the proof test this many times on base and on head (default 5, at most 10, 1 turns the check
         off). Any inconsistent side gives the FLAKY verdict. No model calls.
     triage / repo_map: the Lightning calls (an advisory read of the base failure; the repo map that feeds the
@@ -462,6 +545,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
                 "base_failure_type": None, "base_failure_is_expected": False, "proven": False,
                 "rejected_test_reason": test_attempts[-1]["rejection"], "why_not_proven": reason,
                 "revert_check": {"ran": False, "skipped": "no proof test"},
+                "test_repair": repair_record(False, reason="no proof test to repair"),
                 "test_attempts": test_attempts, "model_retries": retries,
             })
         steps.done("test_writer", {"attempts": len(test_attempts), "completion_id": test_attempts[-1]["completion_id"]})
@@ -483,6 +567,47 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         steps.started("head_run")
         head_result = execute(head_dir, command)
         steps.done("head_run", {"returncode": head_result["returncode"]})
+        repair = repair_record(False, reason="disabled (--no-test-repair)" if not test_repair
+                               else "not needed: the proof test did not error")
+        need = needs_test_repair(base_result, head_result, test_name) if test_repair else None
+        if need:
+            side, bad = need
+            excerpt = test_error_excerpt(bad, test_name)
+            repair = repair_record(True, side=side, error_before=excerpt, ok=False, outcome="kept_original", reason=None)
+            steps.started("test_repair", {"side": side, "error_before": excerpt[:300]})
+            try:
+                new_function, new_attempt = repair_proof_test(
+                    calls.ask("test_writer"), key, prompt, system, MODEL, 2048, function, side, excerpt,
+                    extra_check=tautology_check_for(changed_syms))
+            except ModelRequestError as error:
+                new_function, new_attempt = None, {"completion_id": None, "rejection": f"HTTP {error.status}"}
+            repair["completion_id"] = new_attempt["completion_id"]
+            if new_function is None:
+                repair["reason"] = "the repaired test was rejected: " + str(new_attempt["rejection"])
+                if new_attempt.get("test_repair"):
+                    test_attempts = test_attempts + [new_attempt]
+                steps.failed("test_repair", {"outcome": "kept_original", "reason": repair["reason"]})
+            else:
+                test_attempts = test_attempts + [new_attempt]
+                function = new_function
+                test_name = re.match(r"\s*def\s+(test_\w+)", function).group(1)
+                test_source = f"import pytest\n\n{function.rstrip()}\n"
+                completion_id = new_attempt["completion_id"]
+                for snapshot in (base_dir, head_dir):
+                    (snapshot / "latch_issue_test.py").write_text(test_source, encoding="utf-8")
+                steps.started("base_run")
+                base_result = execute(base_dir, command)
+                base_kind = expected_base_failure(base_result, test_name)
+                steps.done("base_run", {"returncode": base_result["returncode"], "failure_type": base_kind})
+                steps.started("head_run")
+                head_result = execute(head_dir, command)
+                steps.done("head_run", {"returncode": head_result["returncode"]})
+                again = needs_test_repair(base_result, head_result, test_name)
+                repair.update(outcome="adopted", ok=again is None,
+                              reason=None if again is None else f"the repaired test still errored on {again[0]}")
+                if again:
+                    repair["error_after"] = test_error_excerpt(again[1], test_name)
+                (steps.done if again is None else steps.failed)("test_repair", {"outcome": "adopted", "ok": again is None})
         is_proven = proven(base_result, head_result, test_name)
 
         triage_record = None
@@ -657,6 +782,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         "proven": is_proven,
         "revert_check": revert_result,
         "triage": triage_record,
+        "test_repair": repair,
         "test_attempts": test_attempts,
         "model_retries": retries,
     }

@@ -20,8 +20,8 @@ from pathlib import Path
 from ..harness.parse import extract_test_function
 from ..modelcalls import PRICES_SOURCE_URL, ModelCalls, total_cost
 from ..prove import (PYTEST_ENV, TRIAGE_SYSTEM, ModelRequestError, archive, expected_base_failure,
-                     generate_proof_test, git, limit_resources, proven, run_test, run_triage, tautology_check_for,
-                     validate_proof_test)
+                     generate_proof_test, git, limit_resources, needs_test_repair, proven, repair_proof_test,
+                     repair_record, run_test, run_triage, tautology_check_for, test_error_excerpt, validate_proof_test)
 from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
 from .. import provider as providers
@@ -217,6 +217,7 @@ def run_loop(
     flake_runs=FLAKE_RUNS,
     mutation=True,
     strengthen=True,
+    test_repair=True,
 ):
     """Run the fix loop and return the receipt dict (`receipt["gate"]` is "gate_open", "gave_up" or "error";
     `receipt["verdict"]` is the named verdict from latch.verdict, or None on an infrastructure error).
@@ -244,6 +245,11 @@ def run_loop(
     strengthen: when the mutation check really fails (MUTATION_SURVIVED), the test writer gets ONE retry with the surviving
         mutants' diffs; the new test then goes through the whole gate again (the 0.6 bar is unchanged, the harness
         decides). Recorded as mutation.strengthened in the receipt and as a `strengthen` step. False skips the retry.
+    test_repair: when the generated proof test ERRORS (NameError, ImportError, an uncaught exception: INVALID_TEST) instead of failing
+        an assertion on base or on the submitted code, the test writer gets ONE repair call with only that test's own error output
+        (capped); the repaired test goes through the whole gate and its result decides. Recorded as `test_repair` in the receipt
+        and as a `test_repair` step. Not used when proof_test is supplied. Test-writer calls per run: at most 2 (first test + the
+        stricter retry for empty/tautological tests) + 1 (repair) + 2 (survivor-driven strengthening, which needs an open gate): 5.
     flake_runs: rerun the proof test this many times on base and on the final code (default 5, at most 10, 1 turns it
         off) before the revert check. Any inconsistent side gives the FLAKY verdict and the gate stays shut.
     model_fn: optional replacement for latch.run.call_model(key, user, model=, system=, max_tokens=)
@@ -506,6 +512,60 @@ def run_loop(
             ev.update(base=base_result, head=head_result, suite_ok=suite_green)
             steps.done("head_run", {"proof_returncode": head_result["returncode"],
                                     "suite_returncode": suite_before["returncode"], "gate_open": bool(head_ok and suite_green)})
+            receipt["test_repair"] = repair_record(False, reason="supplied proof test is never repaired" if proof_test
+                                                   else "disabled (--no-test-repair)" if not test_repair
+                                                   else "not needed: the proof test did not error")
+            need = needs_test_repair(base_result, head_result, test_name) if (test_repair and not proof_test) else None
+            if need:
+                side, bad = need
+                excerpt = test_error_excerpt(bad, test_name)
+                repair = receipt["test_repair"] = repair_record(True, side=side, error_before=excerpt, ok=False,
+                                                                outcome="kept_original", reason=None)
+                steps.started("test_repair", {"side": side, "error_before": excerpt[:300]})
+                try:
+                    new_function, new_attempt = repair_proof_test(
+                        calls.ask("test_writer"), key, prompt, TEST_SYSTEM, test_model, 8192, function, side, excerpt,
+                        extra_check=taut_check)
+                except ModelRequestError as error:
+                    new_function, new_attempt = None, {"completion_id": None, "rejection": f"HTTP {error.status}"}
+                repair["completion_id"] = new_attempt["completion_id"]
+                if new_attempt.get("test_repair"):
+                    attempts.append(new_attempt)  # the same list as receipt["proof_test_attempts"]
+                    if not new_attempt["valid"]:
+                        emit("proof_test_attempt", **{k: new_attempt[k] for k in ("attempt", "completion_id", "valid", "rejection")})
+                if new_function is None:
+                    repair["reason"] = "the repaired test was rejected: " + str(new_attempt["rejection"])
+                    steps.failed("test_repair", {"outcome": "kept_original", "reason": repair["reason"]})
+                else:
+                    function = new_function
+                    test_name = re.match(r"\s*def\s+(test_\w+)", function).group(1)
+                    test_source = f"import pytest\n\n{function.rstrip()}\n"
+                    generated = {"generated_by": test_model, "completion_id": new_attempt["completion_id"], "test_repaired": True}
+                    ev["test_name"] = test_name
+                    receipt["proof_test"] = {"name": test_name, "source": clip(test_source)[0], **generated}
+                    receipt["tautology"] = ev["tautology"] = new_attempt.get("tautology") or ev["tautology"]
+                    emit("proof_test", name=test_name, test=test_source, **generated)
+                    steps.started("base_run")
+                    (base_dir / TEST_FILE).write_text(test_source, encoding="utf-8")
+                    base_result = _run_proof(base_dir, command)
+                    base_kind = expected_base_failure(base_result, test_name)
+                    base_red = base_result["returncode"] != 0 and base_kind is not None
+                    steps.done("base_run", {"returncode": base_result["returncode"], "failure_type": base_kind, "red": base_red})
+                    steps.started("head_run")
+                    _clean(work)
+                    (work / TEST_FILE).write_text(test_source, encoding="utf-8")
+                    head_result = _run_proof(work, command)
+                    (work / TEST_FILE).unlink()
+                    head_ok = proven(base_result, head_result, test_name)
+                    ev.update(base=base_result, head=head_result)
+                    steps.done("head_run", {"proof_returncode": head_result["returncode"],
+                                            "suite_returncode": suite_before["returncode"], "gate_open": bool(head_ok and suite_green)})
+                    again = needs_test_repair(base_result, head_result, test_name)
+                    repair.update(outcome="adopted", ok=again is None,
+                                  reason=None if again is None else f"the repaired test still errored on {again[0]}")
+                    if again:
+                        repair["error_after"] = test_error_excerpt(again[1], test_name)
+                    (steps.done if again is None else steps.failed)("test_repair", {"outcome": "adopted", "ok": again is None})
             receipt["initial"] = {
                 "base_proof": {**_clip_result(base_result), "failure_type": base_kind},
                 "head_proof": _clip_result(head_result),

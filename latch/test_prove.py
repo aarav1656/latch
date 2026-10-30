@@ -10,7 +10,8 @@ from pathlib import Path
 from unittest import mock
 
 from latch.prove import (ModelRequestError, archive, expected_base_failure, generate_proof_test, limit_resources,
-                         proven, prove, run_test, validate_proof_test)
+                         needs_test_repair, proven, prove, repair_proof_test, run_test, test_error_excerpt as error_excerpt_of,
+                         validate_proof_test)
 
 
 class ProofClassifierTests(unittest.TestCase):
@@ -176,6 +177,142 @@ class ProveRunnerTests(unittest.TestCase):
         self.assertNotIn("test_runner", result)
         self.assertEqual(default_run.call_count, 2)
         self.assertTrue(all(call.kwargs == {"isolate": False} for call in default_run.call_args_list))
+
+
+NAME_ERROR_OUT = ("________ test_double ________\n\ndef test_double():\n    from app import double\n>       assert double(2) == want\n"
+                  "E       NameError: name 'want' is not defined\n\nlatch_issue_test.py:3: NameError\n"
+                  "=========== short test summary info ===========\nFAILED latch_issue_test.py::test_double - NameError\n")
+ASSERT_OUT = ("________ test_double ________\n\nE       AssertionError: assert 5 == 4\n\n"
+              "=========== short test summary info ===========\nFAILED latch_issue_test.py::test_double - AssertionError\n")
+
+
+class TestErrorExcerptTests(unittest.TestCase):
+    def test_keeps_the_e_lines_and_the_test_frame_and_drops_library_frames(self):
+        out = ("________ test_x ________\n\ndef test_x():\n>       go()\n\nlatch_issue_test.py:5: in test_x\n    go()\n"
+               "/venv/lib/site-packages/lib.py:10: in go\n    secret_library_line()\nE   RuntimeError: boom\n\n"
+               "=========== short test summary info ===========\nFAILED x - RuntimeError\n")
+        text = error_excerpt_of({"stdout": out, "stderr": ""}, "test_x")
+        self.assertIn("E   RuntimeError: boom", text)
+        self.assertIn("latch_issue_test.py:5: in test_x", text)
+        self.assertNotIn("secret_library_line", text)
+        self.assertNotIn("short test summary", text)
+
+    def test_is_capped(self):
+        out = "________ test_x ________\n" + "".join(f"E   line {i} {'x' * 80}\n" for i in range(200))
+        self.assertLessEqual(len(error_excerpt_of({"stdout": out, "stderr": ""}, "test_x")), 1500)
+        self.assertLessEqual(len(error_excerpt_of({"stdout": out, "stderr": ""}, "test_x", cap=100)), 100)
+
+    def test_collection_error_without_a_test_section_falls_back_to_the_output_tail(self):
+        out = "ImportError while importing test module\n" + "y" * 5000
+        text = error_excerpt_of({"stdout": out, "stderr": ""}, "test_x")
+        self.assertEqual(len(text), 1500)
+
+    def test_needs_repair_only_for_errors_not_assertions_or_green_runs(self):
+        err = {"returncode": 1, "stdout": NAME_ERROR_OUT, "stderr": ""}
+        fail = {"returncode": 1, "stdout": ASSERT_OUT, "stderr": ""}
+        green = {"returncode": 0, "stdout": "1 passed", "stderr": ""}
+        self.assertEqual(needs_test_repair(err, green, "test_double")[0], "base")
+        self.assertEqual(needs_test_repair(fail, err, "test_double")[0], "head")
+        self.assertIsNone(needs_test_repair(fail, green, "test_double"))
+        self.assertIsNone(needs_test_repair(green, green, "test_double"))  # NO_REGRESSION_FOUND is not repaired
+        self.assertIsNone(needs_test_repair(fail, fail, "test_double"))    # FIX_FAILS_TEST is not repaired
+
+
+class RepairProofTestUnit(unittest.TestCase):
+    def ask_returning(self, content, status=200):
+        calls = []
+
+        def ask(key, user, model=None, system=None, max_tokens=None):
+            calls.append(user)
+            return status, content, "cmpl-r"
+
+        return ask, calls
+
+    def test_exactly_one_call_with_the_original_prompt_and_the_tests_own_error(self):
+        ask, calls = self.ask_returning("def test_double():\n    from app import double\n    assert double(2) == 4\n")
+        function, attempt = repair_proof_test(ask, "k", "ORIGINAL PROMPT", "S", "m", 100, "def test_double(): bad", "base", "E  NameError")
+        self.assertIn("double(2) == 4", function)
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0].startswith("ORIGINAL PROMPT"))
+        self.assertIn("E  NameError", calls[0])
+        self.assertTrue(attempt["test_repair"] and attempt["valid"])
+
+    def test_a_vacuous_repair_is_rejected_without_a_second_call(self):
+        ask, calls = self.ask_returning("def test_double():\n    pass\n")
+        function, attempt = repair_proof_test(ask, "k", "P", "S", "m", 100, "prev", "base", "E x")
+        self.assertIsNone(function)
+        self.assertFalse(attempt["valid"])
+        self.assertEqual(len(calls), 1)
+
+    def test_a_failed_call_raises(self):
+        ask, _ = self.ask_returning(None, status=503)
+        with self.assertRaises(ModelRequestError):
+            repair_proof_test(ask, "k", "P", "S", "m", 100, "prev", "base", "E x")
+
+
+class ProveRepairTests(unittest.TestCase):
+    """prove(): the same one-round repair through the web/CLI path."""
+
+    make_repo = ProveRunnerTests.make_repo
+
+    def run_prove(self, replies, **kw):
+        queue = list(replies)
+        users = []
+
+        def fake_model(key, user, model=None, system=None, max_tokens=None, **_):
+            users.append(user)
+            return 200, queue.pop(0) if len(queue) > 1 else queue[0], f"cmpl-{len(users)}"
+
+        def runner(snapshot, command):
+            source = (snapshot / "latch_issue_test.py").read_text()
+            if "want" in source:
+                return {"returncode": 1, "stdout": NAME_ERROR_OUT, "stderr": ""}
+            if snapshot.name == "base" or snapshot.name == "revert-fix":
+                return {"returncode": 1, "stdout": ASSERT_OUT, "stderr": ""}
+            return {"returncode": 0, "stdout": "1 passed", "stderr": ""}
+
+        runner.description = "unit-test runner"
+        steps = []
+        with tempfile.TemporaryDirectory() as temp:
+            repo = self.make_repo(temp)
+            receipt = Path(temp) / "receipt.json"
+            with mock.patch("latch.prove.load_key", return_value="key"), mock.patch("latch.prove.call_model", side_effect=fake_model):
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, runner=runner,
+                               on_step_event=steps.append, flake_runs=1, mutation=False, repo_map=False, triage=False, **kw)
+        return result, users, steps
+
+    BAD = "def test_double():\n    from app import double\n    assert double(2) == want\n"
+    GOOD = "def test_double():\n    from app import double\n    assert double(2) == 4\n"
+
+    def test_errored_test_is_repaired_once_and_adopted(self):
+        result, users, steps = self.run_prove([self.BAD, self.GOOD])
+        repair = result["test_repair"]
+        self.assertEqual((repair["attempted"], repair["ok"], repair["outcome"], repair["side"]), (True, True, "adopted", "base"))
+        self.assertIn("NameError", repair["error_before"])
+        self.assertTrue(result["proven"])
+        self.assertEqual(len(users), 2)
+        self.assertTrue(users[1].startswith(users[0]))
+        self.assertNotIn("diff --git", users[1][len(users[0]):])
+        self.assertEqual([s["status"] for s in steps if s["step"] == "test_repair"], ["started", "done"])
+
+    def test_disabled_flag_makes_no_second_call(self):
+        result, users, steps = self.run_prove([self.BAD, self.GOOD], test_repair=False)
+        self.assertFalse(result["test_repair"]["attempted"])
+        self.assertFalse(result["proven"])
+        self.assertEqual(len(users), 1)
+        self.assertEqual([s for s in steps if s["step"] == "test_repair"], [])
+
+    def test_repair_that_still_errors_is_not_repeated(self):
+        result, users, _ = self.run_prove([self.BAD, self.BAD.replace("def test_double", "def test_double_again")])
+        self.assertEqual((result["test_repair"]["ok"], result["test_repair"]["outcome"]), (False, "adopted"))
+        self.assertIn("NameError", result["test_repair"]["error_after"])
+        self.assertFalse(result["proven"])
+        self.assertEqual(len(users), 2)
+
+    def test_assertion_failing_test_is_not_repaired(self):
+        result, users, _ = self.run_prove(["def test_double():\n    from app import double\n    assert double(2) == 5\n"])
+        self.assertFalse(result["test_repair"]["attempted"])
+        self.assertEqual(len(users), 1)
 
 
 class ValidatorTests(unittest.TestCase):
