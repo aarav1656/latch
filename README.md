@@ -6,7 +6,7 @@ Track: Coding and Agentic Engineering.
 
 Coding agents now write the code and the tests in the same pull request. The tests pass, the reviewer sees green, and the change merges. The failure is quiet: a test that calls the changed function but cannot fail. Latch finds that test, has NVIDIA Nemotron write one that can fail, and opens only when the harness, not a model, watches the new test go red on the bug and green on the fix.
 
-Live: [latch-mauve.vercel.app](https://latch-mauve.vercel.app) serves the recorded receipts, the [evidence page](https://latch-mauve.vercel.app/eval) and the [CI page](https://latch-mauve.vercel.app/ship).
+Live: [latch-mauve.vercel.app](https://latch-mauve.vercel.app) serves the recorded receipts, the [evidence page](https://latch-mauve.vercel.app/eval) and the [CI page](https://latch-mauve.vercel.app/ship). Real PR comments: [aarav1656/latch-demo](https://github.com/aarav1656/latch-demo/pulls), three python-tabulate pull requests (validated, wrong patch kept shut, mutants survived) whose base and head commits match their recorded receipts.
 
 ## Results: 42 live runs on Nebius Token Factory
 

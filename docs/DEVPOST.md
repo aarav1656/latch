@@ -2,6 +2,7 @@
 
 Track: Coding and Agentic Engineering, Nebius Global AI Hackathon.
 Hosted URL: https://latch-mauve.vercel.app
+Demo PRs with Latch comments: https://github.com/aarav1656/latch-demo/pulls
 Repo: https://github.com/aarav1656/latch (MIT)
 Demo video: PASTE_VIDEO_URL
 
