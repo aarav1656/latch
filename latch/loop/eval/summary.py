@@ -89,7 +89,8 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
             if run["outcome"] == "error":
                 failures.append({"case": case["id"], "variant": variant, "reason": run.get("reason"), "receipt": row["receipt"]})
             elif run["outcome"] in ("gave_up", "shut_gave_up"):
-                triage = (receipt.get("triage") or {}).get("verdict") or run.get("triage_verdict")
+                triage_record = receipt.get("triage") if isinstance(receipt.get("triage"), dict) else {}  # a str (model id) until triage ran
+                triage = triage_record.get("verdict") or run.get("triage_verdict")
                 kind = "triage_not_reproduced" if triage in ("not_reproduced", "unclear") else "gave_up"
                 abstentions.append({"case": case["id"], "variant": variant, "kind": kind, "reason": run.get("reason"),
                                     "receipt": row["receipt"]})

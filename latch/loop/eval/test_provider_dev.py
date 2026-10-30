@@ -124,3 +124,17 @@ class RunOneReceiptShapeTests(unittest.TestCase):
         self.assertIsNone(self.row_for(None)["triage_verdict"])
         row = self.row_for({"completion_id": "gen-9", "verdict": "reproduced"})
         self.assertEqual((row["completion_ids"]["triage"], row["triage_verdict"]), ("gen-9", "reproduced"))
+
+
+class SummaryTriageShapeTests(unittest.TestCase):
+    def test_gave_up_receipt_with_triage_model_id_string(self):
+        from latch.loop.eval.fixture import make_fixture
+        from latch.loop.eval.summary import build_summary
+
+        cases = [c for c in CASES if not c.get("swe")][:1]
+        doc, receipts = make_fixture(cases)
+        stub = {k: dict(v, triage="nvidia/Nemotron-3_5-Lightning") if isinstance(v, dict) else v for k, v in receipts.items()}
+        for row in doc["runs"]:
+            row.update(outcome="gave_up", verdict="gave_up")
+        summary = build_summary(doc, CASES, stub.get, dropped=[], root=Path("."), mode="dry-run")
+        self.assertTrue(summary)
