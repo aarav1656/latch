@@ -64,7 +64,7 @@ jobs:
           python-version: "3.12"
       - name: Install the project's own test dependencies
         run: python -m pip install -e . pytest
-      - uses: kamalbuilds/latch/.github/actions/latch@main   # or ./.github/actions/latch inside the Latch repo
+      - uses: aarav1656/latch/.github/actions/latch@main   # or ./.github/actions/latch inside the Latch repo
         with:
           mode: prove                      # "loop" lets Nemotron repair a shut gate and re-judge
           test-command: python -m pytest -q
