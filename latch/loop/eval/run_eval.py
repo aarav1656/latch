@@ -182,6 +182,8 @@ def wrong_repo(case):
         raise RuntimeError(f"wrong_repo commit failed: {r.stderr}")
     b = sh(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
     apply_wrong(case, repo)
+    for junk in repo.rglob("._*"):  # writing on an exFAT disk creates a sidecar next to the edited file
+        junk.unlink()
     sh(GIT + ["add", "-A"], cwd=repo)
     r = sh(GIT + ["commit", "-q", "-m", "wrong patch"], cwd=repo)
     if r.returncode:
@@ -277,7 +279,7 @@ def validate_case(case):
     return d["ok"], d
 
 
-def run_one(case, variant, max_iterations, out_dir):
+def run_one(case, variant, max_iterations, out_dir, test_repair=True):
     cid = f"{case['id']}.{variant}"
     events = []
     started = time.time()
@@ -297,7 +299,8 @@ def run_one(case, variant, max_iterations, out_dir):
             repo, base, head, issue_text(case), test_command=test_command(case),
             max_iterations=max_iterations, receipt_path=receipt_path, on_event=events.append,
             source_label=f"{case['repo']}@{ref}{'' if variant == 'real' else (' + constructed wrong patch' if variant == 'wrong' else ' (no fix)')}",
-            inspect_final=lambda directory: oracle_check(case, directory), run_id=cid.replace("-", "")[:40])
+            inspect_final=lambda directory: oracle_check(case, directory), run_id=cid.replace("-", "")[:40],
+            test_repair=test_repair)
     except LoopError as error:
         receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
         row.update(outcome="error", reason=str(error), verdict="error")
@@ -330,6 +333,7 @@ def run_one(case, variant, max_iterations, out_dir):
         model_calls=len(receipt.get("model_calls") or []),
         proof_test_rejections=sum(1 for a in receipt.get("proof_test_attempts") or [] if not a.get("valid")),
         proof_test_name=(receipt.get("proof_test") or {}).get("name"),
+        test_repair=receipt.get("test_repair"),
         receipt=str(receipt_path),
     )
     if "outcome" not in row:
@@ -379,6 +383,34 @@ def summarize(rows, dropped):
     }
 
 
+TAG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")
+
+
+def tagged(name, tag, suffix):
+    """eval-summary + tag -> eval-summary-<tag>.json. No tag: the name is unchanged (the first run's files)."""
+    return f"{name}-{tag}{suffix}" if tag else f"{name}{suffix}"
+
+
+def check_tag(tag):
+    if tag is not None and not TAG_RE.match(tag):
+        raise SystemExit(f"--tag must be lowercase letters, digits and dashes (got {tag!r})")
+    return tag
+
+
+def run_paths(date, provider, tag):
+    """Where a run writes, by tag. The untagged paths are the first run's and are never reused by a tagged run:
+    eval-DATE[-provider][-tag].json, receipts dir, published receipts dir, summary and report names."""
+    dev = provider != providers.NEBIUS
+    stem = f"eval-{date}" + (f"-{provider}" if dev else "") + (f"-{tag}" if tag else "")
+    base = REPO_ROOT / (providers.DEV_DIR if dev else Path("latch") / "runs")
+    return {"out": base / f"{stem}.json",
+            "receipts": ROOT / "receipts" / (f"{date}-{provider}" if dev else date) if not tag else
+            ROOT / "receipts" / (f"{date}-{provider}-{tag}" if dev else f"{date}-{tag}"),
+            "publish": base / ("eval" + (f"-{tag}" if tag else "")),
+            "summary": base / (f"eval-summary" + (f"-{provider}" if dev else "") + (f"-{tag}" if tag else "") + ".json"),
+            "report": base / (f"eval-report" + (f"-{provider}" if dev else "") + (f"-{tag}" if tag else "") + ".md")}
+
+
 def selected(only):
     cases = [c for c in CASES if not only or c["id"] in only]
     if only and len(cases) != len(set(only)):
@@ -399,6 +431,10 @@ def main(argv=None):
     r.add_argument("--out", default=None)
     r.add_argument("--skip-validate", action="store_true")
     r.add_argument("--no-summary", action="store_true", help="do not write latch/runs/eval-summary.json")
+    r.add_argument("--tag", default=None, help="write this run beside the untagged one instead of over it: eval-DATE-TAG.json, "
+                   "eval-summary-TAG.json, eval-report-TAG.md, eval-TAG/ (receipts)")
+    r.add_argument("--no-test-repair", action="store_true", help="turn the one-round test repair off for every run (the first run's behavior)")
+    r.add_argument("--overwrite", action="store_true", help="allow an untagged run to replace an existing eval-DATE.json")
     sm = sub.add_parser("summarize", help="rebuild latch/runs/eval-summary.json from a finished eval-DATE.json")
     sm.add_argument("eval_json")
     args = ap.parse_args(argv)
@@ -423,18 +459,20 @@ def main(argv=None):
 
     date = datetime.date.today().isoformat()
     provider = providers.current()
-    dev = provider != providers.NEBIUS
-    if dev:  # dev-only provider: everything lands under latch/runs/dev/, never in the public latch/runs/ paths
-        out = Path(args.out or REPO_ROOT / providers.DEV_DIR / f"eval-{date}-{provider}.json")
-    else:
-        out = Path(args.out or REPO_ROOT / "latch" / "runs" / f"eval-{date}.json")
+    dev = provider != providers.NEBIUS  # dev-only provider: everything lands under latch/runs/dev/, never in the public latch/runs/ paths
+    tag = check_tag(args.tag)
+    paths = run_paths(date, provider, tag)
+    out = Path(args.out) if args.out else paths["out"]
     providers.check_write(out, provider)
-    rec_dir = ROOT / "receipts" / (f"{date}-{provider}" if dev else date)
+    if out.exists() and not args.overwrite:
+        raise SystemExit(f"{out} already exists: a finished run is never overwritten. Use --tag NAME to write a second run beside it "
+                         "(or --overwrite if you really mean to replace it).")
+    rec_dir = paths["receipts"]
     rec_dir.mkdir(parents=True, exist_ok=True)
     jobs = [(c, v) for c in valid for v in (("real", "nofix") if c.get("swe") else ("real", "wrong"))]
     rows, t0 = [], time.time()
     with cf.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futs = {pool.submit(run_one, c, v, args.max_iterations, rec_dir): (c, v) for c, v in jobs}
+        futs = {pool.submit(run_one, c, v, args.max_iterations, rec_dir, not args.no_test_repair): (c, v) for c, v in jobs}
         for f in cf.as_completed(futs):
             row = f.result()
             rows.append(row)
@@ -457,7 +495,7 @@ def main(argv=None):
     doc = {
         "date": date, "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "max_iterations": args.max_iterations, "jobs": args.jobs,
-        "provider": provider,
+        "provider": provider, "tag": tag, "test_repair_enabled": not args.no_test_repair,
         "models": {"proof_test": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
                    "fix": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
                    "triage": providers.resolve_model("nvidia/Nemotron-3_5-Lightning", provider)},
@@ -465,13 +503,13 @@ def main(argv=None):
         "summary": summarize(rows, dropped + [dict(d, source="dropped before the run (record only)") for d in DROPPED]), "cases": case_meta, "runs": rows,
     }
     providers.mark_dev(doc, provider)
-    publish_receipts(doc, dest=REPO_ROOT / providers.DEV_DIR / "eval" if dev else None)
+    publish_receipts(doc, dest=paths["publish"])
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(doc["summary"], indent=2))
     print(f"wrote {out}", file=sys.stderr)
     if not args.no_summary:
-        write_eval_summary(doc, dropped)
+        write_eval_summary(doc, dropped, path=paths["summary"])
     return 0
 
 
@@ -500,8 +538,8 @@ def write_eval_summary(doc, dropped=(), path=None):
 
     provider = doc.get("provider") or providers.NEBIUS
     dev = provider != providers.NEBIUS
-    if path is None:
-        path = REPO_ROOT / providers.DEV_DIR / f"eval-summary-{provider}.json" if dev else REPO_ROOT / "latch" / "runs" / "eval-summary.json"
+    if path is None:  # from the doc's own provider and tag, so `summarize` on a tagged run writes the tagged files
+        path = run_paths(doc.get("date") or "", provider, doc.get("tag"))["summary"]
     path = Path(path)
     providers.check_write(path, provider)  # a dev provider can never write latch/runs/eval-summary.json
     from .report import render
@@ -511,7 +549,7 @@ def write_eval_summary(doc, dropped=(), path=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {path}", file=sys.stderr)
-    report = path.with_name(f"eval-report-{provider}.md" if dev else "eval-report.md")
+    report = path.with_name(path.name.replace("eval-summary", "eval-report", 1).replace(".json", ".md"))
     report.write_text(render(summary), encoding="utf-8")
     print(f"wrote {report}", file=sys.stderr)
     return summary

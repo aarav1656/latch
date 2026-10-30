@@ -36,7 +36,7 @@ class EvalDevRoutingTests(unittest.TestCase):
         for patch in (mock.patch.object(run_eval, "REPO_ROOT", self.root), mock.patch.object(run_eval, "ROOT", Path(self._tmp.name) / "evalroot"),
                       mock.patch.object(run_eval, "base_sha", return_value="b" * 40), mock.patch.object(run_eval, "links", return_value={}),
                       mock.patch.object(run_eval, "oracle_files", return_value=[]), mock.patch.object(run_eval, "test_command", return_value="pytest"),
-                      mock.patch.object(run_eval, "run_one", side_effect=lambda c, v, n, d: fake_row(c, v, providers.current()))):
+                      mock.patch.object(run_eval, "run_one", side_effect=lambda c, v, n, d, *a: fake_row(c, v, providers.current()))):
             patch.start()
             self.addCleanup(patch.stop)
 

@@ -51,6 +51,30 @@ def _relative(path, root):
         return str(path)
 
 
+def _repair_row(record):
+    """The per-row view of a receipt's test_repair record (None for a run from before the repair existed)."""
+    if not isinstance(record, dict):
+        return None
+    return {"attempted": bool(record.get("attempted")), "side": record.get("side"), "outcome": record.get("outcome"), "ok": record.get("ok"),
+            "error_before": (record.get("error_before") or "")[:300] or None, "completion_id": record.get("completion_id"),
+            "reason": record.get("reason")}
+
+
+def _repair_totals(ran, enabled):
+    """How often the one repair call fired and how often it worked (the repaired test no longer errored). `enabled` None = the run
+    predates the feature (its receipts have no test_repair record)."""
+    known = [r for r in ran if r.get("test_repair") is not None]
+    attempted = [r for r in known if r["test_repair"]["attempted"]]
+    return {"enabled": enabled, "runs_with_record": len(known), "attempted": len(attempted),
+            "adopted": sum(1 for r in attempted if r["test_repair"]["outcome"] == "adopted"),
+            "ok": sum(1 for r in attempted if r["test_repair"]["ok"]),
+            "kept_original": sum(1 for r in attempted if r["test_repair"]["outcome"] == "kept_original"),
+            "extra_writer_calls": len(attempted),
+            "note": "ok = the repaired test no longer errors on base or head (the gate then decides the verdict as usual); "
+                    "one repair call per run at most",
+            "items": [{"case": r["case"], "variant": r["variant"], **r["test_repair"], "verdict": r.get("verdict")} for r in attempted]}
+
+
 def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), generated_at=None, root=".", oracle=None, manifest=None,
                   mode="live", latch_git_sha=None):
     runs = {(r["case"], r["variant"]): r for r in doc["runs"]}
@@ -80,6 +104,7 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
                    "completion_ids": run.get("completion_ids"), "receipt": _relative(run.get("receipt"), root),
                    "links": next((m.get("links") for m in doc.get("cases", []) if m["id"] == case["id"]), None)}
             row.update(bench.case_metrics(variant, run, receipt))
+            row["test_repair"] = _repair_row(receipt.get("test_repair") or run.get("test_repair"))
             rows.append(row)
             for attempt in receipt.get("proof_test_attempts") or []:
                 if not attempt.get("valid"):
@@ -162,6 +187,9 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
         "oracle_baseline": oracle,
         "manifest": manifest,
         "generated_at": generated_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "run": {"date": doc.get("date"), "tag": doc.get("tag"), "label": doc.get("tag") or "first",
+                "test_repair_enabled": doc.get("test_repair_enabled")},  # tag None = the untagged first run
+        "test_repair": _repair_totals(ran, doc.get("test_repair_enabled")),
         "source_run": doc.get("date"), "models": doc.get("models"), "max_iterations": doc.get("max_iterations"),
         "suites": suites,
         "wrong_fixes": wrong_fixes,
