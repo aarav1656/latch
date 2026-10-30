@@ -215,7 +215,10 @@ def changed_symbols(repo, base, head, head_root=None):
         changes = changed_files(repo, base, head)
     except (OSError, RuntimeError, subprocess.SubprocessError) as error:
         return _undetermined(f"could not list the changed files: {error}")
-    sources = [(status, path) for status, path in changes if path.endswith(".py") and not _is_test_path(path)]
+    # `._name.py` is a macOS AppleDouble metadata sidecar (binary, never source); one that slips into a commit
+    # must not make the whole check "not checked".
+    sources = [(status, path) for status, path in changes
+               if path.endswith(".py") and not _is_test_path(path) and not path.rsplit("/", 1)[-1].startswith("._")]
     if not sources:
         return _undetermined("the diff changes no non-test Python files, so there are no changed symbols to assert on")
     symbols, files = set(), []

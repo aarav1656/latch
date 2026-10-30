@@ -579,6 +579,13 @@ class RepoTests(unittest.TestCase):
             {"pkg/version.py": HEAD, "tests/test_v.py": "def test_x():\n    assert 2\n", "README.md": "b\n"})
         self.assertEqual(changed_symbols(repo, base, head)["files"], ["pkg/version.py"])
 
+    def test_appledouble_sidecars_are_not_source(self):
+        sidecar = "\x00\x05\x16\x07 binary resource fork"
+        repo, base, head = self.repo({"pkg/version.py": BASE}, {"pkg/version.py": HEAD, "pkg/._version.py": sidecar})
+        found = changed_symbols(repo, base, head)
+        self.assertTrue(found["determined"], found)
+        self.assertEqual(found["files"], ["pkg/version.py"])
+
     def test_only_test_files_changed_is_undetermined(self):
         repo, base, head = self.repo({"tests/test_v.py": "def test_x():\n    assert 1\n"},
                                      {"tests/test_v.py": "def test_x():\n    assert 2\n"})
