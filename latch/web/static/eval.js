@@ -39,14 +39,14 @@
     return dl;
   }
   function table(headers, body, rightFrom) {
-    const wrap = el("div", "eval-scroll"); const t = el("table", "ledger-table");
+    const wrap = el("div", "eval-scroll"); const t = el("table", "ledger-table stack");
     const hr = el("tr");
     headers.forEach((h, i) => hr.appendChild(el("th", rightFrom != null && i >= rightFrom ? "r" : null, h)));
     const th = el("thead"); th.appendChild(hr); t.appendChild(th);
     const tb = el("tbody");
     body.forEach((cells) => {
       const tr = el("tr");
-      cells.forEach((c, i) => { const td = el("td", rightFrom != null && i >= rightFrom ? "r" : null); if (c instanceof Node) td.appendChild(c); else td.textContent = c; tr.appendChild(td); });
+      cells.forEach((c, i) => { const td = el("td", rightFrom != null && i >= rightFrom ? "r" : null); if (c instanceof Node) td.appendChild(c); else td.textContent = c; td.setAttribute("data-label", headers[i] || ""); tr.appendChild(td); });
       tb.appendChild(tr);
     });
     t.appendChild(tb); wrap.appendChild(t);
@@ -70,7 +70,7 @@
 
   function pendingView(reason) {
     const hero = el("section", "eval-hero");
-    hero.append(el("p", "hero-num", "Eval pending"), el("p", null, reason || "The evaluation summary has not been committed yet."));
+    hero.append(el("h2", "eval-state", "Eval pending"), el("p", null, String(reason || "The evaluation summary has not been committed yet.").replace(/^Eval pending:\s*/i, "")));
     hero.appendChild(el("p", "eval-sub", "No Latch number is shown because none exists yet. Model credit ran out before the run (Token Factory HTTP 402)."));
     const demo = section("What exists today",
       rows([

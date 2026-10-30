@@ -939,6 +939,11 @@ class StepEventTests(unittest.TestCase):
         self.assertIn("event: step_event", body)
         self.assertEqual(body.count("event: step_event"), body.count('"seq"') )
 
+    def test_the_real_pull_request_runner_accepts_step_events(self):
+        from latch import github_pr
+        from latch.web.service import _accepts
+        self.assertTrue(_accepts(github_pr.run_pull_request, "on_step_event"))
+
     def test_runners_without_the_keyword_still_work(self):
         h = Harness(self)
         events = h.events(h.post(h.add_pr(9))[2]["job_id"])
@@ -1057,6 +1062,20 @@ class ImageContextTests(unittest.TestCase):
                 rule = "!latch/web/static/" + f.name
                 self.assertIn(rule, lines)
                 self.assertGreater(lines.index(rule), lines.index("**/*token*"))
+
+    def test_no_receipt_store_or_test_fixture_ships_in_the_image(self):
+        root = web.STATIC_DIR.parent
+        lines = [l.strip() for l in (root / "Dockerfile.dockerignore").read_text().splitlines() if l.strip() and not l.startswith("#")]
+        self.assertIn("latch/web/.data", lines)
+        self.assertGreater(lines.index("latch/web/.data"), lines.index("!latch/web/**"))
+        self.assertIn("latch/web/test_*.py", lines)
+        self.assertIn("VOLUME", (root / "Dockerfile").read_text())  # /data is an empty volume, never a copied store
+        shipped = [p for p in root.parent.rglob("*") if p.is_file() and "__pycache__" not in p.parts
+                   and ".data" not in p.parts and not p.name.startswith("test_")
+                   and p.suffix in (".py", ".json", ".jsonl", ".js", ".html", ".md", ".yml")]
+        self.assertTrue(shipped)
+        for path in shipped:
+            self.assertNotIn("acme/widgets", path.read_text(errors="ignore"), str(path))
 
 
 class RecordedLabelTests(unittest.TestCase):
