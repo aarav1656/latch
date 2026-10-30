@@ -8,6 +8,9 @@
 !latch/runs/loop-demo-events.jsonl
 !latch/runs/eval-summary.json
 !latch/runs/eval/**
+!latch/runs/eval-summary-repair.json
+!latch/runs/eval-diff-repair.json
+!latch/runs/eval-repair/**
 # development-only and answer-key output never ships (the whitelist above does not admit them; this makes it explicit)
 latch/runs/dev
 latch/runs/dev/**
