@@ -1,0 +1,4 @@
+# Known false positive: the path-traversal fixture string at latch/web/test_app.py:987 in two
+# already-pushed commits. It is test data, not a credential.
+f8979a6b7d9b6328902c7d4edaaf5502344db050:latch/web/test_app.py:generic-api-key:987
+024eef54f4505c59c95bf4af745191d8daeeb088:latch/web/test_app.py:generic-api-key:987
