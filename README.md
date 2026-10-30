@@ -105,6 +105,25 @@ def test_ten_seats_annual_discount(self):
 
 - On `seats > 10` it failed with `AssertionError`. After restore it passed. Padlock: Open.
 
+## The loop, the CLI and the PR comment
+
+`latch/loop/` is the gate for an agent's patch: Lightning triages whether the failure reproduces the issue, Ultra rewrites existing source files up to N times, and the harness (never the model) decides open or shut. The proof test is frozen. It must fail on the base with an assertion, pass on the patch, keep the repo suite green, and fail again when the harness reverts the fix.
+
+```
+pip install -e .                     # adds the `latch` command
+latch prove --repo . --base <sha> --head <sha> --issue-file issue.md --receipt receipt.json
+latch loop  --repo . --base <sha> --head <sha> --issue-file issue.md      # shut -> triage -> patch -> open
+latch demo --human --pace            # the film-mode timeline of the bundled demo case
+latch comment receipt.json           # print the PR comment (dry run); --post needs --repo, --pr and GITHUB_TOKEN
+```
+
+- **Model use, recorded.** Every receipt has `model_calls[]` (role `repo_map`, `triage`, `test_writer` or `fixer`; model; tokens; latency; completion id; cost). Lightning also builds a repo map (relevant files and symbols, checked against an AST index of the base snapshot) that goes into Ultra's test prompt. Cost is an upper-bound estimate from Token Factory's published per-token prices (https://tokenfactory.nebius.com/model-catalog.md, read 2026-10-30; cached-input discounts are not applied). It is `null` when token counts are unknown.
+- **Steps.** `steps[]` and the JSONL event stream carry `{step, status, ts, detail}` for `fetch`, `repo_map`, `base_run`, `head_run`, `revert_check` and the verdict.
+- **Revert check.** After the gate opens, the harness reverts the fix (and, in the loop, restores the submitted patch) and requires the proof test to fail again. If it does not, or the check cannot run, the gate stays shut. `--no-revert` turns it off and says so in the receipt.
+- **Demo output.** On a terminal `python3 -m latch.loop demo` prints a coloured human timeline (`--pace` slows it for filming, about 90 s); piped output stays JSONL for the web (`--jsonl` forces it). The demo is a constructed regression case: a hand-written partial fix modelled on common agent behaviour, not an upstream bug.
+- **GitHub Action.** `.github/actions/latch` (composite) and the example workflow `latch/loop/github/latch.yml` run Latch on `pull_request` and keep one PR comment up to date. PR-controlled text goes through `env:`, never into a script, and fork PRs get no secrets, so the action fails closed. Posting is opt-in and nothing in this repo posts by default.
+- **Evaluation.** `latch/loop/eval/RESULTS.md` has the method, baselines and the `latch/runs/eval-summary.json` schema.
+
 ## Prior art
 
 Mutation testing is old. [mutmut](https://github.com/boxed/mutmut) (BSD-3-Clause, 1,513 stars) flips operators and reports survivors. [Flawd](https://fixture.dev/flawd) mutation-tested 10 projects and found TypeORM's unit tests killed 72.6% of mutants. Its `flawd handoff` packages each survivor for a coding agent.
@@ -131,6 +150,8 @@ python3 -m unittest latch.test_prove latch.harness.test_parse latch.harness.test
 
 - `latch/run.py`: the gate. Runs the suite, moves the line, calls Lightning and Ultra, runs the new test both ways.
 - `latch/prove.py`: the issue-to-regression CLI for real Python repositories and commit pairs.
+- `latch/loop/`: the patch gate, its human timeline, and the eval harness (`latch/loop/eval/`).
+- `latch/cli.py`, `latch/pr_comment.py`, `.github/actions/latch/`: the `latch` command and the PR comment.
 - `latch/serve.py`: local server for the screen and the run API.
 - `latch/screen/page.py`: the screen.
 - `latch/harness/`: parser and the AssertionError check, with tests.
