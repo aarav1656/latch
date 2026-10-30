@@ -96,15 +96,23 @@
       const line = el("div", "verdict-line");
       const p = el("span", "pill " + (proven ? "pass" : "fail"), vi.label);
       p.setAttribute("data-verdict", vi.code || (proven ? "proven" : "not_proven"));
-      line.append(p, el("span", "mono", (r.test_name || NR)));
+      line.append(p, el("span", "mono", (r.test_name || (r.proof_test && r.proof_test.name) || NR)));
       box.appendChild(line);
-      box.appendChild(rows([
+      // prove.py receipts carry base_result/head_result; fix-loop receipts carry initial.base_proof/head_proof
+      const init = r.initial || {};
+      const exit = (x) => (x && typeof x.returncode === "number" ? "exit " + x.returncode : NR);
+      const assertion = (log) => (typeof log === "string" ? (log.split("\n").find((l) => /^E\s/.test(l)) || "").replace(/^E\s+/, "").slice(0, 240) : "");
+      const logs = r.verdict_logs || {};
+      const pairs = [
         ["Meaning", vi.meaning],
         ["Reason", vi.reason || m.why_not_proven || r.why_not_proven || (proven ? "The gate opened." : NR)],
-        ["Base", (r.base_result && typeof r.base_result.returncode === "number") ? "exit " + r.base_result.returncode : NR, true],
-        ["Head", (r.head_result && typeof r.head_result.returncode === "number") ? "exit " + r.head_result.returncode : NR, true],
-        ["Receipt file", s.featured_wrong_fix_receipt || NR, true],
-      ]));
+        ["Base", exit(r.base_result || init.base_proof), true],
+        ["Head", exit(r.head_result || init.head_proof), true],
+      ];
+      const failed = assertion(logs.head);
+      if (failed) pairs.push(["Failure on the wrong patch", failed, true]);
+      pairs.push(["Receipt file", s.featured_wrong_fix_receipt || NR, true]);
+      box.appendChild(rows(pairs));
     } else {
       box.appendChild(el("p", "hint", s.featured_wrong_fix_receipt ? "The featured receipt file could not be read." : "No NOT PROVEN receipt for a wrong patch has been saved yet."));
     }
