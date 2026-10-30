@@ -173,10 +173,10 @@ class CacheTests(unittest.TestCase):
         h = Harness(self)
         status, body = h.get_json("/api/example")
         self.assertEqual(status, 200)
-        self.assertEqual(body["receipt"]["completion_id"], "chatcmpl-99d6e5a92020c804")
+        self.assertEqual(body["receipt"]["completion_id"], "chatcmpl-a7589d01d509ec91")
         status, _, page = h.request("GET", "/r/pallets/click/3299")
         self.assertEqual(status, 200)
-        self.assertIn(b"chatcmpl-99d6e5a92020c804", page)
+        self.assertIn(b"chatcmpl-a7589d01d509ec91", page)
         status, _, page = h.request("GET", "/r/pallets/click/99999")
         self.assertEqual(status, 404)
         self.assertIn(b"No saved receipt", page)
@@ -1084,8 +1084,8 @@ class RecordedLabelTests(unittest.TestCase):
         status, body = h.get_json("/api/receipt/pallets/click/3299")
         self.assertEqual(status, 200)
         self.assertEqual(body["meta"]["source"], "recorded")
-        self.assertEqual(body["meta"]["created_at"], "2026-10-29T08:37:03Z")
-        self.assertEqual(body["receipt"]["completion_id"], "chatcmpl-99d6e5a92020c804")
+        self.assertEqual(body["meta"]["created_at"], "2026-10-30T08:49:58Z")
+        self.assertEqual(body["receipt"]["completion_id"], "chatcmpl-a7589d01d509ec91")
 
     def test_front_end_labels_recorded_cached_and_live_and_never_claims_a_live_time(self):
         js = (web.STATIC_DIR / "app.js").read_text()

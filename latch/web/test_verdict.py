@@ -204,12 +204,12 @@ class ServedTests(unittest.TestCase):
         self.assertIn("AssertionError", got["receipt"]["verdict_logs"]["head"])
         self.assertEqual(got["receipt"]["head_result"]["returncode"], 1)
 
-    def test_an_old_receipt_lists_no_verdict_code_and_the_recorded_click_still_does_not(self):
+    def test_an_old_receipt_lists_no_verdict_code_beside_the_recorded_click(self):
         h = Harness(self)
         seed(h, 20)
-        items = h.get_json("/api/recent")[1]["items"]
-        self.assertTrue(items)
-        self.assertTrue(all(i["verdict_code"] is None for i in items))
+        items = {(i["repo"], i["number"]): i for i in h.get_json("/api/recent")[1]["items"]}
+        self.assertIsNone(items[("acme/widgets", 20)]["verdict_code"])
+        self.assertEqual(items[("pallets/click", 3299)]["verdict_code"], "VALIDATED")
 
     def test_the_mutation_and_verdict_step_events_are_relayed_like_any_other(self):
         def run(url, path, command, on_step=None, runner=None, on_step_event=None):
@@ -401,7 +401,7 @@ class StepNamesAndMutantStateTests(unittest.TestCase):
         self.assertEqual(status, 200)
         events = body["events"]
         self.assertTrue(events and events[-1].get("receipt"))
-        self.assertNotIn("gate", events[-1]["receipt"], "the recorded demo predates the gate field")
+        self.assertEqual(events[-1]["receipt"]["gate"], "gate_open")
 
 
 CAUTION = "Mutation check incomplete: this verdict is not mutation-backed."
