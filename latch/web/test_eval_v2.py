@@ -353,7 +353,8 @@ class PathsTests(unittest.TestCase):
     """HARD RULE 3: every read of latch/runs/ is a fixed path. Nothing globs, lists or walks it."""
 
     READS = {
-        "app.py": {"latch/runs/click-3298.json", "latch/runs/eval-summary.json", "latch/runs/eval"},
+        "app.py": {"latch/runs/click-3298.json", "latch/runs/eval-summary.json", "latch/runs/eval",
+                   "latch/runs/eval-summary-repair.json", "latch/runs/eval-repair", "latch/runs/eval-diff-repair.json"},
         "service.py": {"latch/runs/loop-demo-events.jsonl"},
     }
 
@@ -376,6 +377,56 @@ class PathsTests(unittest.TestCase):
                 if re.search(r"\.(glob|rglob|iterdir|scandir)\(|os\.(listdir|walk)\(", line):
                     # the only directory listings: the receipt cache in the data dir, and /proc for the sandbox
                     self.assertTrue('"receipts"' in line or "/proc" in line, f"{path.name}:{n}: {line.strip()}")
+
+
+class TwoRunTests(unittest.TestCase):
+    """The repair run is the headline once committed; the first run rides beside it, unchanged."""
+
+    def repair_root(self, repair=None, diff=None, featured=None):
+        root = RunsRoot(self, v2_summary(latch_git_sha="first"), featured={"proven": False, "from": "first"})
+        (root.runs / "eval-repair").mkdir()
+        (root.runs / "eval-summary-repair.json").write_text(json.dumps(repair or v2_summary(
+            latch_git_sha="repair", run={"tag": "repair"}, featured_wrong_fix_receipt="latch/runs/eval-repair/wrong.json")))
+        if featured is not None:
+            (root.runs / "eval-repair" / "wrong.json").write_text(json.dumps(featured))
+        if diff is not None:
+            (root.runs / "eval-diff-repair.json").write_text(json.dumps(diff))
+        return root
+
+    def test_without_a_repair_run_the_first_run_is_the_headline_and_nothing_rides_beside_it(self):
+        RunsRoot(self, v2_summary(latch_git_sha="first"))
+        body = Harness(self).get_json("/api/eval")[1]
+        self.assertEqual(body["summary"]["latch_git_sha"], "first")
+        self.assertNotIn("previous", body)
+
+    def test_the_repair_run_is_the_headline_with_the_first_run_and_the_diff_beside_it(self):
+        self.repair_root(diff={"headline": {"real_validated": {"before": "7/21", "after": "10/21"}}, "cases": []},
+                         featured={"proven": False, "from": "repair"})
+        body = Harness(self).get_json("/api/eval")[1]
+        self.assertEqual(body["summary"]["latch_git_sha"], "repair")
+        self.assertEqual(body["previous"]["latch_git_sha"], "first")
+        self.assertNotIn("cases", body["previous"])
+        self.assertEqual(body["diff"]["headline"]["real_validated"]["after"], "10/21")
+        self.assertEqual(body["featured"]["receipt"]["from"], "repair")
+
+    def test_the_repair_runs_featured_receipt_must_live_in_its_own_directory(self):
+        self.repair_root(repair=v2_summary(latch_git_sha="repair", featured_wrong_fix_receipt="latch/runs/eval/wrong.json"))
+        self.assertIsNone(Harness(self).get_json("/api/eval")[1]["featured"])
+
+    def test_a_dev_repair_summary_never_becomes_the_headline(self):
+        self.repair_root(repair=v2_summary(latch_git_sha="repair", dev_only=True))
+        body = Harness(self).get_json("/api/eval")[1]
+        self.assertEqual(body["summary"]["latch_git_sha"], "first")
+        self.assertNotIn("previous", body)
+
+    def test_the_oracle_answer_key_is_stripped_from_the_repair_headline_too(self):
+        self.repair_root(repair=v2_summary(latch_git_sha="repair"))
+        self.assertNotIn("oracle_baseline", Harness(self).get_json("/api/eval")[1]["summary"])
+
+    def test_the_page_renders_the_side_by_side_section(self):
+        js = (STATIC / "eval.js").read_text()
+        self.assertIn("data.previous", js)
+        self.assertIn("First run and repair run", js)
 
 
 if __name__ == "__main__":
