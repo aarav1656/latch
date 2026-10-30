@@ -110,8 +110,9 @@ deploy_vercel() {
   local stage; stage="$(mktemp -d)"
   say "Staging a cached-receipts-only Vercel project in $stage"
   mkdir -p "$stage/latch"
-  (cd "$REPO_ROOT" && tar --exclude='__pycache__' --exclude='.data' --exclude='test_*.py' \
-      -cf - latch/*.py latch/harness/*.py latch/web latch/runs/click-3298.json latch/runs/loop-demo-events.jsonl) \
+  (cd "$REPO_ROOT" && shopt -s nullglob && tar --exclude='__pycache__' --exclude='.data' --exclude='test_*.py' \
+      -cf - latch/*.py latch/harness/*.py latch/web latch/runs/click-3298.json latch/runs/loop-demo-events.jsonl \
+      latch/runs/eval-summary*.json latch/runs/eval-diff*.json latch/runs/eval latch/runs/eval-repair*/) \
     | tar -xf - -C "$stage"
   mkdir -p "$stage/api"
   cp "$REPO_ROOT/latch/web/vercel/api/index.py" "$stage/api/index.py"
