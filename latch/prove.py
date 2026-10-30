@@ -43,6 +43,10 @@ def expected_base_failure(base_result, test_name):
         return "unexpected-operation"
     if any(re.match(r"E\s+(AssertionError\b|assert\b)", line) for line in errors):
         return "assertion"
+    # `with pytest.raises(X):` around code that returned normally: pytest reports `Failed: DID NOT RAISE <class X>`
+    # (or DID NOT WARN). That is a behavior mismatch on the code under test, exactly like a failed assert.
+    if any(re.match(r"E\s+Failed: DID NOT (RAISE|WARN)\b", line) for line in errors):
+        return "assertion"
     return None
 
 

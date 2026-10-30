@@ -55,6 +55,19 @@ class ProofClassifierTests(unittest.TestCase):
         result["stdout"] = "________ test_issue ________\nE       NameError: pytest missing\nFAILED latch_issue_test.py::test_issue - NameError: pytest missing\n"
         self.assertIsNone(expected_base_failure(result, "test_issue"))
 
+    def test_pytest_raises_that_did_not_raise_is_a_behavior_failure_not_an_error(self):
+        # toolz-602: the writer wrapped the operation in pytest.raises(LookupError); on base it returned normally.
+        output = ("________ test_issue ________\nlatch_issue_test.py:35: in test_issue\n    with pytest.raises(LookupError):\n"
+                  "E   Failed: DID NOT RAISE <class 'LookupError'>\nFAILED latch_issue_test.py::test_issue - Failed: DID NOT RAISE\n")
+        result = {"returncode": 1, "stdout": output, "stderr": ""}
+        self.assertEqual(expected_base_failure(result, "test_issue"), "assertion")
+        self.assertTrue(proven(result, {"returncode": 0, "stdout": "", "stderr": ""}, "test_issue"))
+        result["stdout"] = output.replace("DID NOT RAISE <class 'LookupError'>", "DID NOT WARN. No warnings of type")
+        self.assertEqual(expected_base_failure(result, "test_issue"), "assertion")
+        # other pytest.fail messages are still not behavior failures
+        result["stdout"] = output.replace("DID NOT RAISE <class 'LookupError'>", "something else")
+        self.assertIsNone(expected_base_failure(result, "test_issue"))
+
     def test_long_test_name_without_summary_message_is_still_an_assertion(self):
         # pytest drops " - <msg>" from the FAILED summary line when a long name overflows 80 columns
         name = "test_" + "merging_overlapping_bookings_keeps_the_longest_end_date_" * 2
