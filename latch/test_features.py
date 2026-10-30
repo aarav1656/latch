@@ -254,9 +254,10 @@ class ProveIntegrationTests(unittest.TestCase):
             saved = json.loads((Path(temp) / "r.json").read_text())
         return result, saved, events
 
-    def runner(self, revert_fails=True):
+    def runner(self, revert_fails=True, mutants_die=True):
         def run(snapshot, command):
-            if snapshot.name == "base" or (revert_fails and snapshot.name == "revert-fix"):
+            if snapshot.name == "base" or (revert_fails and snapshot.name == "revert-fix") \
+                    or (mutants_die and snapshot.name.startswith("mutant-")):
                 return {"returncode": 1, "stdout": FAIL, "stderr": ""}
             return {"returncode": 0, "stdout": "1 passed", "stderr": ""}
         return run
@@ -371,6 +372,46 @@ class ProveIntegrationTests(unittest.TestCase):
 
         _, saved, _ = self.go(run)
         self.assertEqual(saved["verdict"], "FLAKY")
+
+    def test_mutation_check_runs_after_the_revert_check_and_is_in_the_receipt(self):
+        result, saved, events = self.go(self.runner())
+        self.assertEqual(saved["verdict"], "VALIDATED")
+        mutation = saved["mutation"]
+        self.assertEqual((mutation["ran"], mutation["ok"], mutation["killed"], mutation["total"], mutation["kill_rate"]),
+                         (True, True, 1, 1, 1.0))
+        self.assertEqual(mutation["mutants"][0]["operator"], "return_none")
+        self.assertEqual((mutation["mutants"][0]["file"], mutation["mutants"][0]["line"]), ("app.py", 2))
+        steps = [e["step"] for e in events if e["status"] == "started"]
+        self.assertEqual(steps[steps.index("revert_check"):], ["revert_check", "mutation_check"])
+        done = [e for e in events if e["step"] == "mutation_check" and e["status"] == "done"]
+        self.assertEqual(done[0]["detail"], {"killed": 1, "total": 1, "kill_rate": 1.0})  # contract with latch-web
+        self.assertIn("killed 1/1 mutants", saved["verdict_reason"])
+
+    def test_surviving_mutants_below_the_threshold_are_mutation_survived(self):
+        result, saved, events = self.go(self.runner(mutants_die=False))
+        self.assertEqual((saved["verdict"], saved["proven"], result["proven"]), ("MUTATION_SURVIVED", False, False))
+        self.assertEqual((saved["mutation"]["killed"], saved["mutation"]["kill_rate"], saved["mutation"]["ok"]), (0, 0.0, False))
+        self.assertIn("kill rate 0%", saved["verdict_reason"])
+        failed = [e for e in events if e["step"] == "mutation_check" and e["status"] == "failed"]
+        self.assertEqual(failed[0]["detail"], {"killed": 0, "total": 1, "kill_rate": 0.0})
+        self.assertEqual(events[-1]["detail"], {"verdict": "MUTATION_SURVIVED", "reason": saved["verdict_reason"]})
+
+    def test_mutants_never_run_when_the_revert_check_fails_or_the_check_is_off(self):
+        calls = []
+        base = self.runner(revert_fails=False)
+
+        def run(snapshot, command):
+            calls.append(snapshot.name)
+            return base(snapshot, command)
+
+        _, saved, events = self.go(run)
+        self.assertNotIn("mutation_check", [e["step"] for e in events])
+        self.assertIsNone(saved["mutation"])
+        self.assertFalse(any(name.startswith("mutant-") for name in calls))
+        _, saved, events = self.go(self.runner(), mutation=False)
+        self.assertEqual((saved["verdict"], saved["mutation"]), ("VALIDATED", None))
+        self.assertNotIn("mutation_check", [e["step"] for e in events])
+        self.assertIn("mutation check was not run", saved["verdict_reason"])
 
     def test_flake_runs_is_configurable_and_one_disables_it(self):
         calls = []

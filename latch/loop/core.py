@@ -213,6 +213,7 @@ def run_loop(
     revert=True,
     repo_map=True,
     flake_runs=FLAKE_RUNS,
+    mutation=True,
 ):
     """Run the fix loop and return the receipt dict (`receipt["gate"]` is "gate_open", "gave_up" or "error";
     `receipt["verdict"]` is the named verdict from latch.verdict, or None on an infrastructure error).
@@ -235,6 +236,8 @@ def run_loop(
     revert: after the gate opens, revert the fix (and, if the loop rewrote files, restore the submitted patch) and
         require the proof test to fail again; if it does not, the gate stays shut (gave_up).
     repo_map: Nemotron Lightning builds a compact repo map that goes into Ultra's test-writing prompt.
+    mutation: after the revert check, run the proof test against up to 5 AST mutants of the changed lines (kill rate
+        below 60% shuts the gate: MUTATION_SURVIVED). False skips it.
     flake_runs: rerun the proof test this many times on base and on the final code (default 5, at most 10, 1 turns it
         off) before the revert check. Any inconsistent side gives the FLAKY verdict and the gate stays shut.
     model_fn: optional replacement for latch.run.call_model(key, user, model=, system=, max_tokens=)
@@ -558,6 +561,22 @@ def run_loop(
                          base_red=True, head_suite_green=True)
                 return result["ok"]
 
+            def mutation_gate(loop_files=None):
+                """Mutate the changed lines of the final code; the proof test must kill enough mutants, or the gate stays shut."""
+                if not mutation:
+                    return True
+                from ..mutate import RUN_TIMEOUT, mutation_detail, run_mutation
+                steps.started("mutation_check")
+                result = run_mutation(lambda directory: run_test(directory, command, timeout=RUN_TIMEOUT), work, base_dir,
+                                      source_changes, test_source, TEST_FILE, root / "mutations", is_test_path,
+                                      loop_files=loop_files)
+                receipt["mutation"] = ev["mutation"] = result
+                (steps.done if result["ok"] else steps.failed)("mutation_check", mutation_detail(result))
+                if not result["ok"]:
+                    emit("gate_shut", iteration=len(receipt["iterations"]), reason="mutation check failed: " + result["note"],
+                         base_red=True, head_suite_green=True)
+                return result["ok"]
+
             if head_ok and suite_green:
                 emit("gate_check", iteration=0, base_red=True, head_suite_green=True)
                 if not flake_gate(work):
@@ -565,6 +584,8 @@ def run_loop(
                 if not revert_gate():
                     return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
                                              "isolate the fix: " + receipt["revert_check"]["summary"])
+                if not mutation_gate():
+                    return finish("gave_up", "the proof test does not pin the fix down: " + receipt["mutation"]["note"])
                 inspect(work)
                 return finish("gate_open", "the submitted fix already passes the proof test; no loop needed")
             why = ("proof test fails on the submitted fix" if not head_ok else "the repo's own suite fails on the submitted fix")
@@ -676,6 +697,8 @@ def run_loop(
                     if not revert_gate(loop_files):
                         return finish("gave_up", "the proof test still passed after the fix was reverted, so it does not "
                                                  "isolate the fix: " + receipt["revert_check"]["summary"])
+                    if not mutation_gate(loop_files):
+                        return finish("gave_up", "the proof test does not pin the fix down: " + receipt["mutation"]["note"])
                     inspect(work)
                     return finish("gate_open", f"harness watched the proof test go red on base and green after iteration {i}, with the repo suite green")
             return finish("gave_up", f"gate still shut after {max_iterations} iteration(s); the harness never saw the proof test pass with the repo suite green")

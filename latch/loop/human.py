@@ -118,12 +118,12 @@ class Timeline:
         name, status, detail = e["step"], e["status"], e.get("detail")
         label = {"fetch": "fetch revisions", "repo_map": "Lightning repo map", "test_writer": "Ultra writes the proof test",
                  "base_run": "run proof test on base", "head_run": "run proof test + suite on submitted change",
-                 "triage": "Lightning triage", "fix": "fix", "revert_check": "revert check (mutation)", "flake_check": "flake check",
+                 "triage": "Lightning triage", "fix": "fix", "revert_check": "revert check", "mutation_check": "mutation check", "flake_check": "flake check",
                  "verdict": "verdict"}.get(name, name)
         if name in ("triage", "fix", "verdict"):
             return  # these have richer events of their own
         if status == "started":
-            if name in ("repo_map", "test_writer", "revert_check", "flake_check"):
+            if name in ("repo_map", "test_writer", "revert_check", "flake_check", "mutation_check"):
                 self.line(self.c("bold", label) + self.c("dim", " ..."))
             return
         if name == "repo_map":
@@ -143,6 +143,13 @@ class Timeline:
             self.line((self.c("green", "ok  ") + f"stable over {d.get('runs')} runs on base and head" if status == "done"
                        else self.c("red", "FLAKY  ") + f"inconsistent results over {d.get('runs')} runs (flake rate {d.get('flake_rate', 0):.0%})"),
                       0.5, indent=2)
+        elif name == "mutation_check":
+            d = detail or {}
+            rate = d.get("kill_rate")
+            self.line((self.c("green", "ok  ") if status == "done" else self.c("red", "FAILED  "))
+                      + ("no mutable lines in the change; nothing to mutate" if not d.get("total") and status == "done"
+                         else f"killed {d.get('killed', 0)}/{d.get('total', 0)} mutants of the changed lines"
+                              + (f" (kill rate {rate:.0%})" if rate is not None else " (the check could not complete)")), 0.8, indent=2)
         elif name == "revert_check":
             summary = detail if isinstance(detail, str) else ""
             self.line((self.c("green", "ok  ") if status == "done" else self.c("red", "FAILED  ")) + summary, 0.8, indent=2)
@@ -165,7 +172,9 @@ class Timeline:
             flaky, mutation = receipt.get("flaky") or {}, receipt.get("mutation") or {}
             if flaky.get("ran"):
                 self.line(f"flake check: {flaky['runs']} runs on base and head, flake rate {flaky['flake_rate']:.0%}", indent=2)
-            if mutation.get("total"):
+            if mutation.get("ran") is False and mutation.get("ok") is False:
+                self.line(f"mutation check: could not complete ({mutation.get('note')})", indent=2)
+            elif mutation.get("total"):
                 self.line(f"mutation check: killed {mutation['killed']}/{mutation['total']} (kill rate {mutation['kill_rate']:.0%}, needs {mutation['threshold']:.0%})", indent=2)
         calls = receipt.get("model_calls") or self.calls
         if calls:
