@@ -12,7 +12,13 @@
 .eval-featured { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); border-top: 1px solid var(--line); padding-top: var(--space-4); }
 .eval-featured .verdict-line { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
 .eval-scroll { overflow-x: auto; }
-.eval-cases { min-width: 44rem; }
+.eval-cases { min-width: 58rem; }
+.eval-cases th { white-space: nowrap; }
 @media (max-width: 52rem) { .eval-split { grid-template-columns: minmax(0, 1fr); } .eval-hero { padding: var(--space-4); } }
 .eval-scroll .ledger-table { min-width: 34rem; }
 .eval-state { font: 600 var(--t-base)/1.3 var(--font-display); color: var(--ink); }
+
+.case-source, .case-loop { display: block; color: var(--muted); }
+.dropped { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
+.dropped-item { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: var(--space-2) 0; border-top: 1px solid var(--line-soft); }
+.dropped-reason { flex: 1 1 14rem; color: var(--muted); overflow-wrap: anywhere; }
