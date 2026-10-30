@@ -9,6 +9,7 @@
   const recentEl = $("recent"), recentList = $("recent-list");
   const CLICK_URL = "https://github.com/pallets/click/pull/3299";
   const NR = "not recorded";
+  const LV = window.LatchVerdict;
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // The step ledger. `step_event` frames from the engine fill it by name; the older `step` frames map in.
@@ -20,7 +21,8 @@
     ["head_run", "Run on head, expect it to pass", true],
     ["triage", "Triage the base failure (Lightning)", false],
     ["revert_check", "Revert the fix, expect it to fail again", false],
-    ["verdict", "Write the receipt", true],
+    ["mutation", "Mutation check (harness)", false],
+    ["verdict", "Decide the verdict (harness)", true],
   ];
   const LEGACY = { "fetching": "fetch", "fetching-commits": "fetch", "generating-test": "test_writer", "model": "test_writer", "base-test": "base_run", "head-test": "head_run", "receipt": "verdict" };
   let config = boot.config || {};
@@ -141,6 +143,87 @@
     return sec;
   }
 
+  // ---- mutation check and log excerpts (draft receipt contract) ----
+  function mutantFile(mu) { return (mu.file || NR) + (isNum(mu.line) ? ":" + mu.line : ""); }
+  function diffPre(text) {
+    const pre = el("pre", "diff", null, { tabindex: "0", role: "region", "aria-label": "Mutant diff" });
+    String(text).split("\n").forEach((ln, i, all) => {
+      const cls = ln.startsWith("+") && !ln.startsWith("+++") ? "add" : ln.startsWith("-") && !ln.startsWith("---") ? "del" : ln.startsWith("@@") ? "hunk" : null;
+      pre.appendChild(cls ? el("span", cls, ln) : document.createTextNode(ln));
+      if (i < all.length - 1) pre.appendChild(document.createTextNode("\n"));
+    });
+    return pre;
+  }
+  function mutantItem(mu) {
+    const killed = mu.killed === true;
+    const li = el("li", "mutant " + (killed ? "is-killed" : "is-survived"), null, { "data-killed": String(killed) });
+    const head = el("div", "mutant-head");
+    head.append(
+      el("span", "mutant-op", mu.operator || NR),
+      el("span", "mutant-where", mutantFile(mu)),
+      pill(killed, killed ? "killed" : "survived"),
+    );
+    li.appendChild(head);
+    if (mu.diff && !killed) li.appendChild(diffPre(mu.diff));  // survivors show the change; killed mutants fold it away
+    if (mu.diff && killed) {
+      const dd = el("details");
+      dd.append(el("summary", null, "Diff"), diffPre(mu.diff));
+      li.appendChild(dd);
+    }
+    if (mu.output_excerpt) {
+      const d = el("details");
+      d.append(el("summary", null, "Output excerpt"), el("pre", null, String(mu.output_excerpt), { tabindex: "0" }));
+      li.appendChild(d);
+    }
+    return li;
+  }
+  function mutationSection(r) {
+    const sec = el("section", "section mutation", null, { "data-mutation": "" });
+    sec.appendChild(el("h3", "section-title", "Mutation check"));
+    const mu = r.mutation;
+    if (!mu || typeof mu !== "object") {
+      sec.setAttribute("data-mutation", "not-run");
+      sec.appendChild(el("p", "hint", "not run. This receipt has no mutation check, so how hard the test is to fool is " + NR + "."));
+      return sec;
+    }
+    const list = Array.isArray(mu.mutants) ? mu.mutants.filter((x) => x && typeof x === "object") : [];
+    const killed = isNum(mu.killed) ? mu.killed : list.filter((x) => x.killed === true).length;
+    const total = isNum(mu.total) ? mu.total : list.length;
+    const survived = list.filter((x) => x.killed !== true);
+    sec.setAttribute("data-mutation", survived.length ? "survived" : "killed");
+    const score = el("p", "mutation-score");
+    score.append(el("span", "mutation-frac num", killed + "/" + total), el("span", null, " mutants killed"));
+    if (isNum(mu.kill_rate)) score.appendChild(el("span", "mutation-rate num", " " + Math.round(mu.kill_rate * 100) + "%"));
+    sec.appendChild(score);
+    sec.appendChild(el("p", "hint", total === 0
+      ? "No mutants were generated, so this check says nothing about the test."
+      : survived.length
+        ? survived.length + " changed version" + (survived.length === 1 ? "" : "s") + " of the fix still passed the test. Survivors are listed first."
+        : "Every changed version of the fix was caught by the test."));
+    if (list.length) {
+      const ordered = survived.concat(list.filter((x) => x.killed === true));
+      const ul = el("ol", "mutants");
+      ordered.forEach((x) => ul.appendChild(mutantItem(x)));
+      sec.appendChild(ul);
+    }
+    return sec;
+  }
+  // Log excerpts: a string, a list of strings, a list of {label, text}, or a {label: text} map.
+  function logExcerpts(r) {
+    const raw = r.log_excerpts != null ? r.log_excerpts : r.log_excerpt;
+    if (raw == null || raw === "" || (Array.isArray(raw) && !raw.length)) return null;
+    let items = [];
+    if (typeof raw === "string") items = [["Log excerpt", raw]];
+    else if (Array.isArray(raw)) items = raw.map((x, i) => typeof x === "string" ? ["Excerpt " + (i + 1), x] : x && typeof x === "object" ? [x.label || x.name || x.step || "Excerpt " + (i + 1), x.text || x.excerpt || x.output || ""] : null).filter(Boolean);
+    else if (typeof raw === "object") items = Object.entries(raw).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]);
+    items = items.filter((x) => x[1]);
+    if (!items.length) return null;
+    const d = el("details", "logs");
+    d.appendChild(el("summary", null, "Log excerpts (" + items.length + ")"));
+    items.forEach(([label, text]) => { d.appendChild(el("p", "hint", String(label))); d.appendChild(el("pre", null, String(text), { tabindex: "0" })); });
+    return d;
+  }
+
   function checksSection(r) {
     const rows = el("dl", "rows");
     const tri = r.triage;
@@ -154,16 +237,19 @@
 
   function renderReceipt(envelope, opts = {}) {
     const r = envelope.receipt, m = envelope.meta || {};
-    const proven = r.proven === true;
+    const vi = LV.info(r, m);
+    const proven = vi.pass;
+    const baseSha = r.base_sha || r.base, headSha = r.head_sha || r.head;
     clear(receiptEl);
 
-    const verdict = el("div", "verdict " + (proven ? "is-pass" : "is-fail"));
+    const verdict = el("div", "verdict " + (proven ? "is-pass" : "is-fail"), null, { "data-verdict": vi.code || (proven ? "proven" : "not_proven") });
     const word = el("h2", "verdict-word");
-    word.append(icon(proven ? CHECK : CROSS), document.createTextNode(proven ? "Proven" : "Not proven"));
-    const why = proven
-      ? "The test written from the issue fails on the base commit and passes on the pull request head."
-      : (m.why_not_proven || r.why_not_proven || "The test did not show the issue failing on base and passing on head.");
-    verdict.append(word, el("p", "verdict-why", why), provenance(m, opts.cached));
+    word.append(icon(proven ? CHECK : CROSS), document.createTextNode(vi.label));
+    verdict.append(word);
+    if (vi.code) verdict.appendChild(el("p", "verdict-code", vi.code));
+    verdict.appendChild(el("p", "verdict-why", vi.meaning));
+    if (vi.reason) verdict.appendChild(el("p", "verdict-reason", vi.reason));
+    verdict.appendChild(provenance(m, opts.cached));
     const idLine = el("p", "verdict-meta");
     idLine.append(el("span", null, "completion"), el("span", "id", r.completion_id || NR));
     verdict.appendChild(idLine);
@@ -179,8 +265,8 @@
       const baseOk = (r.base_result || {}).returncode;
       const headOk = (r.head_result || {}).returncode === 0;
       stack.append(
-        pane("base", "Base " + short(r.base), pill(false, "fails, exit " + (typeof baseOk === "number" ? baseOk : "?")), resultText(r.base_result), "Base output"),
-        pane("head " + (headOk ? "is-pass" : "is-fail"), "Head " + short(r.head), pill(headOk, (headOk ? "passes" : "fails") + ", exit " + ((r.head_result || {}).returncode)), resultText(r.head_result), "Head output"),
+        pane("base", "Base " + short(baseSha), pill(false, "fails, exit " + (typeof baseOk === "number" ? baseOk : "?")), resultText(r.base_result), "Base output"),
+        pane("head " + (headOk ? "is-pass" : "is-fail"), "Head " + short(headSha), pill(headOk, (headOk ? "passes" : "fails") + ", exit " + ((r.head_result || {}).returncode)), resultText(r.head_result), "Head output"),
       );
       pair.append(testPane, stack);
       receiptEl.appendChild(pair);
@@ -195,11 +281,14 @@
     const prLink = r.pull_request_url ? link(r.pull_request_url, r.pull_request_title || r.pull_request_url) : (r.pull_request_title || "Pull request");
     facts.appendChild(row("Pull request", prLink));
     facts.appendChild(row("Issue (the oracle)", r.issue_url ? link(r.issue_url, r.issue_title || r.issue_url) : (r.issue_title || "Linked issue")));
-    facts.appendChild(row("Base commit", short(r.base) + (r.base_branch ? " (" + r.base_branch + ")" : ""), true));
-    facts.appendChild(row("Head commit", short(r.head) + (r.head_branch ? " (" + r.head_branch + ")" : ""), true));
+    facts.appendChild(row("Base commit", short(baseSha) + (r.base_branch ? " (" + r.base_branch + ")" : ""), true));
+    facts.appendChild(row("Head commit", short(headSha) + (r.head_branch ? " (" + r.head_branch + ")" : ""), true));
     facts.appendChild(row("Test runner", r.test_runner || m.runner || NR));
     receiptEl.appendChild(facts);
 
+    receiptEl.appendChild(mutationSection(r));
+    const logs = logExcerpts(r);
+    if (logs) receiptEl.appendChild(logs);
     receiptEl.appendChild(modelsSection(r));
     receiptEl.appendChild(checksSection(r));
 
@@ -255,7 +344,7 @@
   }
   function download(envelope) {
     const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" });
-    const a = el("a", null, "", { href: URL.createObjectURL(blob), download: "latch-receipt-" + short(envelope.receipt.head) + ".json" });
+    const a = el("a", null, "", { href: URL.createObjectURL(blob), download: "latch-receipt-" + short(envelope.receipt.head_sha || envelope.receipt.head) + ".json" });
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
@@ -270,9 +359,9 @@
       const what = el("div", "what");
       what.appendChild(el("a", null, (x.repo || "") + " #" + (x.number || "?"), { href: x.permalink }));
       if (x.title) what.appendChild(el("span", "sub", x.title));
-      const proven = x.verdict === "proven";
+      const v = LV.fromCode(x.verdict_code, x.verdict === "proven");
       const when = el("span", "when", (x.source === "recorded" ? "recorded " : x.source === "live" ? "run here " : "") + (day(x.created_at) || ""));
-      li.append(what, pill(proven, proven ? "Proven" : "Not proven"), when);
+      li.append(what, pill(v.pass, v.label), when);
       recentList.appendChild(li);
     });
   }
@@ -287,7 +376,9 @@
   }
   function detailText(d) {
     if (d == null) return "";
-    if (typeof d === "string") return d;
+    if (typeof d === "string") return LV.VERDICTS[d] ? LV.VERDICTS[d].label : d;
+    if (typeof d === "object" && isNum(d.killed) && isNum(d.total)) return d.killed + "/" + d.total + " mutants killed";
+    if (typeof d === "object" && typeof d.verdict === "string" && LV.VERDICTS[d.verdict]) return LV.VERDICTS[d.verdict].label;
     try { return JSON.stringify(d); } catch (_) { return ""; }
   }
   function clock(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString(undefined, { hour12: false }); }

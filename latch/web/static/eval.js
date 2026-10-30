@@ -91,13 +91,15 @@
     if (s.featured_wrong_fix_note) box.appendChild(el("p", null, s.featured_wrong_fix_note));
     if (f && f.receipt) {
       const r = f.receipt, m = f.meta || {};
-      const proven = r.proven === true;
+      const vi = window.LatchVerdict.info(r, m);
+      const proven = vi.pass;
       const line = el("div", "verdict-line");
-      const p = el("span", "pill " + (proven ? "pass" : "fail"), proven ? "Proven" : "Not proven");
+      const p = el("span", "pill " + (proven ? "pass" : "fail"), vi.label);
+      p.setAttribute("data-verdict", vi.code || (proven ? "proven" : "not_proven"));
       line.append(p, el("span", "mono", (r.test_name || NR)));
       box.appendChild(line);
       box.appendChild(rows([
-        ["Reason", m.why_not_proven || r.why_not_proven || (proven ? "The gate opened." : NR)],
+        ["Reason", vi.reason || m.why_not_proven || r.why_not_proven || (proven ? "The gate opened." : NR)],
         ["Base", (r.base_result && typeof r.base_result.returncode === "number") ? "exit " + r.base_result.returncode : NR, true],
         ["Head", (r.head_result && typeof r.head_result.returncode === "number") ? "exit " + r.head_result.returncode : NR, true],
         ["Receipt file", s.featured_wrong_fix_receipt || NR, true],
@@ -106,6 +108,12 @@
       box.appendChild(el("p", "hint", s.featured_wrong_fix_receipt ? "The featured receipt file could not be read." : "No NOT PROVEN receipt for a wrong patch has been saved yet."));
     }
     return section("Featured wrong fix", box);
+  }
+
+  function caseOutcome(c) {
+    const v = window.LatchVerdict.VERDICTS[c.verdict];
+    const base = c.outcome || (c.status === "not run" ? "not run" : NR);
+    return v ? v.label + (c.outcome ? ", " + c.outcome : "") : base;
   }
 
   function fullView(data) {
@@ -158,7 +166,7 @@
 
     const cases = Array.isArray(s.cases) ? s.cases : [];
     const body = cases.map((c) => [
-      (c.case || NR) + (c.contested ? " (contested)" : ""), c.variant || NR, c.status || NR, c.outcome || (c.status === "not run" ? "not run" : NR),
+      (c.case || NR) + (c.contested ? " (contested)" : ""), c.variant || NR, c.status || NR, caseOutcome(c),
       isNum(c.iterations_used) ? String(c.iterations_used) : NR, secs(c.wall_s), usd(c.cost_usd),
     ]);
     const cs = table(["Case", "Variant", "Status", "Outcome", "Iterations", "Wall", "Est. cost"], body, 4);
