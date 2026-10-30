@@ -1,6 +1,7 @@
 """Job queue, rate limits, spend cap and error mapping for the hosted app."""
 
 import collections
+import inspect
 import json
 import os
 import re
@@ -21,6 +22,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_COMMAND = "python3 -m pytest -q"
 STEP_ALIASES = {"generating-test": "model"}
 STEP_ORDER = ["fetching", "fetching-commits", "model", "base-test", "head-test", "receipt"]
+
+
+def _accepts(function, name):
+    """True when `function` takes a keyword argument called `name` (or **kwargs)."""
+    try:
+        params = inspect.signature(function).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(p.name == name or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
 
 
 class ApiError(Exception):
@@ -505,12 +515,25 @@ class Service:
             job.detail = message
             job.emit("detail", {"message": message})
 
+        seq = [0]
+
+        def on_step_event(event):
+            """Engine step event {step, status, ts, detail}: relayed as-is with a per-job sequence number."""
+            if not isinstance(event, dict) or not event.get("step"):
+                return
+            seq[0] += 1
+            job.emit("step_event", {
+                "step": event.get("step"), "status": event.get("status"),
+                "ts": event.get("ts"), "detail": event.get("detail"), "seq": seq[0],
+            })
+
+        extra = {"on_step_event": on_step_event} if _accepts(self.run_pr, "on_step_event") else {}
         on_step("fetching")
         runner = self.runner_factory(progress)
         with tempfile.TemporaryDirectory(prefix="latch-job-") as temp:
             try:
                 receipt = self.run_pr(
-                    job.url, str(Path(temp) / "receipt.json"), TEST_COMMAND, on_step=on_step, runner=runner
+                    job.url, str(Path(temp) / "receipt.json"), TEST_COMMAND, on_step=on_step, runner=runner, **extra
                 )
             except Exception as error:
                 self._fail(job, error)
