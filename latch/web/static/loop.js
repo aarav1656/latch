@@ -117,6 +117,8 @@
         el("span", "tl-text", agrees ? v.meaning : "This receipt contradicts itself: the verdict and the proven flag disagree, so it is not treated as a pass."));
       c.appendChild(line);
       if (typeof r.verdict_reason === "string" && r.verdict_reason.trim()) c.appendChild(el("p", "tl-meta", r.verdict_reason.trim()));
+      const sr = r.mutation && typeof r.mutation === "object" && window.LatchVerdict.strengthened ? window.LatchVerdict.strengthened(r.mutation.strengthened, { cleared: r.mutation.ok === true }) : null;
+      if (sr) c.appendChild(el("p", "tl-text strengthened-line", sr.text, { "data-strengthened": sr.state }));
     } else if (r.verdict === null && (Object.prototype.hasOwnProperty.call(r, "gate") || ev.type === "error")) {
       line.append(el("span", "pill fail", "No verdict", { "data-verdict": "none" }), el("span", "tl-text", "No verdict: infrastructure error. Nothing was proven."));
       c.appendChild(line);
@@ -135,8 +137,20 @@
           if (ev.case_note) c.appendChild(el("p", "tl-text", String(ev.case_note)));
           c.appendChild(fold("Issue text", ev.issue));
         });
+      case "step": {  // only the strengthening round is shown here; every other step event stays in the ledger on the PR page
+        if (ev.step !== "strengthen") return null;
+        const d = ev.detail && typeof ev.detail === "object" ? ev.detail : {};
+        const L = window.LatchVerdict;
+        const done = ev.status === "done" || ev.status === "failed";
+        const outcome = typeof d.outcome === "string" ? d.outcome : done ? (ev.status === "failed" ? "kept_original" : "adopted") : null;
+        const info = L && L.strengthened ? L.strengthened({ live: !done, survivors_before: d.survivors, killed_before: d.killed, total_before: d.total,
+          kill_rate_before: d.kill_rate_before, kill_rate_after: d.kill_rate_after, outcome, reason: d.reason }) : null;
+        return card(ev, !done ? "work" : outcome === "adopted" ? "open" : "shut", done ? "Strengthened test: " + (outcome === "adopted" ? "adopted" : "not adopted") : "Strengthening the proof test", (c) => {
+          if (info) c.appendChild(el("p", "tl-text", info.text));
+        });
+      }
       case "proof_test":
-        return card(ev, "info", "Proof test written and frozen", (c) => {
+        return card(ev, "info", ev.strengthened === true ? "Stronger proof test written and frozen" : "Proof test written and frozen", (c) => {
           meta(c, ev.name, "written by " + modelName(ev.generated_by), ev.completion_id && "completion " + ev.completion_id);
           c.appendChild(el("p", "tl-text", "Written from the issue alone. The agent can never edit it."));
           c.appendChild(fold("Show the test", ev.test));
@@ -225,6 +239,7 @@
   function gateFor(ev) {
     switch (ev.type) {
       case "started": case "proof_test": return ["working", "Gate: checking"];
+      case "step": return ev.step === "strengthen" && ev.status === "started" ? ["working", "Gate: strengthening the proof test"] : null;
       case "gate_shut": return ["shut", "Gate: shut"];
       case "iteration_started": case "model_response": case "patch_applied": return ["working", "Gate: shut, agent patching"];
       case "iteration_result": return ev.verdict === "gate_open" ? ["open", "Gate: open"] : ["shut", "Gate: shut"];

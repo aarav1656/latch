@@ -63,5 +63,43 @@
     return { counts, none, total: CODES.reduce((n, c) => n + counts[c], 0) + none };
   }
 
-  window.LatchVerdict = { VERDICTS, CODES, info, fromCode, breakdown };
+  // Survivor-driven strengthening (mutation.strengthened, schema: latch/strengthen.py). After a real MUTATION_SURVIVED the
+  // test writer gets ONE more try; the stronger test goes through the whole gate again. Outcomes: adopted (it cleared the
+  // gate), still_surviving (it ran the mutation check and failed again), kept_original (it never got that far, so the
+  // original test and its verdict stand). Anything else is "unknown" and says only that the verdict above stands.
+  // Input is either the receipt record or {live:true, ...} built from step events. Returns {state, text} or null.
+  const num = (x) => typeof x === "number" && Number.isFinite(x);
+  const pct = (x) => (num(x) ? Math.round(x * 100) + "%" : null);
+  const frac = (k, t) => (num(k) && num(t) ? k + "/" + t : null);
+  function strengthened(raw, opts) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const why = typeof raw.reason === "string" && raw.reason.trim() ? raw.reason.trim().replace(/[.\s]+$/, "") : null;
+    if (raw.attempted === false) {
+      return { state: "not_attempted", text: "Latch did not write a stronger test" + (why ? ": " + why : "") + "." };
+    }
+    const n = Array.isArray(raw.survivors_before) ? raw.survivors_before.length : num(raw.survivors_before) ? raw.survivors_before : null;
+    const rate = pct(raw.kill_rate_before);
+    const first = "First test let " + (n == null ? "some" : n) + (n === 1 ? " mutant" : " mutants") + " survive" + (rate ? " (kill rate " + rate + ")" : "");
+    const after = frac(raw.killed_after, raw.total_after);
+    const afterRate = pct(raw.kill_rate_after);
+    const kills = after ? after + (afterRate ? " (" + afterRate + ")" : "") : afterRate;
+    let outcome = typeof raw.outcome === "string" ? raw.outcome : null;
+    if (outcome === "adopted" && opts && opts.cleared === false) outcome = "still_surviving";  // the receipt's own mutation result wins
+    if (!outcome && raw.live === true) return { state: "pending", text: first + "; Latch is writing a stronger test." };
+    if (outcome === "adopted") {
+      return { state: "adopted", text: first + "; Latch wrote a stronger test, which now kills " + (kills || "enough mutants to clear the bar") + "." };
+    }
+    if (outcome === "still_surviving") {
+      const left = num(raw.total_after) && num(raw.killed_after) ? raw.total_after - raw.killed_after : null;
+      return { state: "still_surviving", text: first + "; Latch wrote a stronger test, but it still let " + (left == null ? "too many" : left) +
+        (left === 1 ? " mutant" : " mutants") + " survive" + (afterRate ? " (kill rate " + afterRate + ")" : "") + ", so the Mutation survived verdict stands." };
+    }
+    if (outcome === "kept_original") {
+      return { state: "kept_original", text: first + "; Latch tried a stronger test, but it did not clear the gate" + (why ? " (" + why + ")" : "") +
+        ". The original test and its Mutation survived verdict stand." };
+    }
+    return { state: "unknown", text: first + "; the result of the stronger test is not recorded, so the verdict stands as written." };
+  }
+
+  window.LatchVerdict = { VERDICTS, CODES, info, fromCode, breakdown, strengthened };
 })();
