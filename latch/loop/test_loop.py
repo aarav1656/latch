@@ -55,7 +55,7 @@ def test_back_to_back_not_conflict_or_merged():
     assert merge_bookings([(540, 600), (570, 630)]) == [(540, 630)]
 ```'''
 
-PASSING_ON_BASE_TEST = "def test_always_green():\n    assert 1 + 1 == 2\n"
+PASSING_ON_BASE_TEST = "def test_always_green():\n    from bookings import merge_bookings\n    assert merge_bookings([(1, 2)]) == [(1, 2)]\n"
 IMPORT_ERROR_TEST = "def test_broken():\n    import nonexistent_module_xyz\n"
 
 FIXED_BOOKINGS = (DEMO / "head" / "bookings.py").read_text().replace(
@@ -244,6 +244,29 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("does not reproduce", receipt["reason"])
         self.assertEqual(receipt["iterations"], [])
+
+    def test_tautological_proof_test_is_rejected_before_it_runs(self):
+        tautology = "def test_nothing():\n    from bookings import merge_bookings\n    v = merge_bookings([(1, 2)])\n    assert v == v\n"
+        stub = Stub(test=tautology)
+        receipt = self.run_it(stub)
+        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertIn("rejected as vacuous twice", receipt["reason"])
+        self.assertIn("tautolog", receipt["reason"])
+        self.assertEqual(receipt["iterations"], [])
+        self.assertFalse(receipt["tautology"]["ok"])
+        self.assertTrue(receipt["tautology"]["checked"])
+        self.assertEqual([a["valid"] for a in receipt["proof_test_attempts"]], [False, False])
+
+    def test_provided_tautological_proof_test_is_rejected(self):
+        receipt = self.run_it(Stub(), proof_test="def test_nothing():\n    assert len('ab') == 2\n")
+        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertFalse(receipt["tautology"]["ok"])
+
+    def test_good_proof_test_records_the_tautology_check(self):
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertTrue(receipt["tautology"]["checked"])
+        self.assertTrue(receipt["tautology"]["ok"])
+        self.assertIn("merge_bookings", receipt["tautology"]["asserted_symbols"])
 
     def test_import_error_is_not_patched(self):
         receipt = self.run_it(Stub(test=IMPORT_ERROR_TEST))

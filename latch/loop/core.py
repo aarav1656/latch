@@ -20,11 +20,13 @@ from pathlib import Path
 from ..harness.parse import extract_test_function
 from ..modelcalls import PRICES_SOURCE_URL, ModelCalls, total_cost
 from ..prove import (PYTEST_ENV, TRIAGE_SYSTEM, ModelRequestError, archive, expected_base_failure,
-                     generate_proof_test, git, limit_resources, proven, run_test, run_triage, validate_proof_test)
+                     generate_proof_test, git, limit_resources, proven, run_test, run_triage, tautology_check_for,
+                     validate_proof_test)
 from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
 from ..run import LIGHTNING, MODEL, call_model, load_key
 from ..steps import StepLog
+from ..tautology import repo_modules, safe_changed_symbols
 from ..verdict import step_detail, verdict_fields
 
 ULTRA = MODEL
@@ -388,13 +390,20 @@ def run_loop(
                 fail(f"could not archive revisions: {error}")
             steps.done("fetch", {"base": base_commit[:12], "head": head_commit[:12],
                                  "changed_files": [p for _, p in source_changes][:20]})
+            # Deterministic pre-run check that the proof test asserts on code from the repository (and which of it
+            # the submitted diff touched). Lenient "repo" mode: the diff is a candidate patch that may miss the bug.
+            changed_syms = safe_changed_symbols(repo, base_commit, head_commit, submitted_dir)
+            taut_check = tautology_check_for(changed_syms, repo_modules(submitted_dir))
 
             # 1. The proof test: generated once from the issue, then frozen.
             if proof_test:
                 function = extract_test_function(proof_test)
                 reason = validate_proof_test(function)
+                tautology = None
+                if reason is None:
+                    reason, tautology = taut_check(function)
                 attempts = [{"attempt": 1, "completion_id": None, "valid": reason is None, "rejection": reason,
-                             "source": function[:4000]}]
+                             "source": function[:4000], **({"tautology": tautology} if tautology else {})}]
                 if reason:
                     function = None
                 generated = {"generated_by": "provided", "completion_id": None}
@@ -426,13 +435,16 @@ def run_loop(
                 )
                 try:
                     function, attempts = generate_proof_test(
-                        calls.ask("test_writer"), key, prompt, TEST_SYSTEM, test_model, 8192)
+                        calls.ask("test_writer"), key, prompt, TEST_SYSTEM, test_model, 8192, extra_check=taut_check)
                 except ModelRequestError as error:
                     receipt["proof_test_attempts"] = error.attempts
                     steps.failed("test_writer", f"HTTP {error.status}")
                     fail(f"Nebius test-generation request failed: HTTP {error.status}")
                 generated = {"generated_by": test_model, "completion_id": attempts[-1]["completion_id"]}
             receipt["proof_test_attempts"] = attempts
+            receipt["tautology"] = ev["tautology"] = attempts[-1].get("tautology") or {
+                "checked": False, "changed_symbols": [], "asserted_symbols": [], "ok": True,
+                "reason": "not checked: no proof test reached the tautology check"}
             if not proof_test:
                 (steps.done if function is not None else steps.failed)(
                     "test_writer", {"attempts": len(attempts), "completion_id": attempts[-1]["completion_id"]})
@@ -441,7 +453,8 @@ def run_loop(
                     emit("proof_test_attempt", **{k: item[k] for k in ("attempt", "completion_id", "valid", "rejection")})
             if function is None:
                 last = attempts[-1]
-                ev["rejected"] = last["rejection"]
+                if not (ev["tautology"].get("checked") and ev["tautology"].get("ok") is False):
+                    ev["rejected"] = last["rejection"]  # else the tautology verdict carries the (same) reason
                 if last["rejection"] == "the reply contained no test_ function":
                     return finish("gave_up", "model returned no test function; nothing to prove with")
                 return finish("gave_up", f"the proof test was rejected as vacuous"

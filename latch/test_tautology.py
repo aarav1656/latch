@@ -495,6 +495,49 @@ class NegativeCases(unittest.TestCase):
         ''', changed={"_clean"})
 
 
+class RepoModeCases(unittest.TestCase):
+    """The loop's lenient mode: the diff is a candidate patch that may miss the buggy code."""
+    MODULES = {"pkg"}
+
+    def result(self, source, changed=("bump",)):
+        info = {"determined": True, "symbols": list(changed), "affected": [], "files": ["x.py"], "reason": None}
+        return check_tautology(textwrap.dedent(source), info, self.MODULES)
+
+    def test_assertion_on_unchanged_repo_code_is_accepted(self):
+        result = self.result('''
+            def test_a():
+                from pkg.version import unchanged
+                assert unchanged(2) == 4
+        ''')
+        self.assertTrue(result["ok"], result["reason"])
+        self.assertEqual(result["mode"], "repo")
+        self.assertEqual(result["asserted_symbols"], ["unchanged"])
+
+    def test_module_import_forms(self):
+        for body in ("import pkg\n    assert pkg.version.unchanged(2) == 4",
+                     "import pkg.version as v\n    assert v.unchanged(2) == 4",
+                     "from pkg import version\n    assert version.unchanged(2) == 4"):
+            result = self.result("def test_a():\n    " + body + "\n")
+            self.assertTrue(result["ok"], body)
+
+    def test_stdlib_or_local_values_are_still_rejected(self):
+        for body in ("import os\n    assert os.sep == '/'", "x = len('abc')\n    assert x == 3",
+                     "from pkg.version import unchanged\n    v = unchanged(2)\n    assert v == v"):
+            result = self.result("def test_a():\n    " + body + "\n")
+            self.assertFalse(result["ok"], body)
+            self.assertIn("never asserts on code from the repository", result["reason"])
+
+    def test_repo_modules_lists_importable_top_levels(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for rel in ("pkg/__init__.py", "src/lib/__init__.py", "tests/test_a.py", "single.py", "setup.py",
+                        "docs/conf.py", ".hidden/x.py"):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text("")
+            from latch.tautology import repo_modules
+            self.assertEqual(repo_modules(root), {"pkg", "lib", "single"})
+
+
 class UncheckedCases(unittest.TestCase):
     def test_undetermined_symbols_never_block(self):
         for changed in (None, {}, {"determined": False, "reason": "no diff"}):
@@ -609,7 +652,8 @@ class RepoTests(unittest.TestCase):
         ''')
         ok = check_proof_test(good, repo, base, head, head_root=repo)
         self.assertEqual((ok["checked"], ok["ok"]), (True, True))
-        self.assertEqual(set(ok), {"checked", "changed_symbols", "asserted_symbols", "ok", "reason", "affected_symbols"})
+        self.assertEqual(set(ok), {"checked", "changed_symbols", "asserted_symbols", "ok", "reason", "affected_symbols", "mode"})
+        self.assertEqual(ok["mode"], "changed")
         rejected = check_proof_test(bad, repo, base, head, head_root=repo)
         self.assertEqual((rejected["checked"], rejected["ok"]), (True, False))
         self.assertIn("compared with itself", rejection_reason(rejected))
