@@ -19,7 +19,6 @@ The binding pre-code decision is `../docs/WIN-CONDITIONS.md`. The demand posts i
 
 `prior-art/` holds the two Flawd pages fetched through the treg TinyFish lane. The study page has the 10-project mutation table, including TypeORM at 72.6%. The home page describes `flawd handoff`, which packages survivors for a coding agent and makes no Token Factory call.
 
-`model-reviews/` holds what other models said about the design.
 
 - `boundary.md`: GPT on the only false success, an assertion that reaches the test file without coming from Ultra.
 - `kill.md`: Grok on the stale Open page after a timeout. Latch now paints Shut first.

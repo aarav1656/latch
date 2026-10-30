@@ -43,7 +43,9 @@ def latch_side(bench, cases):
     rej, val = bench["wrong_patch_rejection"], bench["real_validated"]
     nofix = bench["nofix_gate_open"]
     return {
-        "dataset": f"{len(swe_cases)} SWE-bench Lite instances (1 repository, sympy) plus {len(ran_cases) - len(swe_cases)} upstream bug fixes",
+        "dataset": " plus ".join(part for part in (
+            f"{len(swe_cases)} SWE-bench Lite instances (1 repository, sympy)" if swe_cases else "",
+            f"{len(ran_cases) - len(swe_cases)} upstream bug fixes" if len(ran_cases) > len(swe_cases) else "") if part),
         "swe_bench_lite_instances": len(swe_cases), "cases_with_a_run": len(ran_cases), "runs": bench["runs"],
         "wrong_patches_rejected": rej, "real_fixes_validated": val, "nofix_gate_open": nofix,
         "gate_accepted_but_oracle_fails": bench["gate_accepted_but_oracle_fails"]["n"],

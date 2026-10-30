@@ -83,7 +83,7 @@
       <ol class="how">
         <li><span class="n">1</span><span>Read the pull request, its linked issue, and both commits. No model.</span></li>
         <li><span class="n">2</span><span><b>Lightning</b> maps the repository and triages the issue. <code>nvidia/Nemotron-3_5-Lightning</code></span></li>
-        <li><span class="n">3</span><span><b>Ultra</b> writes the test from the issue text alone. <code>nvidia/Nemotron-3-Ultra-550b-a55b</code></span></li>
+        <li><span class="n">3</span><span><b>Ultra</b> writes the test, reading the issue as the spec and the diff to know where to aim. <code>nvidia/Nemotron-3-Ultra-550b-a55b</code></span></li>
         <li><span class="n">4</span><span>The harness runs the test on base and head, reverts the fix to check the test fails again, and sets the verdict. No model decides it.</span></li>
       </ol>
       <p class="hint">Each receipt lists the calls it actually made. Anything a receipt did not record shows as not recorded.</p>
