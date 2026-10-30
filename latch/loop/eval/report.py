@@ -36,6 +36,8 @@ def render(summary):
     if mode != "live":
         out += ["> **DRY RUN: FIXTURE DATA, NOT A RESULT.** Every number below comes from stubbed model output built in code so the "
                 "harness, summary math and report can be exercised. No model was called and nothing was spent.", ""]
+    if summary.get("dev_only"):
+        out += [f"> **DEV-ONLY RUN** (provider: {summary.get('provider') or 'unknown'}). {summary.get('note') or 'Not Nebius Token Factory numbers.'}", ""]
     out += [f"Generated {summary.get('generated_at')}. Schema {summary.get('schema_version')}. Latch `{summary.get('latch_git_sha') or 'unknown'}`.", ""]
     bench = summary.get("benchmark") or {}
     cmp_ = summary.get("slopgate_comparison") or {}

@@ -1,0 +1,255 @@
+{
+  "run_id": "tabulate180.wrong",
+  "provider": "openrouter",
+  "dev_only": true,
+  "note": "Dev-only run via OpenRouter free tier; not Nebius Token Factory numbers.",
+  "repo": "astanin/python-tabulate@20c6370d5d + constructed wrong patch",
+  "base": "bc678159064cf5d1bf4d81dc1fe26731a6d60b7f",
+  "head": "9f0bef16da4e2b3374ba795dfca94a508af04b75",
+  "issue": "Exception when tabulating empty data and using maxcolwidths\n\n```\r\nFile \"/usr/local/lib/python3.9/site-packages/tabulate.py\", line 1585, in tabulate\r\n   num_cols = len(list_of_lists[0])\r\n   IndexError: list index out of range\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 2,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T07:55:51.027Z",
+  "proof_test": {
+    "name": "test_empty_data_with_maxcolwidths",
+    "source": "import pytest\n\ndef test_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    \n    # Test empty data with maxcolwidths - should not raise IndexError\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data with maxcolwidths as int\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=10)\n    assert result == \"\"\n    \n    # Test empty data with maxheadercolwidths - should not raise IndexError\n    result = tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data with maxheadercolwidths as int\n    result = tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=10)\n    assert result == \"\"\n    \n    # Test empty data with both maxcolwidths and maxheadercolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10], maxheadercolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data without headers with maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data without headers with maxheadercolwidths\n    result = tabulate([], maxheadercolwidths=[10, 10])\n    assert result == \"\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "gen-1793347013-wyuntPpIK9VptxOS5gcT"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10])\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.32s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10])\ntabulate/__init__.py:2072: in tabulate\n    list_of_lists = _wrap_text_to_colwidths(\ntabulate/__init__.py:1506: in _wrap_text_to_colwidths\n    numparses = _expand_iterable(numparses, len(list_of_lists[0]), True)\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.44s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s.............sss.....                                                                                                    [100%]\n248 passed, 37 skipped in 1.48s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "ok",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793346952-ujgzTvMe7XDKAlWZRoHX",
+    "files": [
+      {
+        "path": "tabulate/__init__.py",
+        "symbols": [
+          "_choose_width_fn",
+          "_align_column_choose_width_fn",
+          "_column_type",
+          "_format",
+          "_align_header"
+        ],
+        "changed": true
+      }
+    ],
+    "dropped": [],
+    "text": "tabulate/__init__.py  (touched by the submitted diff)\n  def _choose_width_fn(has_invisible, enable_widechars, is_multiline)  L1041  - Return a function to calculate visible cell width.\n  def _align_column_choose_width_fn(has_invisible, enable_widechars, is_multiline)  L1082\n  def _column_type(strings, has_invisible, numparse)  L1182  - The least generic type all column values are convertible to.\n  def _format(val, valtype, floatfmt, intfmt, missingval, has_invisible)  L1208  - Format a value according to its type.\n  def _align_header(header, alignment, width, visible_width, is_multiline, width_fn)  L1244  - Pad string header to width chars given known visible_width of the header.",
+    "files_indexed": 2
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "gen-1793347013-wyuntPpIK9VptxOS5gcT",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    \n    # Test empty data with maxcolwidths - should not raise IndexError\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data with maxcolwidths as int\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=10)\n    assert result == \"\"\n    \n    # Test empty data with maxheadercolwidths - should not raise IndexError\n    result = tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data with maxheadercolwidths as int\n    result = tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=10)\n    assert result == \"\"\n    \n    # Test empty data with both maxcolwidths and maxheadercolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10], maxheadercolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data without headers with maxcolwidths\n    result = tabulate([], maxcolwidths=[10, 10])\n    assert result == \"\"\n    \n    # Test empty data without headers with maxheadercolwidths\n    result = tabulate([], maxheadercolwidths=[10, 10])\n    assert result == \"\"",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "tabulate"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T07:57:08.662Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)",
+  "proven": false,
+  "base_sha": "bc678159064cf5d1bf4d81dc1fe26731a6d60b7f",
+  "head_sha": "9f0bef16da4e2b3374ba795dfca94a508af04b75",
+  "verdict_logs": {
+    "base": "==================================\n__________________________________________________________________________________ test_empty_data_with_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10])\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.32s\n",
+    "head": "ith_maxcolwidths ___________________________________________________________________________________\nlatch_issue_test.py:7: in test_empty_data_with_maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=[10, 10])\ntabulate/__init__.py:2072: in tabulate\n    list_of_lists = _wrap_text_to_colwidths(\ntabulate/__init__.py:1506: in _wrap_text_to_colwidths\n    numparses = _expand_iterable(numparses, len(list_of_lists[0]), True)\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.44s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 427,
+      "completion_tokens": 3240,
+      "latency_ms": 61857,
+      "completion_id": "gen-1793346952-ujgzTvMe7XDKAlWZRoHX",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "prompt_tokens": 1234,
+      "completion_tokens": 572,
+      "latency_ms": 11795,
+      "completion_id": "gen-1793347013-wyuntPpIK9VptxOS5gcT",
+      "cost_usd": null,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": null,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T07:55:51.027Z",
+      "detail": {
+        "base": "bc678159064cf5d1bf4d81dc1fe26731a6d60b7f",
+        "head": "9f0bef16da4e2b3374ba795dfca94a508af04b75"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T07:55:51.242Z",
+      "detail": {
+        "base": "bc678159064c",
+        "head": "9f0bef16da4e",
+        "changed_files": [
+          "tabulate/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T07:55:51.683Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "done",
+      "ts": "2026-10-30T07:56:53.580Z",
+      "detail": {
+        "files": [
+          "tabulate/__init__.py"
+        ],
+        "dropped": [],
+        "detail": null
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T07:56:53.580Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T07:57:05.378Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "gen-1793347013-wyuntPpIK9VptxOS5gcT"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T07:57:05.379Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T07:57:06.180Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T07:57:06.180Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T07:57:08.662Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T07:57:08.663Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

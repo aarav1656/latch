@@ -1,0 +1,329 @@
+{
+  "date": "2026-10-30",
+  "generated_at": "2026-10-30T13:35:20+05:30",
+  "max_iterations": 2,
+  "jobs": 3,
+  "provider": "openrouter",
+  "models": {
+    "proof_test": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "fix": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "triage": "nvidia/nemotron-3.5-lightning:free"
+  },
+  "elapsed_seconds": 573.7,
+  "summary": {
+    "cases_run": 3,
+    "dropped_cases": [
+      {
+        "id": "cachetools-221",
+        "repo": "tkem/cachetools",
+        "fix": "91aa4c63f5716d8717ee2f898a01f40ce26986ae",
+        "reason": "no usable constructed wrong patch: the fix changes an expiry-boundary comparison that the repo's own suite pins in many places, so the only plausible mutation (`<` to `<=` in expire()) turns the base suite red (14 failures). A wrong patch that keeps the suite green could not be built honestly.",
+        "source": "dropped before the run (record only)"
+      },
+      {
+        "id": "boltons-4457decc",
+        "repo": "mahmoud/boltons",
+        "fix": "4457decc",
+        "reason": "the repo's own pytest_ignore_collect hook defeats --ignore, so the old-commit suite cannot be run cheaply",
+        "source": "dropped before the run (record only)"
+      },
+      {
+        "id": "boltons-8177b933",
+        "repo": "mahmoud/boltons",
+        "fix": "8177b933",
+        "reason": "same as boltons-4457decc",
+        "source": "dropped before the run (record only)"
+      }
+    ],
+    "real_proven": 1,
+    "real_total": 3,
+    "real_gave_up": 2,
+    "real_error": 0,
+    "wrong_total": 3,
+    "wrong_false_accept": 0,
+    "wrong_shut_gave_up": 3,
+    "wrong_repaired_oracle_pass": 0,
+    "wrong_repaired_but_oracle_fails": 0,
+    "wrong_error": 0,
+    "nofix_total": 0,
+    "nofix_fix_correct": 0,
+    "nofix_green_but_wrong": 0,
+    "nofix_gave_up": 0,
+    "nofix_error": 0,
+    "total_wall_seconds_sum": 863.3,
+    "gave_up_reasons": {
+      "tabulate-180.real": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "tabulate-180.wrong": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "toolz-602.real": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "toolz-602.wrong": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "more-itertools-409.wrong": "gate still shut after 2 iteration(s); the harness never saw the proof test pass with the repo suite green"
+    },
+    "error_reasons": {}
+  },
+  "cases": [
+    {
+      "id": "tabulate-180",
+      "repo": "astanin/python-tabulate",
+      "title": "Exception when tabulating empty data and using maxcolwidths",
+      "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+      "fix": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/astanin/python-tabulate/issues/180",
+        "fix_commit": "https://github.com/astanin/python-tabulate/commit/20c6370d5da2dae89b305bfb6c7f12a0f8b7236c"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "guard the empty-data case in tabulate() but not in _wrap_text_to_colwidths()",
+      "wrong_patch_file": "tabulate/__init__.py",
+      "wrong_patch_edits": [
+        [
+          "    if maxcolwidths is not None:\n        num_cols = len(list_of_lists[0])\n",
+          "    if maxcolwidths is not None:\n        num_cols = len(list_of_lists[0]) if list_of_lists else 0\n"
+        ]
+      ],
+      "oracle_files": [
+        "test/test_regression.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": null
+    },
+    {
+      "id": "toolz-602",
+      "repo": "pytoolz/toolz",
+      "title": "partition_all outputs padding tokens on sequences with inaccurate __len__",
+      "base": "1fb2b9f1b69ab664a264944f4eafc290acce127d",
+      "fix": "5a7e078c941c990dcaca53ac6920e5d5c0b1475f",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/pytoolz/toolz/issues/602",
+        "fix_commit": "https://github.com/pytoolz/toolz/commit/5a7e078c941c990dcaca53ac6920e5d5c0b1475f",
+        "pr": "https://github.com/pytoolz/toolz/pull/603"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "raise LookupError only when __len__ over-reports, not when it under-reports",
+      "wrong_patch_file": "toolz/itertoolz.py",
+      "wrong_patch_edits": [
+        [
+          "            yield prev[:len(seq) % n]\n",
+          "            end = len(seq) % n\n            if prev[end - 1] is no_pad:\n                raise LookupError('The sequence passed to `partition_all` has invalid length')\n            yield prev[:end]\n"
+        ]
+      ],
+      "oracle_files": [
+        "toolz/tests/test_itertoolz.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider --ignore=bench --ignore=toolz/tests/test_package.py",
+      "validation": null
+    },
+    {
+      "id": "more-itertools-409",
+      "repo": "more-itertools/more-itertools",
+      "title": "spy: changing the result list changes the returned iterable",
+      "base": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+      "fix": "62411c1618493f94b16901746c34e72ad415061e",
+      "source": "upstream commit",
+      "links": {
+        "issue": "https://github.com/more-itertools/more-itertools/issues/409",
+        "fix_commit": "https://github.com/more-itertools/more-itertools/commit/62411c1618493f94b16901746c34e72ad415061e",
+        "pr": "https://github.com/more-itertools/more-itertools/pull/412"
+      },
+      "real_fix_label": "real (upstream commit)",
+      "wrong_patch_label": "constructed",
+      "wrong_patch_summary": "wrap the head in iter() so it looks decoupled, but the iterator still reads the live list",
+      "wrong_patch_file": "more_itertools/more.py",
+      "wrong_patch_edits": [
+        [
+          "return head, chain(head, it)",
+          "return head, chain(iter(head), it)"
+        ]
+      ],
+      "oracle_files": [
+        "tests/test_more.py"
+      ],
+      "test_command": "$VENV/bin/python -m pytest -q -p no:cacheprovider",
+      "validation": null
+    }
+  ],
+  "runs": [
+    {
+      "case": "tabulate-180",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 104.5,
+      "provider": "openrouter",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "gen-1793347025-77xRahrztVkrezS6u3eE",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": null,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_exception_on_empty_data_with_maxcolwidths",
+      "receipt": "latch/runs/dev/eval/tabulate-180-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "tabulate-180",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+      "wall_seconds": 82.7,
+      "provider": "openrouter",
+      "base_red": false,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "gen-1793347013-wyuntPpIK9VptxOS5gcT",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": null,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_empty_data_with_maxcolwidths",
+      "receipt": "latch/runs/dev/eval/tabulate-180-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "wall_seconds": 111.2,
+      "provider": "openrouter",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "gen-1793346988-nmoNyBR2UXkt0ylW9U9u",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": null,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_partition_all_inaccurate_len",
+      "receipt": "latch/runs/dev/eval/toolz-602-real.json",
+      "outcome": "gave_up"
+    },
+    {
+      "case": "toolz-602",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "INVALID_TEST",
+      "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+      "wall_seconds": 65.0,
+      "provider": "openrouter",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 0,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "gen-1793347074-zy4HyuLmC2ZJGXRVicJK",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": null,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_partition_all_inaccurate_len",
+      "receipt": "latch/runs/dev/eval/toolz-602-wrong.json",
+      "outcome": "shut_gave_up"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "real",
+      "label": "real (upstream fix)",
+      "expected_gate": "open",
+      "verdict": "gate_open",
+      "named_verdict": "VALIDATED",
+      "reason": "the submitted fix already passes the proof test; no loop needed",
+      "wall_seconds": 37.6,
+      "provider": "openrouter",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": true,
+      "iterations_used": 0,
+      "inspection": {
+        "oracle_pass": true,
+        "oracle_summary": "323 passed, 5 warnings in 0.86s",
+        "oracle_files": [
+          "tests/test_more.py"
+        ]
+      },
+      "completion_ids": {
+        "proof_test": "gen-1793347073-jeoJgIxJcneAnyiGJpFU",
+        "triage": null,
+        "fix": []
+      },
+      "triage_verdict": null,
+      "model_cost_usd": null,
+      "model_calls": 2,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_spy_immutable_head",
+      "receipt": "latch/runs/dev/eval/more-itertools-409-real.json",
+      "outcome": "proven"
+    },
+    {
+      "case": "more-itertools-409",
+      "variant": "wrong",
+      "label": "constructed wrong patch",
+      "expected_gate": "shut",
+      "verdict": "gave_up",
+      "named_verdict": "FIX_FAILS_TEST",
+      "reason": "gate still shut after 2 iteration(s); the harness never saw the proof test pass with the repo suite green",
+      "wall_seconds": 462.3,
+      "provider": "openrouter",
+      "base_red": true,
+      "head_suite_green": true,
+      "gate_open_at_iteration_0": false,
+      "iterations_used": 2,
+      "inspection": null,
+      "completion_ids": {
+        "proof_test": "gen-1793347092-NPL1xfAXarWC36diJhei",
+        "triage": "gen-1793347099-Fux5RuN4PdQujqpAvXid",
+        "fix": [
+          "gen-1793347106-x30YBasbGchiiQwoGwrm",
+          "gen-1793347332-uizdR0wxX0VqNlAluYlu"
+        ]
+      },
+      "triage_verdict": "reproduced",
+      "model_cost_usd": null,
+      "model_calls": 5,
+      "proof_test_rejections": 0,
+      "proof_test_name": "test_spy_head_modification_does_not_affect_iterable",
+      "receipt": "latch/runs/dev/eval/more-itertools-409-wrong.json",
+      "outcome": "shut_gave_up"
+    }
+  ],
+  "dev_only": true,
+  "note": "Dev-only run via OpenRouter free tier; not Nebius Token Factory numbers."
+}

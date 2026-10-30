@@ -1,0 +1,257 @@
+{
+  "run_id": "tabulate180.real",
+  "provider": "openrouter",
+  "dev_only": true,
+  "note": "Dev-only run via OpenRouter free tier; not Nebius Token Factory numbers.",
+  "repo": "astanin/python-tabulate@20c6370d5d",
+  "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+  "head": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+  "issue": "Exception when tabulating empty data and using maxcolwidths\n\n```\r\nFile \"/usr/local/lib/python3.9/site-packages/tabulate.py\", line 1585, in tabulate\r\n   num_cols = len(list_of_lists[0])\r\n   IndexError: list index out of range\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 2,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T07:55:46.855Z",
+  "proof_test": {
+    "name": "test_exception_on_empty_data_with_maxcolwidths",
+    "source": "import pytest\n\ndef test_exception_on_empty_data_with_maxcolwidths():\n    # Test empty data with maxcolwidths (github issue #180)\n    result = tabulate([], maxcolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with maxcolwidths as list\n    result = tabulate([], maxcolwidths=[5, 10])\n    assert result == \"\"\n\n    # Test empty data with maxheadercolwidths (same pattern)\n    result = tabulate([], maxheadercolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with maxheadercolwidths as list\n    result = tabulate([], maxheadercolwidths=[5, 10])\n    assert result == \"\"\n\n    # Test empty data with both maxcolwidths and maxheadercolwidths\n    result = tabulate([], maxcolwidths=5, maxheadercolwidths=10)\n    assert result == \"\"\n\n    # Test empty data with headers and maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with headers and maxheadercolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with headers and both maxcolwidths and maxheadercolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=5, maxheadercolwidths=10)\n    assert result == \"\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "gen-1793347025-77xRahrztVkrezS6u3eE"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:5: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   NameError: name 'tabulate' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - NameError: name 'tabulate' is not defined\n1 failed in 0.22s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:5: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   NameError: name 'tabulate' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - NameError: name 'tabulate' is not defined\n1 failed in 0.14s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s..............sss.....                                                                                                   [100%]\n249 passed, 37 skipped in 1.36s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "ok",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793346948-PMmLuGL7xKBRVzYGhRZp",
+    "files": [
+      {
+        "path": "tabulate/__init__.py",
+        "symbols": [
+          "_column_type",
+          "_format",
+          "_align_header",
+          "_choose_width_fn"
+        ],
+        "changed": true
+      }
+    ],
+    "dropped": [],
+    "text": "tabulate/__init__.py  (touched by the submitted diff)\n  def _column_type(strings, has_invisible, numparse)  L1182  - The least generic type all column values are convertible to.\n  def _format(val, valtype, floatfmt, intfmt, missingval, has_invisible)  L1208  - Format a value according to its type.\n  def _align_header(header, alignment, width, visible_width, is_multiline, width_fn)  L1244  - Pad string header to width chars given known visible_width of the header.\n  def _choose_width_fn(has_invisible, enable_widechars, is_multiline)  L1041  - Return a function to calculate visible cell width.",
+    "files_indexed": 2
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "gen-1793347025-77xRahrztVkrezS6u3eE",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_exception_on_empty_data_with_maxcolwidths():\n    # Test empty data with maxcolwidths (github issue #180)\n    result = tabulate([], maxcolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with maxcolwidths as list\n    result = tabulate([], maxcolwidths=[5, 10])\n    assert result == \"\"\n\n    # Test empty data with maxheadercolwidths (same pattern)\n    result = tabulate([], maxheadercolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with maxheadercolwidths as list\n    result = tabulate([], maxheadercolwidths=[5, 10])\n    assert result == \"\"\n\n    # Test empty data with both maxcolwidths and maxheadercolwidths\n    result = tabulate([], maxcolwidths=5, maxheadercolwidths=10)\n    assert result == \"\"\n\n    # Test empty data with headers and maxcolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with headers and maxheadercolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxheadercolwidths=5)\n    assert result == \"\"\n\n    # Test empty data with headers and both maxcolwidths and maxheadercolwidths\n    result = tabulate([], headers=[\"A\", \"B\"], maxcolwidths=5, maxheadercolwidths=10)\n    assert result == \"\"",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_wrap_text_to_colwidths",
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "_wrap_text_to_colwidths",
+      "tabulate"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T07:57:31.255Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (NameError: name 'tabulate' is not defined)",
+  "proven": false,
+  "base_sha": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+  "head_sha": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+  "verdict_logs": {
+    "base": "RES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:5: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   NameError: name 'tabulate' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - NameError: name 'tabulate' is not defined\n1 failed in 0.22s\n",
+    "head": "RES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:5: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\nE   NameError: name 'tabulate' is not defined\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - NameError: name 'tabulate' is not defined\n1 failed in 0.14s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 433,
+      "completion_tokens": 2730,
+      "latency_ms": 78004,
+      "completion_id": "gen-1793346948-PMmLuGL7xKBRVzYGhRZp",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "prompt_tokens": 2298,
+      "completion_tokens": 1329,
+      "latency_ms": 23415,
+      "completion_id": "gen-1793347025-77xRahrztVkrezS6u3eE",
+      "cost_usd": null,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": null,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T07:55:46.855Z",
+      "detail": {
+        "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+        "head": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T07:55:47.096Z",
+      "detail": {
+        "base": "90fbd7e5b127",
+        "head": "20c6370d5da2",
+        "changed_files": [
+          "tabulate/__init__.py",
+          "test/test_regression.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T07:55:47.238Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "done",
+      "ts": "2026-10-30T07:57:05.273Z",
+      "detail": {
+        "files": [
+          "tabulate/__init__.py"
+        ],
+        "dropped": [],
+        "detail": null
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T07:57:05.273Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T07:57:28.693Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "gen-1793347025-77xRahrztVkrezS6u3eE"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T07:57:28.694Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T07:57:29.308Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T07:57:29.308Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T07:57:31.254Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T07:57:31.255Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (NameError: name 'tabulate' is not defined)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

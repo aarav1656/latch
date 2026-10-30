@@ -209,6 +209,11 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("DRY RUN", text)
         self.assertNotIn("[fixture", text)
 
+    def test_dev_only_summary_gets_a_dev_banner_and_a_plain_one_does_not(self):
+        dev = dict(self.dry, mode="live", fixture=False, dev_only=True, provider="openrouter")
+        self.assertIn("DEV-ONLY RUN** (provider: openrouter)", report.render(dev))
+        self.assertNotIn("DEV-ONLY", report.render(dict(self.dry, mode="live", fixture=False)))
+
 
 class DryRunCliTests(unittest.TestCase):
     def test_dry_run_writes_only_to_the_out_dir_and_never_the_canonical_summary(self):
