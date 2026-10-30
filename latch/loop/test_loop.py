@@ -719,6 +719,7 @@ class ProviderReceiptTests(unittest.TestCase):
         self.provider_env()
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
         self.assertEqual(receipt["provider"], "nebius")
+        self.assertNotIn("dev_only", receipt)
         self.assertEqual(self.events[0]["provider"], "nebius")
         self.assertTrue(receipt["model_calls"])
         self.assertEqual({c["provider"] for c in receipt["model_calls"]}, {"nebius"})
@@ -731,6 +732,7 @@ class ProviderReceiptTests(unittest.TestCase):
         path = Path(self._tmp.name) / "latch" / "runs" / "dev" / "loop-demo-openrouter.json"
         receipt = self.run_it(stub, receipt_path=str(path))
         self.assertEqual(receipt["provider"], "openrouter")
+        self.assertIs(receipt["dev_only"], True)
         self.assertEqual(receipt["gate"], "gate_open")
         calls = receipt["model_calls"]
         self.assertEqual({c["provider"] for c in calls}, {"openrouter"})

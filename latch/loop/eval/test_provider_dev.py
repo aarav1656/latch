@@ -99,3 +99,28 @@ class EvalDevRoutingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunOneReceiptShapeTests(unittest.TestCase):
+    """run_one must cope with a receipt whose "triage" is still the model id (a str): the loop stops before triage when the head already passes."""
+
+    def row_for(self, triage):
+        case = next(c for c in CASES if not c.get("swe"))
+        receipt = {"gate": "gate_open", "verdict": "VALIDATED", "reason": "r", "provider": "openrouter", "triage": triage,
+                   "proof_test": {"completion_id": "gen-1", "name": "t"}, "iterations": [], "model_calls": [], "initial": {}}
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(run_eval, "run_loop", return_value=receipt), mock.patch.object(run_eval, "clone_dir", return_value=Path(tmp)), \
+                mock.patch.object(run_eval, "base_sha", return_value="b" * 40), mock.patch.object(run_eval, "issue_text", return_value="issue"), \
+                mock.patch.object(run_eval, "test_command", return_value="pytest"), \
+                mock.patch.object(run_eval, "oracle_check", return_value={"oracle_pass": True}):
+            return run_eval.run_one(case, "real", 1, tmp)
+
+    def test_triage_model_id_string_does_not_crash(self):
+        row = self.row_for("nvidia/Nemotron-3_5-Lightning")
+        self.assertIsNone(row["completion_ids"]["triage"])
+        self.assertEqual(row["completion_ids"]["proof_test"], "gen-1")
+
+    def test_triage_none_and_dict(self):
+        self.assertIsNone(self.row_for(None)["triage_verdict"])
+        row = self.row_for({"completion_id": "gen-9", "verdict": "reproduced"})
+        self.assertEqual((row["completion_ids"]["triage"], row["triage_verdict"]), ("gen-9", "reproduced"))
