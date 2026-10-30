@@ -1051,8 +1051,6 @@ class PageRouteTests(unittest.TestCase):
         ship = htmllib.unescape(Harness(self).request("GET", "/ship")[2].decode())
         for line in lines:
             code = line.split("   #")[0].strip()
-            # latch/loop's example may still name the old owner; the page names the public repo
-            code = code.replace("kamalbuilds/latch/", "aarav1656/latch/")
             self.assertIn(code, ship, code)
 
 
