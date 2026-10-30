@@ -9,6 +9,8 @@ from pathlib import Path
 from unittest import mock
 
 from latch import provider as providers
+from latch.modelcalls import estimate_cost
+from latch.run import MODEL as ULTRA, SUPER
 from latch.loop.eval import run_eval
 from latch.loop.eval.cases import CASES
 from latch.loop.eval.rundiff import diff_summaries, render_diff
@@ -23,9 +25,11 @@ class TagLayoutTests(unittest.TestCase):
         (self.root / "latch" / "runs").mkdir(parents=True)
         self.case = next(c for c in CASES if not c.get("swe"))
         self.seen = []
+        self.models = []
 
-        def fake_run_one(c, v, n, d, test_repair=True):
+        def fake_run_one(c, v, n, d, test_repair=True, test_model=None):
             self.seen.append((c["id"], v, test_repair, str(d)))
+            self.models.append(test_model)
             row = fake_row(c, v, providers.current())
             Path(d).mkdir(parents=True, exist_ok=True)
             (Path(d) / f"{c['id']}.{v}.json").write_text("{}")
@@ -100,6 +104,29 @@ class TagLayoutTests(unittest.TestCase):
             self.assertEqual(self.run_main("--tag", "off", "--no-test-repair"), 0)
         self.assertTrue(self.seen and all(flag is False for _, _, flag, _ in self.seen))
         self.assertFalse(json.loads((self.runs / f"eval-{self.date}-off.json").read_text())["test_repair_enabled"])
+
+    def test_test_model_override_reaches_every_run_and_is_recorded(self):
+        with clean_env():
+            self.assertEqual(self.run_main("--tag", "ab", "--test-model", SUPER), 0)
+        self.assertTrue(self.models and all(m == SUPER for m in self.models), self.models)
+        doc = json.loads((self.runs / f"eval-{self.date}-ab.json").read_text())
+        self.assertEqual(doc["models"]["proof_test"], SUPER)
+        self.assertEqual(doc["models"]["fix"], ULTRA)
+        self.assertEqual(json.loads((self.runs / "eval-summary-ab.json").read_text())["models"]["proof_test"], SUPER)
+
+    def test_default_test_model_is_ultra_and_unknown_ids_are_refused(self):
+        with clean_env():
+            self.run_main("--tag", "dflt")
+            self.assertTrue(self.models and all(m == ULTRA for m in self.models), self.models)
+            self.assertEqual(json.loads((self.runs / f"eval-{self.date}-dflt.json").read_text())["models"]["proof_test"], ULTRA)
+            with self.assertRaises(SystemExit):
+                self.run_main("--tag", "bad", "--test-model", "nvidia/nemotron-3-super-120b-a12b")
+
+    def test_super_may_write_the_test_but_not_fix(self):
+        from latch.loop.core import ALLOWED_MODELS, TEST_MODELS
+        self.assertIn(SUPER, TEST_MODELS)
+        self.assertNotIn(SUPER, ALLOWED_MODELS)
+        self.assertEqual(estimate_cost(SUPER, 1_000_000, 1_000_000), 1.2)
 
     def test_default_has_the_repair_on(self):
         with clean_env():

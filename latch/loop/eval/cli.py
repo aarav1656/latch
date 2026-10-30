@@ -73,6 +73,7 @@ def main(argv=None):
     r.add_argument("--tag", default=None, help="write a second run beside the first (eval-DATE-TAG.json, eval-summary-TAG.json, eval-report-TAG.md, eval-TAG/)")
     r.add_argument("--no-test-repair", action="store_true", help="turn the one-round test repair off")
     r.add_argument("--overwrite", action="store_true", help="allow an untagged run to replace an existing eval-DATE.json")
+    r.add_argument("--test-model", default=None, help="model that writes the proof test (default Ultra); the fix model is unchanged")
     s = sub.add_parser("summarize")
     s.add_argument("eval_json")
     d = sub.add_parser("diff", help="before/after of two eval summaries (for example the first run and the --tag repair run)")
@@ -109,6 +110,8 @@ def main(argv=None):
                 argv2 += [flag, val]
         if args.tag:
             argv2 += ["--tag", args.tag]
+        if args.test_model:
+            argv2 += ["--test-model", args.test_model]
         argv2 += [f for f, on in (("--skip-validate", args.skip_validate), ("--no-summary", args.no_summary),
                                   ("--no-test-repair", args.no_test_repair), ("--overwrite", args.overwrite)) if on]
         return run_main(argv2)

@@ -8,7 +8,7 @@ call has no usage (a stub in tests, or the server omitted it) tokens and cost ar
 import time
 
 from . import provider as providers
-from .run import LIGHTNING, MODEL, call_model
+from .run import LIGHTNING, MODEL, SUPER, call_model
 
 ROLES = ("repo_map", "triage", "test_writer", "fixer")
 
@@ -16,8 +16,9 @@ ROLES = ("repo_map", "triage", "test_writer", "fixer")
 # applied, so the estimate is an upper bound. Read on 2026-10-30 from the Token Factory model catalog:
 #   nvidia/Nemotron-3-Ultra-550b-a55b: input 1, cached input 0.12, output 3
 #   nvidia/Nemotron-3_5-Lightning:     input 0.06, cached input 0.03, output 0.24
+#   nvidia/Nemotron-3.5-Super-VL:      input 0.30, cached input 0.06, output 0.90 (read from GET /v1/models on 2026-10-30)
 PRICES_SOURCE_URL = "https://tokenfactory.nebius.com/model-catalog.md"
-PRICES_USD_PER_MILLION = {MODEL: (1.00, 3.00), LIGHTNING: (0.06, 0.24)}
+PRICES_USD_PER_MILLION = {MODEL: (1.00, 3.00), LIGHTNING: (0.06, 0.24), SUPER: (0.30, 0.90)}
 
 
 def estimate_cost(model, prompt_tokens, completion_tokens, provider=providers.NEBIUS):

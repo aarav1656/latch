@@ -1,0 +1,364 @@
+{
+  "generated": "2026-10-30",
+  "question": "proof-test writer model A/B: Ultra vs Super, 5 cases VALIDATED in the repair run",
+  "cases": [
+    "boltons-319",
+    "tabulate-190",
+    "packaging-810",
+    "more-itertools-409",
+    "click-3360"
+  ],
+  "command_super_arm": "PATH=$HOME/.cache/latch-py314:$PATH LATCH_EVAL_ROOT=/Volumes/PortableSSD/nvdia/loop python3 -m latch eval run --only boltons-319 tabulate-190 packaging-810 more-itertools-409 click-3360 --jobs 3 --max-iterations 3 --tag ab-super --test-model nvidia/Nemotron-3.5-Super-VL",
+  "ultra_arm_source": "already on file: latch/runs/eval-summary-repair.json (tag repair, same date, same flags: --jobs 3 --max-iterations 3, test repair on)",
+  "fix_model_both_arms": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "triage_model_both_arms": "nvidia/Nemotron-3_5-Lightning",
+  "super_price_usd_per_million": {
+    "input": 0.3,
+    "output": 0.9,
+    "source": "GET https://api.tokenfactory.nebius.com/v1/models, id nvidia/Nemotron-3.5-Super-VL, 2026-10-30"
+  },
+  "arms": {
+    "ultra": {
+      "proof_test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "summary_file": "latch/runs/eval-summary-repair.json",
+      "real_fix": {
+        "runs": 5,
+        "VALIDATED": 5,
+        "INVALID_TEST": 0,
+        "other": [],
+        "cost_total_usd": 0.043658,
+        "cost_per_run_usd": 0.008732,
+        "cost_per_validated_proof_usd": 0.008732,
+        "test_writer_cost_per_validated_proof_usd": 0.008377,
+        "median_wall_s": 29.7,
+        "median_test_writer_latency_s": 7.8,
+        "mean_test_writer_completion_tokens": 1932
+      },
+      "wrong_patch": {
+        "runs": 5,
+        "caught_by_valid_test": 5,
+        "INVALID_TEST": 0,
+        "false_accepts": [],
+        "cost_total_usd": 0.515733,
+        "median_wall_s": 110.8
+      },
+      "all_runs": {
+        "runs": 10,
+        "cost_total_usd": 0.559391,
+        "cost_per_run_usd": 0.055939,
+        "median_wall_s": 100.55
+      },
+      "rows": [
+        {
+          "case": "boltons-319",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 98.3,
+          "cost_usd": 0.01087,
+          "test_writer_cost_usd": 0.010468,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 12338,
+          "test_writer_completion_tokens": 2820,
+          "receipt": "latch/runs/eval-repair/boltons-319-real.json"
+        },
+        {
+          "case": "boltons-319",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 103.1,
+          "cost_usd": 0.104615,
+          "test_writer_cost_usd": 0.007828,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 7226,
+          "test_writer_completion_tokens": 2315,
+          "receipt": "latch/runs/eval-repair/boltons-319-wrong.json"
+        },
+        {
+          "case": "tabulate-190",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 19.4,
+          "cost_usd": 0.009369,
+          "test_writer_cost_usd": 0.009068,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 7810,
+          "test_writer_completion_tokens": 2389,
+          "receipt": "latch/runs/eval-repair/tabulate-190-real.json"
+        },
+        {
+          "case": "tabulate-190",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 135.6,
+          "cost_usd": 0.088115,
+          "test_writer_cost_usd": 0.006976,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 6682,
+          "test_writer_completion_tokens": 1878,
+          "receipt": "latch/runs/eval-repair/tabulate-190-wrong.json"
+        },
+        {
+          "case": "packaging-810",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 68.0,
+          "cost_usd": 0.010707,
+          "test_writer_cost_usd": 0.010315,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 31049,
+          "test_writer_completion_tokens": 2298,
+          "receipt": "latch/runs/eval-repair/packaging-810-real.json"
+        },
+        {
+          "case": "packaging-810",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 154.8,
+          "cost_usd": 0.136702,
+          "test_writer_cost_usd": 0.007931,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 33264,
+          "test_writer_completion_tokens": 2170,
+          "receipt": "latch/runs/eval-repair/packaging-810-wrong.json"
+        },
+        {
+          "case": "more-itertools-409",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 16.7,
+          "cost_usd": 0.003986,
+          "test_writer_cost_usd": 0.003708,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 3369,
+          "test_writer_completion_tokens": 610,
+          "receipt": "latch/runs/eval-repair/more-itertools-409-real.json"
+        },
+        {
+          "case": "more-itertools-409",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 110.8,
+          "cost_usd": 0.066433,
+          "test_writer_cost_usd": 0.002093,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 2056,
+          "test_writer_completion_tokens": 360,
+          "receipt": "latch/runs/eval-repair/more-itertools-409-wrong.json"
+        },
+        {
+          "case": "click-3360",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 29.7,
+          "cost_usd": 0.008726,
+          "test_writer_cost_usd": 0.008327,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 5571,
+          "test_writer_completion_tokens": 1545,
+          "receipt": "latch/runs/eval-repair/click-3360-real.json"
+        },
+        {
+          "case": "click-3360",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 102.8,
+          "cost_usd": 0.119868,
+          "test_writer_cost_usd": 0.009792,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 10630,
+          "test_writer_completion_tokens": 2929,
+          "receipt": "latch/runs/eval-repair/click-3360-wrong.json"
+        }
+      ]
+    },
+    "super": {
+      "proof_test_model": "nvidia/Nemotron-3.5-Super-VL",
+      "summary_file": "latch/runs/eval-summary-ab-super.json",
+      "real_fix": {
+        "runs": 5,
+        "VALIDATED": 5,
+        "INVALID_TEST": 0,
+        "other": [],
+        "cost_total_usd": 0.029351,
+        "cost_per_run_usd": 0.00587,
+        "cost_per_validated_proof_usd": 0.00587,
+        "test_writer_cost_per_validated_proof_usd": 0.005516,
+        "median_wall_s": 57.7,
+        "median_test_writer_latency_s": 11.0,
+        "mean_test_writer_completion_tokens": 5058
+      },
+      "wrong_patch": {
+        "runs": 5,
+        "caught_by_valid_test": 4,
+        "INVALID_TEST": 0,
+        "false_accepts": [
+          "packaging-810"
+        ],
+        "cost_total_usd": 0.401556,
+        "median_wall_s": 136.0
+      },
+      "all_runs": {
+        "runs": 10,
+        "cost_total_usd": 0.430907,
+        "cost_per_run_usd": 0.043091,
+        "median_wall_s": 79.85
+      },
+      "rows": [
+        {
+          "case": "boltons-319",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 88.1,
+          "cost_usd": 0.003262,
+          "test_writer_cost_usd": 0.00286,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 10523,
+          "test_writer_completion_tokens": 2508,
+          "receipt": "latch/runs/eval-ab-super/boltons-319-real.json"
+        },
+        {
+          "case": "boltons-319",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 136.0,
+          "cost_usd": 0.116525,
+          "test_writer_cost_usd": 0.004194,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 17565,
+          "test_writer_completion_tokens": 4366,
+          "receipt": "latch/runs/eval-ab-super/boltons-319-wrong.json"
+        },
+        {
+          "case": "tabulate-190",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 68.6,
+          "cost_usd": 0.015624,
+          "test_writer_cost_usd": 0.015323,
+          "test_writer_calls": 2,
+          "test_writer_latency_ms": 53366,
+          "test_writer_completion_tokens": 15336,
+          "receipt": "latch/runs/eval-ab-super/tabulate-190-real.json"
+        },
+        {
+          "case": "tabulate-190",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 155.8,
+          "cost_usd": 0.089339,
+          "test_writer_cost_usd": 0.007624,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 24314,
+          "test_writer_completion_tokens": 8024,
+          "receipt": "latch/runs/eval-ab-super/tabulate-190-wrong.json"
+        },
+        {
+          "case": "packaging-810",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 57.7,
+          "cost_usd": 0.004224,
+          "test_writer_cost_usd": 0.003832,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 10993,
+          "test_writer_completion_tokens": 3118,
+          "receipt": "latch/runs/eval-ab-super/packaging-810-real.json"
+        },
+        {
+          "case": "packaging-810",
+          "variant": "wrong",
+          "verdict": "VALIDATED",
+          "outcome": "false_accept",
+          "wall_s": 71.6,
+          "cost_usd": 0.003649,
+          "test_writer_cost_usd": 0.003258,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 10622,
+          "test_writer_completion_tokens": 3146,
+          "receipt": "latch/runs/eval-ab-super/packaging-810-wrong.json"
+        },
+        {
+          "case": "more-itertools-409",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 21.3,
+          "cost_usd": 0.001816,
+          "test_writer_cost_usd": 0.001538,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 4075,
+          "test_writer_completion_tokens": 1083,
+          "receipt": "latch/runs/eval-ab-super/more-itertools-409-real.json"
+        },
+        {
+          "case": "more-itertools-409",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 128.4,
+          "cost_usd": 0.091145,
+          "test_writer_cost_usd": 0.005099,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 15264,
+          "test_writer_completion_tokens": 5328,
+          "receipt": "latch/runs/eval-ab-super/more-itertools-409-wrong.json"
+        },
+        {
+          "case": "click-3360",
+          "variant": "real",
+          "verdict": "VALIDATED",
+          "outcome": "proven",
+          "wall_s": 39.5,
+          "cost_usd": 0.004425,
+          "test_writer_cost_usd": 0.004026,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 14054,
+          "test_writer_completion_tokens": 3243,
+          "receipt": "latch/runs/eval-ab-super/click-3360-real.json"
+        },
+        {
+          "case": "click-3360",
+          "variant": "wrong",
+          "verdict": "FIX_FAILS_TEST",
+          "outcome": "shut_gave_up",
+          "wall_s": 138.0,
+          "cost_usd": 0.100898,
+          "test_writer_cost_usd": 0.002189,
+          "test_writer_calls": 1,
+          "test_writer_latency_ms": 23470,
+          "test_writer_completion_tokens": 2097,
+          "receipt": "latch/runs/eval-ab-super/click-3360-wrong.json"
+        }
+      ]
+    }
+  },
+  "selection_note": "The 5 cases were chosen because Ultra VALIDATED their real fix in the repair run, so the Ultra arm is 5/5 on real fixes by construction. In the untagged first run Ultra scored INVALID_TEST on 2 of these 5 real fixes (boltons-319, more-itertools-409) and false-accepted packaging-810's wrong patch.",
+  "super_false_accept": {
+    "case": "packaging-810",
+    "variant": "wrong",
+    "receipt": "latch/runs/eval-ab-super/packaging-810-wrong.json",
+    "oracle_pass": false,
+    "why": "Super's proof test asserts only dev-segment cases (>4.1.0a2.dev1234 vs dev1234/dev1235 with and without +local); it passes on the constructed wrong patch, so the gate opened at iteration 0. Oracle (upstream tests/test_specifiers.py) fails 5 on that patch. Ultra repair-run test for the same case caught it; Ultra's first-run test did not."
+  },
+  "receipts": {
+    "ultra": "latch/runs/eval-repair/",
+    "super": "latch/runs/eval-ab-super/",
+    "super_run_doc": "latch/runs/eval-2026-10-30-ab-super.json",
+    "super_summary": "latch/runs/eval-summary-ab-super.json"
+  }
+}

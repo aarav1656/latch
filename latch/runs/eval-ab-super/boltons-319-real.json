@@ -1,0 +1,401 @@
+{
+  "run_id": "boltons319.real",
+  "provider": "nebius",
+  "repo": "mahmoud/boltons@8ba3a7fa0d",
+  "base": "6c7fa3e05659fac6515f661153c89d4ad02df168",
+  "head": "8ba3a7fa0d99b73f7f43c1aed82c571b941eecea",
+  "issue": "boltons.timeutils when start with 12 month and step=(1, 0, 0), result is wrong. because date.month start with 1, not 0\n\nstart_day = date(year=2012, month=12, day=25)\r\nend_day = date(year=2023, month=1,  day=1)\r\nfor day in daterange(start_day, end_day, step=(1, 0, 0), inclusive=False):\r\n    print(repr(day))",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3.5-Super-VL",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T13:23:05.721Z",
+  "proof_test": {
+    "name": "test_daterange_year_step_starting_in_december",
+    "source": "import pytest\n\ndef test_daterange_year_step_starting_in_december():\n    from datetime import date\n    from boltons.timeutils import daterange\n\n    start_day = date(year=2012, month=12, day=25)\n    end_day = date(year=2023, month=1, day=1)\n    dates = list(daterange(start_day, end_day, step=(1, 0, 0), inclusive=False))\n    expected = [date(year=year, month=12, day=25) for year in range(2012, 2023)]\n    assert dates == expected\n",
+    "generated_by": "nvidia/Nemotron-3.5-Super-VL",
+    "completion_id": "chatcmpl-b7476e57674f8673"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_daterange_year_step_starting_in_december _____________________________________________________________________________\nlatch_issue_test.py:11: in test_daterange_year_step_starting_in_december\n    assert dates == expected\nE   assert [datetime.dat...2022, 12, 25)] == [datetime.dat... 12, 25), ...]\nE     \nE     At index 1 diff: datetime.date(2014, 12, 25) != datetime.date(2013, 12, 25)\nE     Right contains 5 more items, first extra item: datetime.date(2018, 12, 25)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - assert [datetime.dat...2022, 12, 25)] == [datetime.dat... 12, 25), ...]\n1 failed in 0.17s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....................... [ 48%]\n................................................................................................................................................................................................ [ 96%]\n.............                                                                                                                                                                                    [100%]\n=========================================================================================== warnings summary ===========================================================================================\ntests/conftest.py:8\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-ww3ijoh1/work/tests/conftest.py:8: PytestRemovedIn9Warning: The (path: py.path.local) argument is deprecated, please use (collection_path: pathlib.Path)\n  see https://docs.pytest.org/en/latest/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path\n    def pytest_ignore_collect(path, config):\n\ntests/test_formatutils.py::test_get_fstr_args\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_formatutils.py::test_get_fstr_args returned [([], [('hello', <class 'str'>)]), ([], [('hello', <class 'str'>)]), ([], [('hello', <class 'str'>), ('width', <class 'str'>)]), ([], [('hello', <class 'str'>), ('fchar', <class 'str'>), ('width', <class 'str'>)]), ([(0, <class 'str'>), (1, <class 'int'>), (2, <class 'float'>)], []), ([(0, <class 'str'>), (1, <class 'str'>), (2, <class 'str'>)], [])], which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_formatutils.py::test_split_fstr\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_formatutils.py::test_split_fstr returned [[('example 1: ', '{hello}')], [('example 2: ', '{hello:*10}')], [('example 3: ', '{hello:*{width}}')], [('example 4: ', '{hello!r:{fchar}{width}}'), (', ', '{width}'), (', yes', None)], [('example 5: ', '{0}'), (', ', '{1:d}'), (', ', '{2:f}'), (', ', '{1}')], [('example 6: ', '{}'), (', ', '{}'), (', ', '{}'), (', ', '{1}')]], which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_formatutils.py::test_tokenize_format_str\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_formatutils.py::test_tokenize_format_str returned [['example 1: ', BaseFormatField('hello')], ['example 2: ', BaseFormatField('hello', '*10')], ['example 3: ', BaseFormatField('hello', '*{width}')], ['example 4: ', BaseFormatField('hello', '{fchar}{width}', 'r'), ', ', BaseFormatField('width'), ', yes'], ['example 5: ', BaseFormatField('0'), ', ', BaseFormatField('1', 'd'), ', ', BaseFormatField('2', 'f'), ', ', BaseFormatField('1')], ['example 6: ', BaseFormatField('0'), ', ', BaseFormatField('1'), ', ', BaseFormatField('2'), ', ', BaseFormatField('1')]], which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://googlewebsite.com/e-shops.aspx]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://googlewebsite.com/e-shops.aspx] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[https://xn--bcher-kva.ch]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[https://xn--bcher-kva.ch] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://xn--ggbla1c4e.xn--ngbc5azd/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://xn--ggbla1c4e.xn--ngbc5azd/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://tools.ietf.org/html/rfc3986#section-3.4]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://tools.ietf.org/html/rfc3986#section-3.4] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://wiki:pedia@hatnote.com]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://wiki:pedia@hatnote.com] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[ftp://ftp.rfc-editor.org/in-notes/tar/RFCs0001-0500.tar.gz]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[ftp://ftp.rfc-editor.org/in-notes/tar/RFCs0001-0500.tar.gz] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://[1080:0:0:0:8:800:200C:417A]/index.html]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://[1080:0:0:0:8:800:200C:417A]/index.html] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[ssh://192.0.2.16:2222/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[ssh://192.0.2.16:2222/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[news:alt.rec.motorcycle]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[news:alt.rec.motorcycle] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[tel:+1-800-867-5309]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[tel:+1-800-867-5309] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[urn:oasis:member:A00024:x]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[urn:oasis:member:A00024:x] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo!!bar/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo!!bar/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo%20bar/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo%20bar/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://localhost/foo%2Fbar/]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://localhost/foo%2Fbar/] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://(%2525)/(%2525)?(%2525)&(%2525)=(%2525)#(%2525)]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://(%2525)/(%2525)?(%2525)&(%2525)=(%2525)#(%2525)] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\ntests/test_urlutils.py::test_query_params[http://(%C3%A9)/(%C3%A9)?(%C3%A9)&(%C3%A9)=(%C3%A9)#(%C3%A9)]\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_urlutils.py::test_query_params[http://(%C3%A9)/(%C3%A9)?(%C3%A9)&(%C3%A9)=(%C3%A9)#(%C3%A9)] returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n397 passed, 24 warnings in 1.87s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": true
+  },
+  "iterations": [],
+  "gate": "gate_open",
+  "verdict": "VALIDATED",
+  "reason": "the submitted fix already passes the proof test; no loop needed",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-5954704b",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 32,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-b7476e57674f8673",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_daterange_year_step_starting_in_december():\n    from datetime import date\n    from boltons.timeutils import daterange\n\n    start_day = date(year=2012, month=12, day=25)\n    end_day = date(year=2023, month=1, day=1)\n    dates = list(daterange(start_day, end_day, step=(1, 0, 0), inclusive=False))\n    expected = [date(year=year, month=12, day=25) for year in range(2012, 2023)]\n    assert dates == expected",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "daterange"
+        ],
+        "asserted_symbols": [
+          "daterange"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "daterange"
+    ],
+    "asserted_symbols": [
+      "daterange"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": false,
+    "reason": "not needed: the proof test did not error"
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "boltons/timeutils.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_daterange_year_step_starting_in_december _____________________________________________________________________________\nlatch_issue_test.py:11: in test_daterange_year_step_starting_in_december\n    assert dates == expected\nE   assert [datetime.dat...2022, 12, 25)] == [datetime.dat... 12, 25), ...]\nE     \nE     At index 1 diff: datetime.date(2014, 12, 25) != datetime.date(2013, 12, 25)\nE     Right contains 5 more items, first extra item: datetime.date(2018, 12, 25)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - assert [datetime.dat...2022, 12, 25)] == [datetime.dat... 12, 25), ...]\n1 failed in 0.20s\n",
+        "identical_to_base": false,
+        "note": "all non-test files the change touched were set back to base"
+      }
+    ],
+    "tests_kept": [
+      "tests/test_timeutils.py"
+    ],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "negate_condition",
+        "file": "boltons/timeutils.py",
+        "line": 393,
+        "what": "negated the condition",
+        "diff": "--- a/boltons/timeutils.py\n+++ b/boltons/timeutils.py\n@@ -392,3 +392,3 @@\n         yield now\n-        if m_step:\n+        if not (m_step):\n             m_y_step, cur_month = divmod((now.month - 1) + m_step, 12)\n",
+        "killed": true,
+        "output_excerpt": "the proof test timed out on this mutant (counted as killed)",
+        "timed_out": true
+      },
+      {
+        "id": "m2",
+        "operator": "const_off_by_one",
+        "file": "boltons/timeutils.py",
+        "line": 381,
+        "what": "constant 12 -> 13",
+        "diff": "--- a/boltons/timeutils.py\n+++ b/boltons/timeutils.py\n@@ -380,3 +380,3 @@\n     \n-    m_step += y_step * 12\n+    m_step += y_step * 13\n \n",
+        "killed": true,
+        "output_excerpt": ".., 5, 25), ...] == [datetime.dat... 12, 25), ...]\nE     \nE     At index 1 diff: datetime.date(2014, 1, 25) != datetime.date(2013, 12, 25)\nE     Right contains one more item: datetime.date(2022, 12, 25)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - assert [datetime.dat..., 5, 25), ...] == [datetime.dat... 12, 25), ...]\n1 failed in 0.28s\n"
+      },
+      {
+        "id": "m3",
+        "operator": "const_off_by_one",
+        "file": "boltons/timeutils.py",
+        "line": 394,
+        "what": "constant 1 -> 2",
+        "diff": "--- a/boltons/timeutils.py\n+++ b/boltons/timeutils.py\n@@ -393,3 +393,3 @@\n         if m_step:\n-            m_y_step, cur_month = divmod((now.month - 1) + m_step, 12)\n+            m_y_step, cur_month = divmod((now.month - 2) + m_step, 12)\n             now = now.replace(year=now.year + m_y_step,\n",
+        "killed": true,
+        "output_excerpt": "december\n    assert dates == expected\nE   assert [datetime.dat..., 7, 25), ...] == [datetime.dat... 12, 25), ...]\nE     \nE     At index 1 diff: datetime.date(2013, 11, 25) != datetime.date(2013, 12, 25)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - assert [datetime.dat..., 7, 25), ...] == [datetime.dat... 12, 25), ...]\n1 failed in 0.21s\n"
+      },
+      {
+        "id": "m4",
+        "operator": "const_off_by_one",
+        "file": "boltons/timeutils.py",
+        "line": 394,
+        "what": "constant 12 -> 13",
+        "diff": "--- a/boltons/timeutils.py\n+++ b/boltons/timeutils.py\n@@ -393,3 +393,3 @@\n         if m_step:\n-            m_y_step, cur_month = divmod((now.month - 1) + m_step, 12)\n+            m_y_step, cur_month = divmod((now.month - 1) + m_step, 13)\n             now = now.replace(year=now.year + m_y_step,\n",
+        "killed": true,
+        "output_excerpt": "december\n    assert dates == expected\nE   assert [datetime.dat..., 7, 25), ...] == [datetime.dat... 12, 25), ...]\nE     \nE     At index 1 diff: datetime.date(2013, 11, 25) != datetime.date(2013, 12, 25)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - assert [datetime.dat..., 7, 25), ...] == [datetime.dat... 12, 25), ...]\n1 failed in 0.17s\n"
+      },
+      {
+        "id": "m5",
+        "operator": "const_off_by_one",
+        "file": "boltons/timeutils.py",
+        "line": 396,
+        "what": "constant 1 -> 2",
+        "diff": "--- a/boltons/timeutils.py\n+++ b/boltons/timeutils.py\n@@ -395,3 +395,3 @@\n             now = now.replace(year=now.year + m_y_step,\n-                              month=(cur_month + 1))\n+                              month=(cur_month + 2))\n         now = now + d_step\n",
+        "killed": true,
+        "output_excerpt": "ue_test.py:9: in test_daterange_year_step_starting_in_december\n    dates = list(daterange(start_day, end_day, step=(1, 0, 0), inclusive=False))\nboltons/timeutils.py:395: in daterange\n    now = now.replace(year=now.year + m_y_step,\nE   ValueError: month must be in 1..12\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - ValueError: month must be in 1..12\n1 failed in 0.18s\n"
+      }
+    ],
+    "killed": 5,
+    "total": 5,
+    "kill_rate": 1.0,
+    "threshold": 0.6,
+    "not_run": 0,
+    "incomplete": false,
+    "ok": true,
+    "note": "5/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)"
+  },
+  "inspection": {
+    "oracle_pass": true,
+    "oracle_summary": "4 passed, 1 warning in 0.16s",
+    "oracle_files": [
+      "tests/test_timeutils.py"
+    ]
+  },
+  "finished_at": "2026-10-30T13:24:33.775Z",
+  "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 5/5 mutants",
+  "proven": true,
+  "base_sha": "6c7fa3e05659fac6515f661153c89d4ad02df168",
+  "head_sha": "8ba3a7fa0d99b73f7f43c1aed82c571b941eecea",
+  "verdict_logs": {
+    "base": "______________________________________________________\nlatch_issue_test.py:11: in test_daterange_year_step_starting_in_december\n    assert dates == expected\nE   assert [datetime.dat...2022, 12, 25)] == [datetime.dat... 12, 25), ...]\nE     \nE     At index 1 diff: datetime.date(2014, 12, 25) != datetime.date(2013, 12, 25)\nE     Right contains 5 more items, first extra item: datetime.date(2018, 12, 25)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_daterange_year_step_starting_in_december - assert [datetime.dat...2022, 12, 25)] == [datetime.dat... 12, 25), ...]\n1 failed in 0.17s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.14s\n",
+    "survivors": []
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2600,
+      "completion_tokens": 1024,
+      "latency_ms": 4958,
+      "completion_id": "chatcmpl-5954704b",
+      "cost_usd": 0.000402,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3.5-Super-VL",
+      "prompt_tokens": 2008,
+      "completion_tokens": 2508,
+      "latency_ms": 10523,
+      "completion_id": "chatcmpl-b7476e57674f8673",
+      "cost_usd": 0.00286,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.003262,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T13:23:05.721Z",
+      "detail": {
+        "base": "6c7fa3e05659fac6515f661153c89d4ad02df168",
+        "head": "8ba3a7fa0d99b73f7f43c1aed82c571b941eecea"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T13:23:06.008Z",
+      "detail": {
+        "base": "6c7fa3e05659",
+        "head": "8ba3a7fa0d99",
+        "changed_files": [
+          "boltons/timeutils.py",
+          "tests/test_timeutils.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T13:23:06.284Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T13:23:11.313Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T13:23:11.313Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3.5-Super-VL"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T13:23:21.840Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-b7476e57674f8673"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T13:23:21.842Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T13:23:22.241Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T13:23:22.241Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T13:23:24.691Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": true
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T13:23:24.691Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T13:23:27.292Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T13:23:27.292Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T13:23:27.906Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T13:23:27.907Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "done",
+      "ts": "2026-10-30T13:24:32.855Z",
+      "detail": {
+        "killed": 5,
+        "total": 5,
+        "kill_rate": 1.0
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T13:24:33.776Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 5/5 mutants"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

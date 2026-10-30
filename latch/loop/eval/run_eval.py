@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from latch import provider as providers  # noqa: E402
-from latch.loop.core import LoopError, run_loop  # noqa: E402
+from latch.loop.core import TEST_MODELS, ULTRA, LoopError, run_loop  # noqa: E402
 from latch.loop.eval.cases import CASES, DROPPED  # noqa: E402
 
 ROOT = Path(os.environ.get("LATCH_EVAL_ROOT") or (Path.home() / ".cache" / "latch" / "eval")).expanduser()
@@ -279,7 +279,7 @@ def validate_case(case):
     return d["ok"], d
 
 
-def run_one(case, variant, max_iterations, out_dir, test_repair=True):
+def run_one(case, variant, max_iterations, out_dir, test_repair=True, test_model=ULTRA):
     cid = f"{case['id']}.{variant}"
     events = []
     started = time.time()
@@ -300,7 +300,7 @@ def run_one(case, variant, max_iterations, out_dir, test_repair=True):
             max_iterations=max_iterations, receipt_path=receipt_path, on_event=events.append,
             source_label=f"{case['repo']}@{ref}{'' if variant == 'real' else (' + constructed wrong patch' if variant == 'wrong' else ' (no fix)')}",
             inspect_final=lambda directory: oracle_check(case, directory), run_id=cid.replace("-", "")[:40],
-            test_repair=test_repair)
+            test_repair=test_repair, test_model=test_model)
     except LoopError as error:
         receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
         row.update(outcome="error", reason=str(error), verdict="error")
@@ -435,6 +435,7 @@ def main(argv=None):
                    "eval-summary-TAG.json, eval-report-TAG.md, eval-TAG/ (receipts)")
     r.add_argument("--no-test-repair", action="store_true", help="turn the one-round test repair off for every run (the first run's behavior)")
     r.add_argument("--overwrite", action="store_true", help="allow an untagged run to replace an existing eval-DATE.json")
+    r.add_argument("--test-model", default=ULTRA, choices=TEST_MODELS, help="model that writes the proof test (and repairs it); default Ultra. The fix model is unchanged.")
     sm = sub.add_parser("summarize", help="rebuild latch/runs/eval-summary.json from a finished eval-DATE.json")
     sm.add_argument("eval_json")
     args = ap.parse_args(argv)
@@ -474,7 +475,7 @@ def main(argv=None):
     started_sha = latch_git(REPO_ROOT).get("sha")  # the code that runs; a later summarize must not restamp it with a newer HEAD
     rows, t0 = [], time.time()
     with cf.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futs = {pool.submit(run_one, c, v, args.max_iterations, rec_dir, not args.no_test_repair): (c, v) for c, v in jobs}
+        futs = {pool.submit(run_one, c, v, args.max_iterations, rec_dir, not args.no_test_repair, args.test_model): (c, v) for c, v in jobs}
         for f in cf.as_completed(futs):
             row = f.result()
             rows.append(row)
@@ -498,7 +499,7 @@ def main(argv=None):
         "date": date, "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "max_iterations": args.max_iterations, "jobs": args.jobs,
         "provider": provider, "tag": tag, "test_repair_enabled": not args.no_test_repair, "latch_git_sha": started_sha,
-        "models": {"proof_test": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
+        "models": {"proof_test": providers.resolve_model(args.test_model, provider),
                    "fix": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
                    "triage": providers.resolve_model("nvidia/Nemotron-3_5-Lightning", provider)},
         "elapsed_seconds": round(time.time() - t0, 1),
