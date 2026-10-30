@@ -118,6 +118,10 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
     false_accepts = [r["case"] for r in wrong if r["outcome"] == "false_accept"]
     wrong_fixes = {**caught(wrong), "rule": "caught = the gate was shut at iteration 0 on the wrong patch (before any repair)",
                    "without_contested": caught([r for r in wrong if r["case"] not in CONTESTED]),
+                   # `caught` above = gate shut for ANY reason (including an INVALID_TEST proof test); this = failed by a valid proof test
+                   "caught_by_valid_test": {"n": len(wrong), "caught": sum(1 for r in wrong if r.get("verdict") == "FIX_FAILS_TEST"),
+                                            "without_contested": {"n": len([r for r in wrong if r["case"] not in CONTESTED]),
+                                                                  "caught": sum(1 for r in wrong if r.get("verdict") == "FIX_FAILS_TEST" and r["case"] not in CONTESTED)}},
                    "contested_cases": [c for c in CONTESTED if any(r["case"] == c for r in wrong)],
                    "contested_note": CONTESTED_NOTE, "false_accepts": false_accepts,
                    "errors": sum(1 for r in ran if r["variant"] == "wrong" and r["outcome"] == "error"),

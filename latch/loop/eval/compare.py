@@ -67,7 +67,9 @@ def table_rows(latch, mode):
         ("Dataset", s["dataset"], latch["dataset"]),
         ("Items tested", f"{s['items']} {s['items_what']}", f"{latch['runs']} runs: real fixes, hand-built wrong patches, and no-fix (the model writes the patch)"),
         ("Flagged / caught", f"{s['flagged']}/{s['items']} ({s['flagged_rate'] * 100:.0f}%) injected slop items flagged",
-         cell(rej, "wrong patches rejected (gate shut before any repair)")),
+         cell(rej, "wrong patches with the gate shut before any repair"
+              + (f" (only {rej['by_valid_test']['k']}/{rej['by_valid_test']['n']} by a valid proof test, FIX_FAILS_TEST; the rest had an INVALID_TEST proof test)"
+                 if rej.get("by_valid_test") else ""))),
         ("Proven", f"{s['proven']}/{s['proven_of']} ({s['proven_rate_of_flagged'] * 100:.0f}%) flagged items got a proven one-click fix",
          cell(val, "real fixes VALIDATED (red on base, green on head, suite green, revert check)")),
         ("Broke a hidden test", f"{s['broke_hidden_test']} of the {s['broke_hidden_test_of']} proven fixes",
