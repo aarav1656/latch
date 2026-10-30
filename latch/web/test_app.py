@@ -1049,6 +1049,16 @@ class PageRouteTests(unittest.TestCase):
             self.assertIn(code, ship, code)
 
 
+class ImageContextTests(unittest.TestCase):
+    def test_every_static_file_survives_the_docker_ignore_rules(self):
+        lines = [l.strip() for l in (web.STATIC_DIR.parent / "Dockerfile.dockerignore").read_text().splitlines() if l.strip() and not l.startswith("#")]
+        for f in web.STATIC_DIR.iterdir():
+            if "token" in f.name:  # excluded by the secrets rule, so it must be re-included after it
+                rule = "!latch/web/static/" + f.name
+                self.assertIn(rule, lines)
+                self.assertGreater(lines.index(rule), lines.index("**/*token*"))
+
+
 class RecordedLabelTests(unittest.TestCase):
     def test_click_receipt_is_dated_by_its_commit_not_a_file_mtime(self):
         h = Harness(self)

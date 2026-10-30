@@ -6,6 +6,8 @@
 !latch/web/**
 !latch/runs/click-3298.json
 !latch/runs/loop-demo-events.jsonl
+!latch/runs/eval-summary.json
+!latch/runs/eval/**
 latch/test_*.py
 latch/harness/test_*.py
 latch/loop/test_*.py
@@ -22,3 +24,5 @@ latch/web/deploy.sh
 **/*.key
 **/*token*
 **/.config
+# the design tokens file is not a secret; re-include it after the *token* rule
+!latch/web/static/tokens.css
