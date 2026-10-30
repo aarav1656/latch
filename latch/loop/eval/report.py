@@ -74,6 +74,15 @@ def render(summary):
             f"| Cost | {_cell(bench.get('cost_usd'), '${}')} |",
             f"| Wall time (total / median per run) | {_cell(wall.get('total'), '{} s')} / {_cell(wall.get('median'), '{} s')} |", ""]
 
+    repair = summary.get("test_repair") or {}
+    run = summary.get("run") or {}
+    if run.get("tag") or repair.get("attempted"):
+        out += ["## Test repair", "",
+                f"Run `{run.get('label') or 'first'}`: the one-round test repair was {'on' if repair.get('enabled') else 'off or not recorded'}. "
+                f"It fired in {repair.get('attempted', 0)} run(s) (one extra test-writer call each), the repaired test was adopted in "
+                f"{repair.get('adopted', 0)}, no longer errored in {repair.get('ok', 0)}, and was rejected (original kept) in "
+                f"{repair.get('kept_original', 0)}. A repaired test goes through the whole gate; thresholds are unchanged.", ""]
+
     oracle = summary.get("oracle_baseline")
     if oracle:
         t = oracle["totals"]

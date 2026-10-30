@@ -3,9 +3,12 @@
     latch eval run --dry-run [--only ID ...] [--out-dir DIR]     stubbed model output, spends nothing, writes DIR (default latch/runs/eval-dryrun/)
     latch eval run [--only ID ...] [--jobs 3] [--max-iterations 3] [--out F] [--skip-validate]     LIVE: real Nemotron calls, spends Token Factory credit
     latch eval summarize EVAL.json                                rebuild latch/runs/eval-summary.json and eval-report.md from a finished run
+    latch eval diff BEFORE.json AFTER.json [--out F]              side by side: per-case verdict before -> after, and the headline numbers
     latch eval report [--summary F] [--out F]                     render the Markdown report from an eval-summary.json
     latch eval oracle [--only ID ...] [--jobs 2]                  oracle baseline (no model): upstream tests on base, real and wrong; $0
     latch eval manifest [--write|--check]                         pin models, prompts, dataset and SHAs
+
+`run --tag NAME` writes a second run beside the first (never over it); an untagged run refuses to replace an existing eval-DATE.json.
 
 --provider nebius|openrouter (or $LATCH_PROVIDER) picks the model provider; nebius is the default. openrouter is DEV ONLY: `run` then writes only
 latch/runs/dev/eval-summary-openrouter.json (+ eval-report-openrouter.md, eval-DATE-openrouter.json, eval/), marked dev_only, and never latch/runs/eval-summary.json.
@@ -67,8 +70,15 @@ def main(argv=None):
     r.add_argument("--out-dir", default=None, help="dry-run output directory")
     r.add_argument("--skip-validate", action="store_true")
     r.add_argument("--no-summary", action="store_true")
+    r.add_argument("--tag", default=None, help="write a second run beside the first (eval-DATE-TAG.json, eval-summary-TAG.json, eval-report-TAG.md, eval-TAG/)")
+    r.add_argument("--no-test-repair", action="store_true", help="turn the one-round test repair off")
+    r.add_argument("--overwrite", action="store_true", help="allow an untagged run to replace an existing eval-DATE.json")
     s = sub.add_parser("summarize")
     s.add_argument("eval_json")
+    d = sub.add_parser("diff", help="before/after of two eval summaries (for example the first run and the --tag repair run)")
+    d.add_argument("before")
+    d.add_argument("after")
+    d.add_argument("--out", default=None, help="write here instead of stdout")
     p = sub.add_parser("report")
     p.add_argument("--summary", default=str(REPO_ROOT / "latch" / "runs" / "eval-summary.json"))
     p.add_argument("--out", default=None, help="write here instead of stdout")
@@ -97,11 +107,26 @@ def main(argv=None):
         for flag, val in (("--out", args.out),):
             if val:
                 argv2 += [flag, val]
-        argv2 += [f for f, on in (("--skip-validate", args.skip_validate), ("--no-summary", args.no_summary)) if on]
+        if args.tag:
+            argv2 += ["--tag", args.tag]
+        argv2 += [f for f, on in (("--skip-validate", args.skip_validate), ("--no-summary", args.no_summary),
+                                  ("--no-test-repair", args.no_test_repair), ("--overwrite", args.overwrite)) if on]
         return run_main(argv2)
     if args.cmd == "summarize":
         from .run_eval import main as run_main
         return run_main(["summarize", args.eval_json])
+    if args.cmd == "diff":
+        from .rundiff import diff_summaries, render_diff
+        diff = diff_summaries(json.loads(Path(args.before).read_text()), json.loads(Path(args.after).read_text()),
+                              Path(args.before).name, Path(args.after).name)
+        text = json.dumps(diff, indent=2) + "\n"
+        if args.out:
+            Path(args.out).write_text(text, encoding="utf-8")
+            Path(args.out).with_suffix(".md").write_text(render_diff(diff), encoding="utf-8")
+            print(f"wrote {args.out} and {Path(args.out).with_suffix('.md')}", file=sys.stderr)
+        else:
+            print(render_diff(diff))
+        return 0
     if args.cmd == "report":
         from .report import render
         summary = json.loads(Path(args.summary).read_text())
