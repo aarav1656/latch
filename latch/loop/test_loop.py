@@ -694,5 +694,80 @@ class TimelineTests(unittest.TestCase):
             core.load_key = saved
 
 
+class ProviderReceiptTests(unittest.TestCase):
+    """The provider switch at the loop boundary: offline, model_fn stub, no network."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo, self.base, self.head = make_repo(self._tmp.name)
+        self.events = []
+
+    def run_it(self, stub, **kw):
+        kw.setdefault("receipt_path", str(Path(self._tmp.name) / "receipt.json"))
+        return run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append, model_fn=stub, **kw)
+
+    def provider_env(self, **kw):
+        from unittest import mock
+        clean = {k: v for k, v in os.environ.items() if k not in ("LATCH_PROVIDER", "OPENROUTER_API_KEY", "NEBIUS_API_KEY")}
+        clean.update(kw)
+        patch = mock.patch.dict(os.environ, clean, clear=True)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_default_provider_is_nebius_in_receipt_and_every_call(self):
+        self.provider_env()
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual(receipt["provider"], "nebius")
+        self.assertEqual(self.events[0]["provider"], "nebius")
+        self.assertTrue(receipt["model_calls"])
+        self.assertEqual({c["provider"] for c in receipt["model_calls"]}, {"nebius"})
+        self.assertTrue({c["model"] for c in receipt["model_calls"]} <= set(ALLOWED_MODELS) | {core.LIGHTNING})
+        self.assertEqual(json.loads(Path(receipt["receipt_path"]).read_text())["provider"], "nebius")
+
+    def test_openrouter_receipt_records_provider_and_resolved_free_models_with_no_cost(self):
+        self.provider_env(LATCH_PROVIDER="openrouter")
+        stub = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
+        path = Path(self._tmp.name) / "latch" / "runs" / "dev" / "loop-demo-openrouter.json"
+        receipt = self.run_it(stub, receipt_path=str(path))
+        self.assertEqual(receipt["provider"], "openrouter")
+        self.assertEqual(receipt["gate"], "gate_open")
+        calls = receipt["model_calls"]
+        self.assertEqual({c["provider"] for c in calls}, {"openrouter"})
+        self.assertEqual({c["model"] for c in calls},
+                         {"nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3.5-lightning:free"})
+        self.assertEqual([c["cost_usd"] for c in calls], [None] * len(calls))
+        self.assertIsNone(receipt["model_cost_usd"])
+        # the stub (the model_fn seam) still sees the canonical ids: the mapping happens in the call layer
+        self.assertTrue(all(c["model"] in ALLOWED_MODELS or c["model"] == core.LIGHTNING for c in stub.calls))
+        self.assertEqual(json.loads(path.read_text())["provider"], "openrouter")
+
+    def test_openrouter_refuses_a_public_receipt_path(self):
+        self.provider_env(LATCH_PROVIDER="openrouter")
+        for bad in ("latch/runs/loop-demo.json", "latch/runs/eval/x-real.json", "latch/runs/eval-summary.json"):
+            with self.assertRaisesRegex(ValueError, "dev-only"):
+                self.run_it(Stub(), receipt_path=bad)
+        self.assertEqual(self.events, [])
+
+    def test_openrouter_missing_key_names_openrouter(self):
+        self.provider_env(LATCH_PROVIDER="openrouter", NEBIUS_API_KEY="nb")
+        saved = core.load_key
+        core.load_key = lambda: None
+        try:
+            with self.assertRaises(LoopError):
+                run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append)
+        finally:
+            core.load_key = saved
+        self.assertIn("OPENROUTER_API_KEY is not configured", self.events[-1]["reason"])
+
+    def test_cli_provider_flag_and_bad_provider(self):
+        self.provider_env()
+        err = io.StringIO()
+        with redirect_stderr(err):
+            self.assertEqual(cli_main(["run", "--provider", "bogus", "--repo", self.repo, "--base", self.base, "--head", self.head,
+                                       "--issue", "x"]), 64)
+        self.assertIn("provider", err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

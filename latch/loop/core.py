@@ -24,6 +24,7 @@ from ..prove import (PYTEST_ENV, TRIAGE_SYSTEM, ModelRequestError, archive, expe
                      validate_proof_test)
 from ..repomap import build_repo_map
 from ..revert import changed_files, is_test_path, revert_check
+from .. import provider as providers
 from ..run import LIGHTNING, MODEL, call_model, load_key
 from ..steps import StepLog
 from ..flake import clamp_runs, flake_check
@@ -247,6 +248,7 @@ def run_loop(
     """
     validate_model(model)
     validate_model(test_model, "test_model")
+    providers.check_write(receipt_path)
     if max_iterations < 0 or max_iterations > 10:
         raise ValueError("max_iterations must be between 0 and 10")
     if not str(issue).strip():
@@ -282,6 +284,7 @@ def run_loop(
 
     receipt = {
         "run_id": run_id,
+        "provider": providers.current(),
         "repo": str(source_label or Path(repo).name),
         "base": base,
         "head": head,
@@ -350,7 +353,7 @@ def run_loop(
         receipt["case_note"] = str(case_note)
     started = {"repo": receipt["repo"], "base": base, "head": head, "issue": receipt["issue"],
                "test_command": command, "model": model, "test_model": test_model,
-               "max_iterations": max_iterations}
+               "max_iterations": max_iterations, "provider": receipt["provider"]}
     if case_note:
         started["case_note"] = receipt["case_note"]
     if issue_cut:
@@ -362,7 +365,7 @@ def run_loop(
         if model_fn is None:
             key = load_key()
             if not key:
-                fail("NEBIUS_API_KEY is not configured")
+                fail(providers.not_configured())
         steps.started("fetch", {"base": base, "head": head})
         repo = Path(repo).resolve()
         if not repo.is_dir():

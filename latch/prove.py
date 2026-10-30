@@ -11,6 +11,7 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from . import provider as providers
 from .run import LIGHTNING, MODEL, call_model, load_key
 from .harness.parse import extract_test_function
 from .flake import clean_snapshot, flake_check
@@ -337,6 +338,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     command = shlex.split(test_command)
     if not command:
         raise ValueError("test command cannot be empty")
+    providers.check_write(receipt)  # a dev provider (openrouter) may only write under latch/runs/dev/
     steps.started("fetch", {"base": base, "head": head})
     try:
         commits = []
@@ -363,14 +365,14 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             raise ValueError("Python diff exceeds the 40,000 character model input limit")
         key = load_key()
         if not key:
-            raise RuntimeError("NEBIUS_API_KEY is not configured")
+            raise RuntimeError(providers.not_configured())
     except Exception as error:
         steps.failed("fetch", str(error))
         raise
     steps.done("fetch", {"base": base_commit[:12], "head": head_commit[:12], "changed_python_files": paths[:20]})
 
     def write_receipt(result):
-        result.update(model_calls=list(calls.calls), model_cost_usd=total_cost(calls.calls),
+        result.update(provider=providers.current(), model_calls=list(calls.calls), model_cost_usd=total_cost(calls.calls),
                       model_prices_source=PRICES_SOURCE_URL, steps=steps.events)
         output = Path(receipt)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -429,7 +431,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
                 calls.ask("test_writer"), key, prompt, system, MODEL, 2048, extra_check=tautology_check_for(changed_syms))
         except ModelRequestError as error:
             steps.failed("test_writer", f"HTTP {error.status}")
-            raise RuntimeError(f"Nebius model request failed: HTTP {error.status}") from None
+            raise RuntimeError(f"{providers.label()} model request failed: HTTP {error.status}") from None
         base_info = {"repo": repo.name, "base": base_commit, "head": head_commit, "issue": issue.strip(),
                      "test_command": command, "model": MODEL, "repo_map": {k: v for k, v in map_result.items() if k != "reply"}}
         if function is None:

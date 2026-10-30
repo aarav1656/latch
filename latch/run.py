@@ -11,6 +11,11 @@ import time
 import urllib.error
 import urllib.request
 
+try:
+    from . import provider as providers
+except ImportError:  # imported as a top-level module (latch/ on sys.path) or run as a script
+    import provider as providers
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(ROOT, "fixture")
 RUNS = os.path.join(ROOT, "runs")
@@ -35,6 +40,9 @@ from parse import extract_function  # noqa: E402
 
 
 def load_key():
+    """The API key for the active provider (LATCH_PROVIDER). OpenRouter's comes from the environment only."""
+    if providers.current() == providers.OPENROUTER:
+        return os.environ.get("OPENROUTER_API_KEY") or None
     key = os.environ.get("NEBIUS_API_KEY")
     if key:
         return key
@@ -64,7 +72,7 @@ def read(name):
         return f.read()
 
 
-def message_text(message, prose=False):
+def message_text(message, prose=False, content_only=False):
     content = message.get("content") or ""
     if isinstance(content, list):
         chunks = []
@@ -74,6 +82,8 @@ def message_text(message, prose=False):
             else:
                 chunks.append(str(block))
         content = "\n".join(chunks)
+    if content_only:  # OpenRouter reasoning models: the reasoning fields are ignored, only the answer is used
+        return content.strip() if prose else content
     reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
     if prose:
         text = content.strip()
@@ -94,8 +104,17 @@ def _transient_status(status):
     return status is None or status == 429 or status >= 500
 
 
+def _retry_after(error):
+    """Seconds a 429/503 response asks us to wait (Retry-After), or None."""
+    try:
+        value = error.headers.get("Retry-After") if error.headers else None
+        return max(0.0, float(value)) if value is not None else None
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=False,
-               attempts=RETRY_ATTEMPTS, timeout=CALL_TIMEOUT, on_retry=None,
+               attempts=None, timeout=CALL_TIMEOUT, on_retry=None,
                sleep=None, jitter=None, meta=None):
     """One chat completion with retry. Returns (status, content, completion_id); (status, None, None) on failure.
 
@@ -107,14 +126,28 @@ def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=Fal
     {attempt, attempts, status, error, will_retry, delay} so callers can log each retry.
     meta: optional dict filled with {prompt_tokens, completion_tokens, latency_ms, status} (the usage the
     server reported; None when it did not). latency_ms covers all attempts, including backoff sleeps.
+    The provider comes from LATCH_PROVIDER (default nebius, unchanged). On OpenRouter the canonical Ultra or
+    Lightning id is mapped to its free variant, max_tokens has a 16k floor, only message content is used, and
+    429s are retried patiently (6 attempts, 4 s doubling to 60 s, Retry-After honoured).
     """
     started = time.monotonic()
+    provider = providers.current()
+    on_openrouter = provider == providers.OPENROUTER
+    if attempts is None:
+        attempts = providers.OPENROUTER_ATTEMPTS if on_openrouter else RETRY_ATTEMPTS
+    base_delay = providers.OPENROUTER_BASE_DELAY if on_openrouter else RETRY_BASE_DELAY
+    endpoint = providers.url(provider)
+    model = providers.resolve_model(model, provider)
+    max_tokens = providers.max_tokens_for(max_tokens, provider)
+
+    failed = []  # status of every failed attempt, so a receipt can show 429s that were retried through
 
     def finish_meta(status, usage=None):
         if meta is not None:
             usage = usage or {}
             meta.update(prompt_tokens=usage.get("prompt_tokens"), completion_tokens=usage.get("completion_tokens"),
-                        latency_ms=int((time.monotonic() - started) * 1000), status=status)
+                        latency_ms=int((time.monotonic() - started) * 1000), status=status,
+                        retries=len(failed), retried_statuses=list(failed))
 
     body = json.dumps(
         {
@@ -130,29 +163,38 @@ def call_model(key, user, model=MODEL, system=SYSTEM, max_tokens=2048, prose=Fal
     status = None
     for attempt in range(1, max(1, attempts) + 1):
         req = urllib.request.Request(
-            URL,
+            endpoint,
             data=body,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         )
-        error = None
+        error, asked = None, None
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 status = resp.status
                 payload = json.loads(resp.read())
                 message = payload["choices"][0]["message"]
-                content = message_text(message, prose=prose)
+                content = message_text(message, prose=prose, content_only=on_openrouter)
                 finish_meta(status, payload.get("usage") if isinstance(payload.get("usage"), dict) else None)
                 return status, content, payload.get("id")
         except urllib.error.HTTPError as e:
             status, error = e.code, f"HTTP {e.code}"
+            asked = _retry_after(e)
         except (OSError, http.client.HTTPException) as e:
             # URLError, socket timeouts, ConnectionResetError, RemoteDisconnected (http.client), ...
             status, error = None, f"{type(e).__name__}: {e}"[:300]
         except (ValueError, KeyError, IndexError, TypeError) as e:
             # truncated or malformed body (e.g. the connection died mid-response)
             status, error = None, f"bad response: {type(e).__name__}: {e}"[:300]
+        failed.append(status)
         will_retry = _transient_status(status) and attempt < attempts
-        delay = RETRY_BASE_DELAY * 2 ** (attempt - 1) + (jitter or random.random)() if will_retry else 0
+        delay = 0
+        if will_retry:
+            delay = base_delay * 2 ** (attempt - 1)
+            if on_openrouter:
+                delay = min(delay, providers.OPENROUTER_MAX_DELAY)
+                if asked is not None:
+                    delay = max(delay, min(asked, providers.OPENROUTER_MAX_DELAY))
+            delay += (jitter or random.random)()
         if on_retry:
             on_retry({"attempt": attempt, "attempts": attempts, "status": status, "error": error,
                       "will_retry": will_retry, "delay": round(delay, 2)})
@@ -198,7 +240,7 @@ def execute(state, on_step=None):
         return 2
     key = load_key()
     if not key:
-        state["reason"] = "NEBIUS_API_KEY not found"
+        state["reason"] = providers.key_env() + " not found"
         print(state["reason"])
         return 7
     try:
@@ -328,6 +370,7 @@ def main():
         "restored_passed": False,
         "model": MODEL,
         "lightning_model": LIGHTNING,
+        "provider": providers.current(),
         "assertion": None,
         "lightning": None,
         "http_status": None,

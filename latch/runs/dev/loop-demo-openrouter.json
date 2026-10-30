@@ -1,0 +1,513 @@
+{
+  "run_id": "c2cdfc27c6f8",
+  "provider": "openrouter",
+  "dev_only": true,
+  "note": "Dev-only run via OpenRouter free tier; not Nebius Token Factory numbers.",
+  "repo": "latch-loop-demo/bookings (constructed)",
+  "base": "7118182e14162dce30ae88971d4b7da0c0c957e2",
+  "head": "1b774fb6cac181bb8d7a6739f5a81914f99b941c",
+  "issue": "Back-to-back bookings are treated as double-booked\n\nA booking that ends at 10:00 and the next one that starts at 10:00 do not share any time, but the booking helpers treat them as a clash. Example with times in minutes since midnight:\n\n    find_conflicts([(540, 600), (600, 660)])   # returns [((540, 600), (600, 660))], should be []\n    merge_bookings([(540, 600), (600, 660)])   # returns [(540, 660)], should stay [(540, 600), (600, 660)]\n\nBack-to-back bookings must not be reported as conflicts and must not be merged into one block. Bookings that really overlap (for example (540, 600) and (570, 630)) must keep behaving as before.",
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793341384-lTHxfwC0rrfbhdxXdUub",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe test failure confirms the reported bug: merge_bookings incorrectly merges back-to-back intervals into a single block."
+  },
+  "started_at": "2026-10-30T06:22:23.760Z",
+  "proof_test": {
+    "name": "test_back_to_back_bookings",
+    "source": "import pytest\n\ndef test_back_to_back_bookings():\n    from bookings import overlaps, find_conflicts, merge_bookings\n\n    # Overlapping bookings should still be detected\n    assert overlaps((540, 600), (570, 630))\n    # Disjoint bookings should not clash\n    assert not overlaps((540, 600), (700, 760))\n    # Back-to-back bookings must not be considered overlapping\n    assert not overlaps((540, 600), (600, 660))\n\n    # find_conflicts should not report back-to-back as a conflict\n    assert find_conflicts([(540, 600), (600, 660)]) == []\n    # But should still report real overlaps\n    assert find_conflicts([(540, 600), (570, 630), (800, 860)]) == [((540, 600), (570, 630))]\n\n    # merge_bookings must not merge back-to-back bookings\n    assert merge_bookings([(540, 600), (600, 660)]) == [(540, 600), (600, 660)]\n    # But should still merge truly overlapping bookings\n    assert merge_bookings([(540, 600), (570, 630), (800, 860)]) == [(540, 630), (800, 860)]\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "gen-1793341353-hjWYtbirbeMZizRdSbGO"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________________ test_back_to_back_bookings ______________________________________________________________________________________\nlatch_issue_test.py:11: in test_back_to_back_bookings\n    assert not overlaps((540, 600), (600, 660))\nE   assert not True\nE    +  where True = <function overlaps at 0x1084c5e10>((540, 600), (600, 660))\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert not True\n1 failed in 0.10s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________________ test_back_to_back_bookings ______________________________________________________________________________________\nlatch_issue_test.py:19: in test_back_to_back_bookings\n    assert merge_bookings([(540, 600), (600, 660)]) == [(540, 600), (600, 660)]\nE   assert [(540, 660)] == [(540, 600), (600, 660)]\nE     \nE     At index 0 diff: (540, 660) != (540, 600)\nE     Right contains one more item: (600, 660)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert [(540, 660)] == [(540, 600), (600, 660)]\n1 failed in 0.06s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".....                                                                                                                                                                                            [100%]\n5 passed in 0.03s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "gen-1793341395-4UykgUrEVUc4bVy9Xvtz",
+      "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -20,7 +20,7 @@\n     \"\"\"Collapse clashing bookings into blocks, e.g. for a room utilisation report.\"\"\"\n     merged = []\n     for start, end in sorted(bookings):\n-        if merged and start <= merged[-1][1]:\n+        if merged and start < merged[-1][1]:\n             merged[-1] = (merged[-1][0], max(merged[-1][1], end))\n         else:\n             merged.append((start, end))\n",
+      "changed_files": [
+        "bookings.py"
+      ],
+      "pytest_output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.01s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+      "verdict": "gate_open",
+      "proof_returncode": 0,
+      "suite_returncode": 0
+    }
+  ],
+  "gate": "gate_open",
+  "verdict": "VALIDATED",
+  "reason": "harness watched the proof test go red on base and green after iteration 1, with the repo suite green",
+  "case_note": "Constructed regression case: hand-written partial fix modelled on common agent behaviour, not an upstream bug.",
+  "repo_map": {
+    "status": "ok",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793341345-ApXxENOQUhggY7OXRvUn",
+    "files": [
+      {
+        "path": "bookings.py",
+        "symbols": [
+          "overlaps",
+          "find_conflicts",
+          "merge_bookings"
+        ],
+        "changed": true
+      }
+    ],
+    "dropped": [],
+    "text": "bookings.py  (touched by the submitted diff)\n  def overlaps(a, b)  L4  - True when two bookings clash.\n  def find_conflicts(bookings)  L9  - Return every pair of bookings that clash, in input order.\n  def merge_bookings(bookings)  L19  - Collapse clashing bookings into blocks, e.g. for a room utilisation report.",
+    "files_indexed": 1
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "gen-1793341353-hjWYtbirbeMZizRdSbGO",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_back_to_back_bookings():\n    from bookings import overlaps, find_conflicts, merge_bookings\n\n    # Overlapping bookings should still be detected\n    assert overlaps((540, 600), (570, 630))\n    # Disjoint bookings should not clash\n    assert not overlaps((540, 600), (700, 760))\n    # Back-to-back bookings must not be considered overlapping\n    assert not overlaps((540, 600), (600, 660))\n\n    # find_conflicts should not report back-to-back as a conflict\n    assert find_conflicts([(540, 600), (600, 660)]) == []\n    # But should still report real overlaps\n    assert find_conflicts([(540, 600), (570, 630), (800, 860)]) == [((540, 600), (570, 630))]\n\n    # merge_bookings must not merge back-to-back bookings\n    assert merge_bookings([(540, 600), (600, 660)]) == [(540, 600), (600, 660)]\n    # But should still merge truly overlapping bookings\n    assert merge_bookings([(540, 600), (570, 630), (800, 860)]) == [(540, 630), (800, 860)]",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "overlaps"
+        ],
+        "asserted_symbols": [
+          "find_conflicts",
+          "merge_bookings",
+          "overlaps"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "find_conflicts"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "overlaps"
+    ],
+    "asserted_symbols": [
+      "find_conflicts",
+      "merge_bookings",
+      "overlaps"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "find_conflicts"
+    ],
+    "mode": "repo"
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "bookings.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "================================================= FAILURES ===============================================================================================\n______________________________________________________________________________________ test_back_to_back_bookings ______________________________________________________________________________________\nlatch_issue_test.py:11: in test_back_to_back_bookings\n    assert not overlaps((540, 600), (600, 660))\nE   assert not True\nE    +  where True = <function overlaps at 0x10c011f30>((540, 600), (600, 660))\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert not True\n1 failed in 0.09s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+        "identical_to_base": false,
+        "note": "all non-test files the change touched were set back to base"
+      },
+      {
+        "name": "restore_submitted_patch",
+        "files": [
+          "bookings.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "======\n______________________________________________________________________________________ test_back_to_back_bookings ______________________________________________________________________________________\nlatch_issue_test.py:19: in test_back_to_back_bookings\n    assert merge_bookings([(540, 600), (600, 660)]) == [(540, 600), (600, 660)]\nE   assert [(540, 660)] == [(540, 600), (600, 660)]\nE     \nE     At index 0 diff: (540, 660) != (540, 600)\nE     Right contains one more item: (600, 660)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert [(540, 660)] == [(540, 600), (600, 660)]\n1 failed in 0.08s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+        "note": "files the fix loop rewrote were set back to the submitted (wrong) patch"
+      }
+    ],
+    "tests_kept": [
+      "test_bookings.py"
+    ],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "compare_boundary",
+        "file": "bookings.py",
+        "line": 6,
+        "what": "`<` -> `<=`",
+        "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -5,3 +5,3 @@\n     \"\"\"True when two bookings clash.\"\"\"\n-    return a[0] < b[1] and b[0] < a[1]\n+    return a[0] <= b[1] and b[0] < a[1]\n \n",
+        "killed": false,
+        "output_excerpt": "/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      },
+      {
+        "id": "m2",
+        "operator": "negate_condition",
+        "file": "bookings.py",
+        "line": 23,
+        "what": "negated the condition",
+        "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -22,3 +22,3 @@\n     for start, end in sorted(bookings):\n-        if merged and start < merged[-1][1]:\n+        if not (merged and start < merged[-1][1]):\n             merged[-1] = (merged[-1][0], max(merged[-1][1], end))\n",
+        "killed": true,
+        "output_excerpt": "/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      },
+      {
+        "id": "m3",
+        "operator": "bool_swap",
+        "file": "bookings.py",
+        "line": 6,
+        "what": "`and` -> `or`",
+        "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -5,3 +5,3 @@\n     \"\"\"True when two bookings clash.\"\"\"\n-    return a[0] < b[1] and b[0] < a[1]\n+    return a[0] < b[1] or b[0] < a[1]\n \n",
+        "killed": true,
+        "output_excerpt": "/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      },
+      {
+        "id": "m4",
+        "operator": "const_off_by_one",
+        "file": "bookings.py",
+        "line": 6,
+        "what": "constant 0 -> 1",
+        "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -5,3 +5,3 @@\n     \"\"\"True when two bookings clash.\"\"\"\n-    return a[0] < b[1] and b[0] < a[1]\n+    return a[1] < b[1] and b[0] < a[1]\n \n",
+        "killed": false,
+        "output_excerpt": "/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      },
+      {
+        "id": "m5",
+        "operator": "return_none",
+        "file": "bookings.py",
+        "line": 6,
+        "what": "return None instead of the computed value",
+        "diff": "--- a/bookings.py\n+++ b/bookings.py\n@@ -5,3 +5,3 @@\n     \"\"\"True when two bookings clash.\"\"\"\n-    return a[0] < b[1] and b[0] < a[1]\n+    return None\n \n",
+        "killed": true,
+        "output_excerpt": "/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      }
+    ],
+    "killed": 3,
+    "total": 5,
+    "kill_rate": 0.6,
+    "threshold": 0.6,
+    "ok": true,
+    "note": "3/5 mutants of the changed lines were killed by the frozen proof test (needs 60%)"
+  },
+  "finished_at": "2026-10-30T06:23:46.949Z",
+  "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 3/5 mutants",
+  "proven": true,
+  "base_sha": "7118182e14162dce30ae88971d4b7da0c0c957e2",
+  "head_sha": "1b774fb6cac181bb8d7a6739f5a81914f99b941c",
+  "verdict_logs": {
+    "base": "==========================================================\nFAILED latch_issue_test.py::test_back_to_back_bookings - assert not True\n1 failed in 0.10s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+    "head": "                                                                                                                             [100%]\n1 passed in 0.01s\n/Users/kamal/.pyenv/versions/3.10.0/lib/python3.10/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option \"asyncio_default_fixture_loop_scope\" is unset.\nThe event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n",
+    "survivors": [
+      {
+        "id": "m1",
+        "operator": "compare_boundary",
+        "file": "bookings.py",
+        "line": 6,
+        "output_excerpt": "synchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      },
+      {
+        "id": "m4",
+        "operator": "const_off_by_one",
+        "file": "bookings.py",
+        "line": 6,
+        "output_excerpt": "synchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: \"function\", \"class\", \"module\", \"package\", \"session\"\n\n  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))\n"
+      }
+    ]
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 370,
+      "completion_tokens": 801,
+      "latency_ms": 8256,
+      "completion_id": "gen-1793341345-ApXxENOQUhggY7OXRvUn",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "prompt_tokens": 1172,
+      "completion_tokens": 1255,
+      "latency_ms": 24206,
+      "completion_id": "gen-1793341353-hjWYtbirbeMZizRdSbGO",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 1176,
+      "completion_tokens": 1001,
+      "latency_ms": 11187,
+      "completion_id": "gen-1793341384-lTHxfwC0rrfbhdxXdUub",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "prompt_tokens": 2106,
+      "completion_tokens": 572,
+      "latency_ms": 6791,
+      "completion_id": "gen-1793341395-4UykgUrEVUc4bVy9Xvtz",
+      "cost_usd": null,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": null,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T06:22:23.761Z",
+      "detail": {
+        "base": "7118182e14162dce30ae88971d4b7da0c0c957e2",
+        "head": "1b774fb6cac181bb8d7a6739f5a81914f99b941c"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T06:22:24.051Z",
+      "detail": {
+        "base": "7118182e1416",
+        "head": "1b774fb6cac1",
+        "changed_files": [
+          "bookings.py",
+          "test_bookings.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T06:22:24.309Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "done",
+      "ts": "2026-10-30T06:22:32.588Z",
+      "detail": {
+        "files": [
+          "bookings.py"
+        ],
+        "dropped": [],
+        "detail": null
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T06:22:32.588Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T06:22:56.799Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "gen-1793341353-hjWYtbirbeMZizRdSbGO"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T06:22:56.800Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T06:22:58.694Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T06:22:58.694Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T06:23:03.941Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T06:23:03.943Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T06:23:15.132Z",
+      "detail": {
+        "verdict": "reproduced",
+        "completion_id": "gen-1793341384-lTHxfwC0rrfbhdxXdUub"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T06:23:15.132Z",
+      "detail": {
+        "iteration": 1,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "done",
+      "ts": "2026-10-30T06:23:21.927Z",
+      "detail": {
+        "iteration": 1,
+        "completion_id": "gen-1793341395-4UykgUrEVUc4bVy9Xvtz",
+        "changed_files": [
+          "bookings.py"
+        ]
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T06:23:24.460Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T06:23:36.042Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T06:23:36.042Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T06:23:38.999Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T06:23:39.000Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "done",
+      "ts": "2026-10-30T06:23:46.948Z",
+      "detail": {
+        "killed": 3,
+        "total": 5,
+        "kill_rate": 0.6
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T06:23:46.949Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 3/5 mutants"
+      }
+    }
+  ],
+  "final_iteration": 1
+}

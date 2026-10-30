@@ -7,6 +7,9 @@
     latch eval oracle [--only ID ...] [--jobs 2]                  oracle baseline (no model): upstream tests on base, real and wrong; $0
     latch eval manifest [--write|--check]                         pin models, prompts, dataset and SHAs
 
+--provider nebius|openrouter (or $LATCH_PROVIDER) picks the model provider; nebius is the default. openrouter is DEV ONLY: `run` then writes only
+latch/runs/dev/eval-summary-openrouter.json (+ eval-report-openrouter.md, eval-DATE-openrouter.json, eval/), marked dev_only, and never latch/runs/eval-summary.json.
+
 `--dry-run` (alias `--fixture`) never writes latch/runs/eval-summary.json, so a placeholder can never look like a result.
 Clones and caches live under $LATCH_EVAL_ROOT (use a large disk); the venv is $LATCH_EVAL_VENV.
 """
@@ -47,6 +50,12 @@ def run_dry(only=None, out_dir=None, root=REPO_ROOT):
 
 
 def main(argv=None):
+    from latch import provider as providers
+    try:
+        argv = providers.take_flag(sys.argv[1:] if argv is None else argv)
+    except ValueError as error:
+        print(f"latch eval: {error}", file=sys.stderr)
+        return 64
     ap = argparse.ArgumentParser(prog="latch eval", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="run the benchmark (live) or --dry-run it with stubbed outputs")

@@ -6,6 +6,10 @@
     latch comment RECEIPT [--post --repo OWNER/REPO --pr N]     (default: print the comment, post nothing)
     latch eval    run [--dry-run] | summarize | report | oracle | manifest     (the Slopgate-comparable benchmark; --dry-run spends nothing)
 
+Every model-calling command takes --provider nebius|openrouter (or set LATCH_PROVIDER); the default is nebius.
+openrouter is DEV ONLY (free tier, rate limited, not Token Factory numbers): its receipts say provider=openrouter and
+default to latch/runs/dev/, and `latch eval run` then writes only under latch/runs/dev/, never latch/runs/eval-summary.json.
+
 Exit status: prove 0 proven / 1 not proven / 2 error; loop 0 gate_open / 1 gave_up / 2 error; 64 bad arguments.
 Nothing is posted anywhere unless `latch comment --post` is given explicitly, with GITHUB_TOKEN set.
 """
@@ -16,6 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import provider as providers
 from .pr_comment import post_or_update_comment, render_comment
 
 
@@ -36,7 +41,7 @@ def _prove(argv):
     issue.add_argument("--issue")
     issue.add_argument("--issue-file")
     p.add_argument("--test-command", default="python3 -m pytest -q")
-    p.add_argument("--receipt", default="latch/runs/latest-proof.json")
+    p.add_argument("--receipt", default=None, help="default latch/runs/latest-proof.json (latch/runs/dev/latest-proof-openrouter.json on openrouter)")
     p.add_argument("--no-revert", action="store_true", help="skip the revert check (not recommended)")
     p.add_argument("--no-mutation", action="store_true", help="skip the AST mutation check of the changed lines (not recommended)")
     p.add_argument("--no-triage", action="store_true")
@@ -44,6 +49,9 @@ def _prove(argv):
                    help="rerun the proof test N times on base and head to catch flakiness (default 5, max 10; 1 = off)")
     p.add_argument("--pr-comment", metavar="PATH", help="write the receipt as a Markdown PR comment ('-' = stdout)")
     args = p.parse_args(argv)
+    if args.receipt is None:
+        default = "latch/runs/latest-proof.json"
+        args.receipt = str(providers.dev_path(default)) if providers.is_dev() else default
     from .prove import prove
     try:
         text = args.issue if args.issue is not None else Path(args.issue_file).read_text(encoding="utf-8")
@@ -99,6 +107,11 @@ def main(argv=None):
         print(__doc__)
         return 0 if argv else 64
     cmd, rest = argv[0], argv[1:]
+    try:
+        rest = providers.take_flag(rest)
+    except ValueError as error:
+        print(f"latch: {error}", file=sys.stderr)
+        return 64
     if cmd == "prove":
         return _prove(rest)
     if cmd == "comment":

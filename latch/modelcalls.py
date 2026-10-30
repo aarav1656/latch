@@ -7,6 +7,7 @@ call has no usage (a stub in tests, or the server omitted it) tokens and cost ar
 
 import time
 
+from . import provider as providers
 from .run import LIGHTNING, MODEL, call_model
 
 ROLES = ("repo_map", "triage", "test_writer", "fixer")
@@ -19,8 +20,11 @@ PRICES_SOURCE_URL = "https://tokenfactory.nebius.com/model-catalog.md"
 PRICES_USD_PER_MILLION = {MODEL: (1.00, 3.00), LIGHTNING: (0.06, 0.24)}
 
 
-def estimate_cost(model, prompt_tokens, completion_tokens):
-    """USD for one call from the published prices, or None when the price or a token count is unknown."""
+def estimate_cost(model, prompt_tokens, completion_tokens, provider=providers.NEBIUS):
+    """USD for one call from the published prices, or None when the price or a token count is unknown.
+    Only Token Factory has a price table here: a call through any other provider (OpenRouter free tier) has no cost."""
+    if provider != providers.NEBIUS:
+        return None
     price = PRICES_USD_PER_MILLION.get(model)
     if price is None or prompt_tokens is None or completion_tokens is None:
         return None
@@ -58,18 +62,24 @@ class ModelCalls:
                 if self.on_retry:
                     kwargs["on_retry"] = self.on_retry
             started = time.monotonic()
+            provider = providers.current()
+            resolved = providers.resolve_model(model, provider)
             status, content, completion_id = self.fn(key, user, model=model, **kwargs)
             prompt_tokens, completion_tokens = meta.get("prompt_tokens"), meta.get("completion_tokens")
             entry = {
                 "role": role,
-                "model": model,
+                "provider": provider,
+                "model": resolved,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "latency_ms": meta.get("latency_ms", int((time.monotonic() - started) * 1000)),
                 "completion_id": completion_id,
-                "cost_usd": estimate_cost(model, prompt_tokens, completion_tokens),
+                "cost_usd": estimate_cost(model, prompt_tokens, completion_tokens, provider),
                 "status": status,
             }
+            if meta.get("retries"):
+                entry["retries"] = meta["retries"]
+                entry["retried_statuses"] = meta["retried_statuses"]
             self.calls.append(entry)
             if self.on_call:
                 self.on_call(entry)

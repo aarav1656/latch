@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 
+from .. import provider as providers
 from .human import Timeline, submitted_diff
 from .core import (now, ALLOWED_MODELS, DEFAULT_MODEL, LoopError, prepare_demo, run_demo, run_loop)
 
@@ -58,6 +59,11 @@ def build_parser():
 
 
 def main(argv=None):
+    try:
+        argv = providers.take_flag(sys.argv[1:] if argv is None else argv)  # --provider nebius|openrouter, else $LATCH_PROVIDER
+    except ValueError as error:
+        print(f"latch: {error}", file=sys.stderr)
+        return 64
     args = build_parser().parse_args(argv)
     if args.model not in ALLOWED_MODELS:
         print(f"--model must be one of: {', '.join(ALLOWED_MODELS)}", file=sys.stderr)

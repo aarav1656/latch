@@ -39,6 +39,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
+from latch import provider as providers  # noqa: E402
 from latch.loop.core import LoopError, run_loop  # noqa: E402
 from latch.loop.eval.cases import CASES, DROPPED  # noqa: E402
 
@@ -153,11 +154,22 @@ def apply_wrong(case, directory):
     path.write_text(text, encoding="utf-8")
 
 
+def remove_tree(path):
+    """rmtree that survives an external disk whose AppleDouble (._*) files vanish while the tree is being walked."""
+    for attempt in range(5):
+        if not Path(path).exists():
+            return
+        try:
+            shutil.rmtree(path)
+        except FileNotFoundError:
+            time.sleep(0.2 * (attempt + 1))
+    shutil.rmtree(path, ignore_errors=True)
+
+
 def wrong_repo(case):
     """A tiny git repo: commit 1 = base snapshot, commit 2 = base + the constructed wrong patch."""
     repo = ROOT / "wrong" / case["id"]
-    if repo.exists():
-        shutil.rmtree(repo)
+    remove_tree(repo)
     repo.mkdir(parents=True)
     base = base_sha(case)
     archive(clone_dir(case), base, repo)
@@ -297,6 +309,7 @@ def run_one(case, variant, max_iterations, out_dir):
         row["named_verdict"] = receipt.get("verdict")
         row["reason"] = receipt["reason"]
     row["wall_seconds"] = round(time.time() - started, 1)
+    row["provider"] = receipt.get("provider") or providers.current()
     initial = receipt.get("initial") or {}
     its = receipt.get("iterations") or []
     row.update(
@@ -372,6 +385,7 @@ def selected(only):
 
 
 def main(argv=None):
+    argv = providers.take_flag(sys.argv[1:] if argv is None else argv)  # --provider nebius|openrouter, else $LATCH_PROVIDER
     ap = argparse.ArgumentParser(prog="python3 -m latch.loop.eval.run_eval")
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("validate")
@@ -406,8 +420,14 @@ def main(argv=None):
         return 0 if not dropped else 1
 
     date = datetime.date.today().isoformat()
-    out = Path(args.out or REPO_ROOT / "latch" / "runs" / f"eval-{date}.json")
-    rec_dir = ROOT / "receipts" / date
+    provider = providers.current()
+    dev = provider != providers.NEBIUS
+    if dev:  # dev-only provider: everything lands under latch/runs/dev/, never in the public latch/runs/ paths
+        out = Path(args.out or REPO_ROOT / providers.DEV_DIR / f"eval-{date}-{provider}.json")
+    else:
+        out = Path(args.out or REPO_ROOT / "latch" / "runs" / f"eval-{date}.json")
+    providers.check_write(out, provider)
+    rec_dir = ROOT / "receipts" / (f"{date}-{provider}" if dev else date)
     rec_dir.mkdir(parents=True, exist_ok=True)
     jobs = [(c, v) for c in valid for v in (("real", "nofix") if c.get("swe") else ("real", "wrong"))]
     rows, t0 = [], time.time()
@@ -435,12 +455,15 @@ def main(argv=None):
     doc = {
         "date": date, "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "max_iterations": args.max_iterations, "jobs": args.jobs,
-        "models": {"proof_test": "nvidia/Nemotron-3-Ultra-550b-a55b", "fix": "nvidia/Nemotron-3-Ultra-550b-a55b",
-                   "triage": "nvidia/Nemotron-3_5-Lightning"},
+        "provider": provider,
+        "models": {"proof_test": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
+                   "fix": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
+                   "triage": providers.resolve_model("nvidia/Nemotron-3_5-Lightning", provider)},
         "elapsed_seconds": round(time.time() - t0, 1),
         "summary": summarize(rows, dropped + [dict(d, source="dropped before the run (record only)") for d in DROPPED]), "cases": case_meta, "runs": rows,
     }
-    publish_receipts(doc)
+    providers.mark_dev(doc, provider)
+    publish_receipts(doc, dest=REPO_ROOT / providers.DEV_DIR / "eval" if dev else None)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(doc["summary"], indent=2))
@@ -453,6 +476,7 @@ def main(argv=None):
 def publish_receipts(doc, dest=None):
     """Copy each run's receipt to latch/runs/eval/<case>-<variant>.json and point the row at the copy (repo-relative)."""
     dest = Path(dest or REPO_ROOT / "latch" / "runs" / "eval")
+    providers.check_write(dest / "x.json", doc.get("provider") or providers.NEBIUS)
     dest.mkdir(parents=True, exist_ok=True)
     for row in doc["runs"]:
         source = Path(row["receipt"]) if row.get("receipt") else None
@@ -466,20 +490,26 @@ def publish_receipts(doc, dest=None):
 
 def write_eval_summary(doc, dropped=(), path=None):
     """latch/runs/eval-summary.json for latch-web. Only ever called with a finished run: never writes placeholders."""
-    from .summary import write_summary
-
     def load(rel):
         if not rel:
             return None
         file = Path(rel) if Path(rel).is_absolute() else REPO_ROOT / rel
         return json.loads(file.read_text()) if file.exists() else None
 
-    path = Path(path or REPO_ROOT / "latch" / "runs" / "eval-summary.json")
+    provider = doc.get("provider") or providers.NEBIUS
+    dev = provider != providers.NEBIUS
+    if path is None:
+        path = REPO_ROOT / providers.DEV_DIR / f"eval-summary-{provider}.json" if dev else REPO_ROOT / "latch" / "runs" / "eval-summary.json"
+    path = Path(path)
+    providers.check_write(path, provider)  # a dev provider can never write latch/runs/eval-summary.json
     from .report import render
-    from .summary import extras
-    summary = write_summary(path, doc, CASES, load, dropped=[*dropped, *DROPPED], root=REPO_ROOT, **extras(REPO_ROOT))
+    from .summary import build_summary, extras
+    summary = build_summary(doc, CASES, load, [*dropped, *DROPPED], root=REPO_ROOT, **extras(REPO_ROOT))
+    providers.mark_dev(summary, provider)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {path}", file=sys.stderr)
-    report = path.with_name("eval-report.md")
+    report = path.with_name(f"eval-report-{provider}.md" if dev else "eval-report.md")
     report.write_text(render(summary), encoding="utf-8")
     print(f"wrote {report}", file=sys.stderr)
     return summary
