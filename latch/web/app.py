@@ -15,7 +15,7 @@ from urllib.parse import unquote, urlparse
 
 from .sandbox import SandboxConfig, drop_dumpable
 from .service import ApiError, Config, Service
-from .store import Store
+from .store import Store, make_envelope
 
 WEB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = WEB_DIR.parent.parent
@@ -35,6 +35,45 @@ CSP = (
 def boot_json(payload):
     text = json.dumps(payload, separators=(",", ":"))
     return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
+EVAL_PENDING = "Eval pending: latch/runs/eval-summary.json has not been committed yet."
+
+
+def eval_root():
+    return Path(os.environ.get("LATCH_EVAL_ROOT") or REPO_ROOT)
+
+
+def _load_object(path):
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def eval_payload():
+    """The eval page's data: the committed summary plus the featured wrong-fix receipt, or an honest 'pending'."""
+    root = eval_root()
+    summary = _load_object(root / "latch" / "runs" / "eval-summary.json")
+    if summary is None:
+        return {"available": False, "reason": EVAL_PENDING}
+    featured = None
+    ref = summary.get("featured_wrong_fix_receipt")
+    if isinstance(ref, str) and ref and "\x00" not in ref:
+        allowed = (root / "latch" / "runs" / "eval").resolve()
+        try:
+            target = (root / ref).resolve()
+        except (OSError, RuntimeError, ValueError):
+            target = None
+        if target is not None and allowed in target.parents and target.is_file():
+            loaded = _load_object(target)
+            if loaded is not None:
+                if isinstance(loaded.get("receipt"), dict) and isinstance(loaded.get("meta"), dict):
+                    featured = loaded
+                else:
+                    featured = make_envelope(loaded, "recorded", extra={"recorded_run": ref})
+    return {"available": True, "summary": summary, "featured": featured}
 
 
 def build_service(data_dir=None, **kwargs):
@@ -93,9 +132,18 @@ def make_handler(service, trust_proxy=True):
         # -- pages --------------------------------------------------------
         def page(self, initial=None, status=200, notice=None):
             html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-            boot = {"example": service.store.example, "config": service.public_config(), "initial": initial, "notice": notice}
+            boot = {
+                "example": service.store.example, "config": service.public_config(), "initial": initial,
+                "notice": notice, "recent": service.store.list_recent(),
+            }
             html = html.replace("__LATCH_BOOT__", boot_json(boot))
             self.send_bytes(status, "text/html; charset=utf-8", html.encode())
+
+        def html_page(self, name):
+            target = STATIC_DIR / name
+            if not target.is_file():
+                return self.send_json(404, {"error": {"code": "not_found", "message": "Not found"}})
+            self.send_bytes(200, "text/html; charset=utf-8", target.read_bytes())
 
         def static_file(self, name):
             target = (STATIC_DIR / name).resolve()
@@ -112,6 +160,14 @@ def make_handler(service, trust_proxy=True):
             try:
                 if path in ("/", "/index.html"):
                     return self.page()
+                if path in ("/eval", "/eval/"):
+                    return self.html_page("eval.html")
+                if path in ("/ship", "/ship/"):
+                    return self.html_page("ship.html")
+                if path == "/api/recent":
+                    return self.send_json(200, {"items": service.store.list_recent()})
+                if path == "/api/eval":
+                    return self.send_json(200, eval_payload())
                 if path == "/healthz":
                     return self.send_json(200, {"ok": True, "live": service.live_state()["enabled"]})
                 if path == "/api/config":

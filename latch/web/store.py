@@ -234,6 +234,43 @@ class Store:
                 return int(meta["number"])
         return None
 
+    def list_recent(self, limit=12):
+        """Newest cached receipts, one per pull request. Real envelopes only: nothing is invented.
+
+        Envelopes on disk and the built-in recorded seed qualify; any without meta.repo and meta.number are skipped.
+        """
+        newest = {}
+        candidates = list(self.seed_prs.values())
+        try:
+            candidates += [e for e in (self._read(f) for f in (self.root / "receipts").glob("*.json")) if e]
+        except OSError:
+            pass
+        for envelope in candidates:
+            meta = envelope.get("meta") if isinstance(envelope, dict) else None
+            receipt = envelope.get("receipt") if isinstance(envelope, dict) else None
+            if not isinstance(meta, dict) or not isinstance(receipt, dict):
+                continue
+            repo, number = meta.get("repo"), meta.get("number")
+            if not repo or not isinstance(number, int):
+                continue
+            key = (str(repo).lower(), number)
+            if key not in newest or str(meta.get("created_at") or "") > str(newest[key][0].get("created_at") or ""):
+                newest[key] = (meta, receipt)
+        items = []
+        for (_, number), (meta, receipt) in newest.items():
+            repo = meta["repo"]
+            items.append({
+                "repo": repo,
+                "number": number,
+                "verdict": meta.get("verdict") or ("proven" if receipt.get("proven") is True else "not_proven"),
+                "title": receipt.get("pull_request_title") or f"Pull request #{number}",
+                "created_at": meta.get("created_at"),
+                "permalink": f"/r/{repo}/{number}",
+                "source": meta.get("source"),
+            })
+        items.sort(key=lambda item: (str(item["created_at"] or ""), item["repo"], item["number"]), reverse=True)
+        return items[: max(int(limit), 0)]
+
     def put(self, repo_full_name, number, envelope):
         receipt = envelope["receipt"]
         key = receipt_key(repo_full_name, receipt["base"], receipt["head"])

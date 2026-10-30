@@ -859,5 +859,151 @@ class CreditsTests(unittest.TestCase):
         self.assertEqual(events[-1]["event"], "done")
 
 
+class RecentTests(unittest.TestCase):
+    def test_empty_store_lists_only_the_recorded_click_seed(self):
+        h = Harness(self)
+        status, body = h.get_json("/api/recent")
+        self.assertEqual(status, 200)
+        self.assertEqual([(i["repo"], i["number"], i["source"]) for i in body["items"]], [("pallets/click", 3299, "recorded")])
+        self.assertEqual(body["items"][0]["permalink"], "/r/pallets/click/3299")
+
+    def test_lists_real_cached_receipts_newest_first_and_skips_junk(self):
+        h = Harness(self)
+        for number in (1, 2):
+            job = h.post(h.add_pr(number))[2]["job_id"]
+            self.assertEqual(h.events(job)[-1]["event"], "result")
+            time.sleep(1.05)  # created_at has one second resolution
+        junk = Path(h.tmp.name) / "receipts" / "junk.json"
+        junk.write_text(json.dumps({"receipt": {"proven": True}, "meta": {}}))
+        (Path(h.tmp.name) / "receipts" / "bad.json").write_text("not json")
+        items = h.get_json("/api/recent")[1]["items"]
+        self.assertEqual([i["number"] for i in items][:2], [2, 1])
+        self.assertEqual(items[0]["title"], "Fix double")
+        self.assertEqual(items[0]["verdict"], "proven")
+        self.assertEqual(items[0]["source"], "live")
+        self.assertNotIn(None, [i["repo"] for i in items])
+
+    def test_one_item_per_pull_request_and_limit(self):
+        h = Harness(self)
+        for number in range(1, 5):
+            h.events(h.post(h.add_pr(number))[2]["job_id"])
+        self.assertEqual(len(h.service.store.list_recent(limit=3)), 3)
+        self.assertEqual(len({(i["repo"], i["number"]) for i in h.service.store.list_recent()}), 5)
+
+    def test_boot_json_carries_recent_for_the_first_screen(self):
+        h = Harness(self)
+        _, _, data = h.request("GET", "/")
+        text = data.decode()
+        start = text.index('id="boot"')
+        blob = text[text.index(">", start) + 1:text.index("</script>", start)]
+        boot = json.loads(blob)
+        self.assertEqual([i["number"] for i in boot["recent"]], [3299])
+
+
+class StepEventTests(unittest.TestCase):
+    def test_step_events_are_relayed_with_a_sequence_when_the_runner_accepts_them(self):
+        def run(url, path, command, on_step=None, runner=None, on_step_event=None):
+            on_step("fetching")
+            on_step_event({"step": "fetch", "status": "started", "ts": "2026-10-30T04:00:00.000Z", "detail": None})
+            on_step_event({"step": "fetch", "status": "done", "ts": "2026-10-30T04:00:01.000Z", "detail": "ok"})
+            on_step_event({"step": "repo_map", "status": "failed", "ts": "2026-10-30T04:00:02.000Z", "detail": "x"})
+            return receipt("b" * 40, "7" * 40)
+
+        h = Harness(self, run_pr=run)
+        events = h.events(h.post(h.add_pr(7))[2]["job_id"])
+        relayed = [e["data"] for e in events if e["event"] == "step_event"]
+        self.assertEqual([(e["step"], e["status"], e["seq"]) for e in relayed],
+                         [("fetch", "started", 1), ("fetch", "done", 2), ("repo_map", "failed", 3)])
+        self.assertEqual(relayed[1]["detail"], "ok")
+        self.assertIn("step", [e["event"] for e in events])  # legacy events are untouched
+        self.assertEqual(events[-1]["event"], "result")
+
+    def test_step_events_replay_with_last_event_id(self):
+        def run(url, path, command, on_step=None, runner=None, **kwargs):
+            kwargs["on_step_event"]({"step": "fetch", "status": "started", "ts": "t", "detail": None})
+            kwargs["on_step_event"]({"step": "fetch", "status": "done", "ts": "t", "detail": None})
+            return receipt("b" * 40, "8" * 40)
+
+        h = Harness(self, run_pr=run)
+        job = h.post(h.add_pr(8))[2]["job_id"]
+        h.events(job)
+        conn = http.client.HTTPConnection("127.0.0.1", h.port, timeout=15)
+        conn.request("GET", f"/api/proof/{job}/events", headers={"Last-Event-ID": "1"})
+        body = conn.getresponse().read().decode()
+        conn.close()
+        self.assertIn("event: step_event", body)
+        self.assertEqual(body.count("event: step_event"), body.count('"seq"') )
+
+    def test_runners_without_the_keyword_still_work(self):
+        h = Harness(self)
+        events = h.events(h.post(h.add_pr(9))[2]["job_id"])
+        self.assertNotIn("step_event", [e["event"] for e in events])
+        self.assertEqual(events[-1]["event"], "result")
+
+
+class EvalTests(unittest.TestCase):
+    def root(self, summary=None, featured=None):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        runs = Path(tmp.name) / "latch" / "runs"
+        (runs / "eval").mkdir(parents=True)
+        if summary is not None:
+            (runs / "eval-summary.json").write_text(summary if isinstance(summary, str) else json.dumps(summary))
+        if featured is not None:
+            (runs / "eval" / "wrong.json").write_text(json.dumps(featured))
+        patcher = mock.patch.dict(os.environ, {"LATCH_EVAL_ROOT": tmp.name})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return Path(tmp.name)
+
+    def test_missing_summary_is_pending(self):
+        self.root()
+        body = Harness(self).get_json("/api/eval")[1]
+        self.assertEqual(body["available"], False)
+        self.assertIn("Eval pending", body["reason"])
+
+    def test_invalid_or_non_object_summary_is_pending(self):
+        for text in ("{not json", "[1, 2]"):
+            self.root(text)
+            self.assertFalse(Harness(self).get_json("/api/eval")[1]["available"])
+
+    def test_summary_is_returned_unchanged_with_featured_envelope(self):
+        wrong = receipt("b" * 40, "9" * 40, proven=False)
+        summary = {"upstream": {"n": 9, "proven": 7, "proven_rate": 0.78}, "caveat": "not like for like",
+                   "featured_wrong_fix_receipt": "latch/runs/eval/wrong.json"}
+        self.root(summary, wrong)
+        body = Harness(self).get_json("/api/eval")[1]
+        self.assertTrue(body["available"])
+        self.assertEqual(body["summary"], summary)
+        self.assertEqual(body["featured"]["meta"]["verdict"], "not_proven")
+        self.assertEqual(body["featured"]["meta"]["source"], "recorded")
+
+    def test_featured_path_cannot_escape_the_eval_directory(self):
+        root = self.root({"featured_wrong_fix_receipt": "../../../../etc/passwd"})
+        h = Harness(self)
+        self.assertIsNone(h.get_json("/api/eval")[1]["featured"])
+        secret = root / "secret.json"
+        secret.write_text(json.dumps(receipt("b" * 40, "a" * 40)))
+        for ref in (str(secret), "secret.json", "latch/runs/eval/../../../secret.json", "latch/runs/eval"):
+            (root / "latch" / "runs" / "eval-summary.json").write_text(json.dumps({"featured_wrong_fix_receipt": ref}))
+            body = h.get_json("/api/eval")[1]
+            self.assertTrue(body["available"])
+            self.assertIsNone(body["featured"], ref)
+
+
+class PageRouteTests(unittest.TestCase):
+    def test_eval_and_ship_pages_are_served_when_present(self):
+        h = Harness(self)
+        for path, name in (("/eval", "eval.html"), ("/ship", "ship.html")):
+            status, headers, body = h.request("GET", path)
+            if not (web.STATIC_DIR / name).is_file():
+                self.assertEqual(status, 404)
+                continue
+            self.assertEqual(status, 200)
+            self.assertTrue(headers["Content-Type"].startswith("text/html"))
+            self.assertIn("Content-Security-Policy", headers)
+            self.assertNotIn(b"__LATCH_BOOT__", body)
+
+
 if __name__ == "__main__":
     unittest.main()
