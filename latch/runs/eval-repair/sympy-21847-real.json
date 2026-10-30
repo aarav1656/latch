@@ -1,0 +1,464 @@
+{
+  "run_id": "sympy21847.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-21847",
+  "base": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+  "head": "e5661cbec7497a49925d10b50ca3d33b3e76ec97",
+  "issue": "itermonomials returns incorrect monomials when using min_degrees argument\n`itermonomials` returns incorrect monomials when using optional `min_degrees` argument\r\n\r\nFor example, the following code introduces three symbolic variables and generates monomials with max and min degree of 3:\r\n\r\n\r\n```\r\nimport sympy as sp\r\nfrom sympy.polys.orderings import monomial_key\r\n\r\nx1, x2, x3 = sp.symbols('x1, x2, x3')\r\nstates = [x1, x2, x3]\r\nmax_degrees = 3\r\nmin_degrees = 3\r\nmonomials = sorted(sp.itermonomials(states, max_degrees, min_degrees=min_degrees), \r\n                   key=monomial_key('grlex', states))\r\nprint(monomials)\r\n```\r\nThe code returns `[x3**3, x2**3, x1**3]`, when it _should_ also return monomials such as `x1*x2**2, x2*x3**2, etc...` that also have total degree of 3. This behaviour is inconsistent with the documentation that states that \r\n\r\n> A generator of all monomials `monom` is returned, such that either `min_degree <= total_degree(monom) <= max_degree`...\r\n\r\nThe monomials are also missing when `max_degrees` is increased above `min_degrees`.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/polys/tests/test_monomials.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:31:55.069Z",
+  "proof_test": {
+    "name": "test_itermonomials_min_degrees",
+    "source": "import pytest\n\ndef test_itermonomials_min_degrees():\n    import sympy as sp\n    from sympy.polys.orderings import monomial_key\n    from sympy.polys.monomials import itermonomials\n    from itertools import combinations_with_replacement\n\n    # Test 1: commutative, max_degrees=3, min_degrees=3 (issue example)\n    x1, x2, x3 = sp.symbols('x1 x2 x3')\n    states = [x1, x2, x3]\n    max_degrees = 3\n    min_degrees = 3\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = set()\n    for combo in combinations_with_replacement(states, 3):\n        expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted, f\"Test 1 failed: got {monomials}, expected {expected_sorted}\"\n\n    # Test 2: commutative, max_degrees=4, min_degrees=2\n    max_degrees = 4\n    min_degrees = 2\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = set()\n    for deg in range(min_degrees, max_degrees + 1):\n        for combo in combinations_with_replacement(states, deg):\n            expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted, f\"Test 2 failed: got {monomials}, expected {expected_sorted}\"\n\n    # Test 3: commutative, max_degrees=0, min_degrees=0\n    max_degrees = 0\n    min_degrees = 0\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = [sp.S.One]\n    assert monomials == expected, f\"Test 3 failed: got {monomials}, expected {expected}\"\n\n    # Test 4: commutative, max_degrees=2, min_degrees=0\n    max_degrees = 2\n    min_degrees = 0\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = set()\n    for deg in range(min_degrees, max_degrees + 1):\n        for combo in combinations_with_replacement(states, deg):\n            expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted, f\"Test 4 failed: got {monomials}, expected {expected_sorted}\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-95c0a8c7a1a11ff1",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "...........F                                                                                                                                                                                     [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________________ test_itermonomials_min_degrees ____________________________________________________________________________________\nlatch_issue_test.py:23: in test_itermonomials_min_degrees\n    assert monomials == expected_sorted, f\"Test 1 failed: got {monomials}, expected {expected_sorted}\"\nE   AssertionError: Test 1 failed: got [x3**3, x2**3, x1**3], expected [x3**3, x2*x3**2, x2**2*x3, x2**3, x1*x3**2, x1*x2*x3, x1*x2**2, x1**2*x3, x1**2*x2, x1**3]\nE   assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\nE     \nE     At index 1 diff: x2**3 != x2*x3**2\nE     Right contains 7 more items, first extra item: x2**3\nE     Use -v to get more diff\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-jj0tfgxe/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: Test 1 failed: got [x3**3, x2**3, x1**3], expected [x3**3, x2*x3**2, x2**2*x3, x2**3, x1*x3**2, x1*x2*x3, x1*x2**2, x1**...\n1 failed, 11 passed, 1 warning in 0.61s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": "............                                                                                                                                                                                     [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-jj0tfgxe/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n12 passed, 1 warning in 0.57s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "...........                                                                                                                                                                                      [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-jj0tfgxe/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n11 passed, 1 warning in 0.54s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": true
+  },
+  "iterations": [],
+  "gate": "gate_open",
+  "verdict": "VALIDATED",
+  "reason": "the submitted fix already passes the proof test; no loop needed",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-219c4670",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 675,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-83e3aedd4ad9660b",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_itermonomials_min_degrees():\n    import sympy as sp\n    from sympy.polys.orderings import monomial_key\n    from sympy.polys.monomials import itermonomials\n    from itertools import combinations_with_replacement, product\n\n    # Test 1: commutative, max_degrees=3, min_degrees=3 (issue example)\n    x1, x2, x3 = sp.symbols('x1 x2 x3')\n    states = [x1, x2, x3]\n    max_degrees = 3\n    min_degrees = 3\n    monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                       key=monomial_key('grlex', states))\n    # Expected: all monomials of total degree 3 in 3 variables\n    expected = set()\n    for combo in combinations_with_replacement(states, 3):\n        expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted\n\n    # Test 2: commutative, max_degrees=4, min_degrees=2\n    max_degrees = 4\n    min_degrees = 2\n    monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                       key=monomial_key('grlex', states))\n    expected = set()\n    for deg in range(min_degrees, max_degrees + 1):\n        for combo in combinations_with_replacement(states, deg):\n            expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted\n\n    # Test 3: non-commutative, max_degrees=3, min_degrees=3\n    y1, y2, y3 = sp.symbols('y1 y2 y3', commutative=False)\n    states_nc = [y1, y2, y3]\n    max_degrees = 3\n    min_degrees = 3\n    monomials_nc = sorted(itermonomials(states_nc, max_degrees, min_degrees=min_degrees),\n                          key=monomial_key('grlex', states_nc))\n    expected_nc = set()\n    for combo in product(states_nc, repeat=3):\n        expected_nc.add(sp.Mul(*combo))\n    expected_nc_sorted = sorted(expected_nc, key=monomial_key('grlex', states_nc))\n    assert monomials_nc == expected_nc_sorted\n\n    # Test 4: non-commutative, max_degrees=4, min_degrees=2\n    max_degrees = 4\n    min_degrees = 2\n    monomials_nc = sorted(itermonomials(states_nc, max_degrees, min_degrees=min_degrees),\n                          key=monomial_key('grlex', states_nc))\n    expected_nc = set()\n    for length in range(min_degrees, max_degrees + 1):\n        for combo in product(states_nc, repeat=length):\n            expected_nc.add(sp.Mul(*combo))\n    expected_nc_sorted = sorted(expected_nc, key=monomial_key('grlex', states_nc))\n    assert monomials_nc == expected_nc_sorted",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-95c0a8c7a1a11ff1",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_itermonomials_min_degrees():\n    import sympy as sp\n    from sympy.polys.orderings import monomial_key\n    from sympy.polys.monomials import itermonomials\n    from itertools import combinations_with_replacement\n\n    # Test 1: commutative, max_degrees=3, min_degrees=3 (issue example)\n    x1, x2, x3 = sp.symbols('x1 x2 x3')\n    states = [x1, x2, x3]\n    max_degrees = 3\n    min_degrees = 3\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = set()\n    for combo in combinations_with_replacement(states, 3):\n        expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted, f\"Test 1 failed: got {monomials}, expected {expected_sorted}\"\n\n    # Test 2: commutative, max_degrees=4, min_degrees=2\n    max_degrees = 4\n    min_degrees = 2\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = set()\n    for deg in range(min_degrees, max_degrees + 1):\n        for combo in combinations_with_replacement(states, deg):\n            expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted, f\"Test 2 failed: got {monomials}, expected {expected_sorted}\"\n\n    # Test 3: commutative, max_degrees=0, min_degrees=0\n    max_degrees = 0\n    min_degrees = 0\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = [sp.S.One]\n    assert monomials == expected, f\"Test 3 failed: got {monomials}, expected {expected}\"\n\n    # Test 4: commutative, max_degrees=2, min_degrees=0\n    max_degrees = 2\n    min_degrees = 0\n    try:\n        monomials = sorted(itermonomials(states, max_degrees, min_degrees=min_degrees),\n                           key=monomial_key('grlex', states))\n    except Exception as e:\n        assert False, f\"Unexpected exception: {e}\"\n    expected = set()\n    for deg in range(min_degrees, max_degrees + 1):\n        for combo in combinations_with_replacement(states, deg):\n            expected.add(sp.Mul(*combo))\n    expected_sorted = sorted(expected, key=monomial_key('grlex', states))\n    assert monomials == expected_sorted, f\"Test 4 failed: got {monomials}, expected {expected_sorted}\"",
+      "test_repair": true,
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "head",
+    "error_before": "latch_issue_test.py:40: in test_itermonomials_min_degrees\n    monomials_nc = sorted(itermonomials(states_nc, max_degrees, min_degrees=min_degrees),\nE   sympy.polys.polyerrors.GeneratorsError: non-commutative generators: (y1, y2, y3)",
+    "ok": true,
+    "outcome": "adopted",
+    "reason": null,
+    "completion_id": "chatcmpl-95c0a8c7a1a11ff1"
+  },
+  "flaky": {
+    "ran": true,
+    "runs": 5,
+    "flaky": false,
+    "base_fail_rate": 1.0,
+    "head_pass_rate": 1.0,
+    "flake_rate": 0.0,
+    "outcomes": {
+      "base_passed": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "head_passed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "consistent over 5 runs on base and on head"
+  },
+  "revert_check": {
+    "ran": true,
+    "ok": true,
+    "mutants": [
+      {
+        "name": "revert_fix_to_base",
+        "files": [
+          "sympy/polys/monomials.py"
+        ],
+        "returncode": 1,
+        "failure_type": "assertion",
+        "failed_as_expected": true,
+        "output": "**2*x2, x1**3]\nE   assert [x3**3, x2**3, x1**3] == [x3**3, x2*x3...x1*x2*x3, ...]\nE     \nE     At index 1 diff: x2**3 != x2*x3**2\nE     Right contains 7 more items, first extra item: x2**3\nE     Use -v to get more diff\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-jj0tfgxe/mutants/revert-fix/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: Test 1 failed: got [x3**3, x2**3, x1**3], expected [x3**3, x2*x3**2, x2**2*x3, x2**3, x1*x3**2, x1*x2*x3, x1*x2**2, x1**...\n1 failed, 11 passed, 1 warning in 1.06s\n",
+        "identical_to_base": true,
+        "note": "all non-test files the change touched were set back to base; the mutant equals the base revision"
+      }
+    ],
+    "tests_kept": [],
+    "summary": "the proof test went red again on every mutant (fix reverted)"
+  },
+  "mutation": {
+    "ran": true,
+    "mutants": [
+      {
+        "id": "m1",
+        "operator": "compare_boundary",
+        "file": "sympy/polys/monomials.py",
+        "line": 130,
+        "what": "`>=` -> `>`",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -129,3 +129,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if sum(powers.values()) > min_degree:\n                     monomials_list_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "                                                                           \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert {x} == {1, x}\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: Test 1 failed: got [], expected [x3**3, x2*x3**2, x2**2*x3, x2**3, x1*x3**2, x1*x2*x3, x1*x2**2, x1**2*x3, x1**2*x2, x1**3]\n2 failed, 10 passed, 1 warning in 0.86s\n"
+      },
+      {
+        "id": "m2",
+        "operator": "negate_condition",
+        "file": "sympy/polys/monomials.py",
+        "line": 130,
+        "what": "negated the condition",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -129,3 +129,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if not (sum(powers.values()) >= min_degree):\n                     monomials_list_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "                                                                         \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert set() == {1, x}\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: Test 1 failed: got [1, x3, x2, x1, x3**2, x2*x3, x2**2, x1*x3, x1*x2, x1**2], expected [x3**3, x2*x3**2, x2**2*x3, x2**3...\n2 failed, 10 passed, 1 warning in 0.58s\n"
+      },
+      {
+        "id": "m3",
+        "operator": "compare_boundary",
+        "file": "sympy/polys/monomials.py",
+        "line": 142,
+        "what": "`>=` -> `>`",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -141,3 +141,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if sum(powers.values()) > min_degree:\n                     monomials_list_non_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": " https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert {j, i, k} == {1, j, i, k}\n1 failed, 11 passed, 1 warning in 0.58s\n"
+      },
+      {
+        "id": "m4",
+        "operator": "negate_condition",
+        "file": "sympy/polys/monomials.py",
+        "line": 142,
+        "what": "negated the condition",
+        "diff": "--- a/sympy/polys/monomials.py\n+++ b/sympy/polys/monomials.py\n@@ -141,3 +141,3 @@\n                         powers[variable] += 1\n-                if sum(powers.values()) >= min_degree:\n+                if not (sum(powers.values()) >= min_degree):\n                     monomials_list_non_comm.append(Mul(*item))\n",
+        "killed": true,
+        "output_excerpt": "ocs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED sympy/polys/tests/test_monomials.py::test_monomials - assert set() == {1, i, j, k}\n1 failed, 11 passed, 1 warning in 0.58s\n"
+      }
+    ],
+    "killed": 4,
+    "total": 4,
+    "kill_rate": 1.0,
+    "threshold": 0.6,
+    "not_run": 0,
+    "incomplete": false,
+    "ok": true,
+    "note": "4/4 mutants of the changed lines were killed by the frozen proof test (needs 60%)"
+  },
+  "inspection": {
+    "oracle_pass": true,
+    "oracle_summary": "11 passed, 1 warning in 0.48s",
+    "oracle_files": [
+      "sympy/polys/tests/test_monomials.py"
+    ],
+    "oracle_tests": [
+      "test_monomials"
+    ]
+  },
+  "finished_at": "2026-10-30T09:34:05.360Z",
+  "verdict_reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 4/4 mutants",
+  "proven": true,
+  "base_sha": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+  "head_sha": "e5661cbec7497a49925d10b50ca3d33b3e76ec97",
+  "verdict_logs": {
+    "base": "k PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_itermonomials_min_degrees - AssertionError: Test 1 failed: got [x3**3, x2**3, x1**3], expected [x3**3, x2*x3**2, x2**2*x3, x2**3, x1*x3**2, x1*x2*x3, x1*x2**2, x1**...\n1 failed, 11 passed, 1 warning in 0.61s\n",
+    "head": "                                                                                                                                           [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-jj0tfgxe/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n12 passed, 1 warning in 0.57s\n",
+    "survivors": []
+  },
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2913,
+      "completion_tokens": 1024,
+      "latency_ms": 8349,
+      "completion_id": "chatcmpl-219c4670",
+      "cost_usd": 0.000421,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1326,
+      "completion_tokens": 3862,
+      "latency_ms": 12616,
+      "completion_id": "chatcmpl-83e3aedd4ad9660b",
+      "cost_usd": 0.012912,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2329,
+      "completion_tokens": 2865,
+      "latency_ms": 10335,
+      "completion_id": "chatcmpl-95c0a8c7a1a11ff1",
+      "cost_usd": 0.010924,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.024257,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:31:55.069Z",
+      "detail": {
+        "base": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+        "head": "e5661cbec7497a49925d10b50ca3d33b3e76ec97"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:31:57.672Z",
+      "detail": {
+        "base": "d9b18c518d64",
+        "head": "e5661cbec749",
+        "changed_files": [
+          "sympy/polys/monomials.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:32:16.114Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:32:28.265Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:32:28.265Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:32:40.885Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-83e3aedd4ad9660b"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:32:40.886Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:32:43.716Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:32:43.716Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:32:48.534Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:32:48.534Z",
+      "detail": {
+        "side": "head",
+        "error_before": "latch_issue_test.py:40: in test_itermonomials_min_degrees\n    monomials_nc = sorted(itermonomials(states_nc, max_degrees, min_degrees=min_degrees),\nE   sympy.polys.polyerrors.GeneratorsError: non-commutative generators: (y1, y2, y3)"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:32:58.871Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:33:01.207Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:33:01.207Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:33:03.596Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": true
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "done",
+      "ts": "2026-10-30T09:33:03.596Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": true
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "started",
+      "ts": "2026-10-30T09:33:03.596Z",
+      "detail": {
+        "runs": 5
+      }
+    },
+    {
+      "step": "flake_check",
+      "status": "done",
+      "ts": "2026-10-30T09:33:25.119Z",
+      "detail": {
+        "runs": 5,
+        "flaky": false,
+        "flake_rate": 0.0,
+        "base_fail_rate": 1.0,
+        "head_pass_rate": 1.0
+      }
+    },
+    {
+      "step": "revert_check",
+      "status": "started",
+      "ts": "2026-10-30T09:33:25.119Z",
+      "detail": null
+    },
+    {
+      "step": "revert_check",
+      "status": "done",
+      "ts": "2026-10-30T09:33:29.876Z",
+      "detail": "the proof test went red again on every mutant (fix reverted)"
+    },
+    {
+      "step": "mutation_check",
+      "status": "started",
+      "ts": "2026-10-30T09:33:29.877Z",
+      "detail": null
+    },
+    {
+      "step": "mutation_check",
+      "status": "done",
+      "ts": "2026-10-30T09:34:02.614Z",
+      "detail": {
+        "killed": 4,
+        "total": 4,
+        "kill_rate": 1.0
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:34:05.360Z",
+      "detail": {
+        "verdict": "VALIDATED",
+        "reason": "red on base with an assertion, green on head, stable over 5 runs, killed the revert, killed 4/4 mutants"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

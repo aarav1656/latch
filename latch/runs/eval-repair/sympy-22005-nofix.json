@@ -1,0 +1,377 @@
+{
+  "run_id": "sympy22005.nofix",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-22005 (no fix)",
+  "base": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "head": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "issue": "detection of infinite solution request\n```python\r\n>>> solve_poly_system((x - 1,), x, y)\r\nTraceback (most recent call last):\r\n...\r\nNotImplementedError:\r\nonly zero-dimensional systems supported (finite number of solutions)\r\n>>> solve_poly_system((y - 1,), x, y)  <--- this is not handled correctly\r\n[(1,)]\r\n```\r\n```diff\r\ndiff --git a/sympy/solvers/polysys.py b/sympy/solvers/polysys.py\r\nindex b9809fd4e9..674322d4eb 100644\r\n--- a/sympy/solvers/polysys.py\r\n+++ b/sympy/solvers/polysys.py\r\n@@ -240,7 +240,7 @@ def _solve_reduced_system(system, gens, entry=False):\r\n \r\n         univariate = list(filter(_is_univariate, basis))\r\n \r\n-        if len(univariate) == 1:\r\n+        if len(univariate) == 1 and len(gens) == 1:\r\n             f = univariate.pop()\r\n         else:\r\n             raise NotImplementedError(filldedent('''\r\ndiff --git a/sympy/solvers/tests/test_polysys.py b/sympy/solvers/tests/test_polysys.py\r\nindex 58419f8762..9e674a6fe6 100644\r\n--- a/sympy/solvers/tests/test_polysys.py\r\n+++ b/sympy/solvers/tests/test_polysys.py\r\n@@ -48,6 +48,10 @@ def test_solve_poly_system():\r\n     raises(NotImplementedError, lambda: solve_poly_system(\r\n         [z, -2*x*y**2 + x + y**2*z, y**2*(-z - 4) + 2]))\r\n     raises(PolynomialError, lambda: solve_poly_system([1/x], x))\r\n+    raises(NotImplementedError, lambda: solve_poly_system(\r\n+        Poly(x - 1, x, y), (x, y)))\r\n+    raises(NotImplementedError, lambda: solve_poly_system(\r\n+        Poly(y - 1, x, y), (x, y)))\r\n \r\n \r\n def test_solve_biquadratic():\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/solvers/tests/test_polysys.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-75ecad60",
+    "verdict": "reproduced",
+    "text": "REPRODUCES\nThe test failure confirms the bug persists: `solve_poly_system((y - 1,), x, y)` returns `[(1,)]` instead of raising `NotImplementedError`."
+  },
+  "started_at": "2026-10-30T09:34:06.885Z",
+  "proof_test": {
+    "name": "test_infinite_solution_detection",
+    "source": "import pytest\n\ndef test_infinite_solution_detection():\n    from sympy.abc import x, y\n    from sympy.solvers.polysys import solve_poly_system\n\n    # First case: system (x - 1,) with variables x, y -> should raise NotImplementedError\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((x - 1,), x, y)\n\n    # Second case: system (y - 1,) with variables x, y -> should also raise NotImplementedError\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((y - 1,), x, y)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-a5360635bdb27e45"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "....F                                                                                                                                                                                            [100%]\n=============================================================================================== FAILURES ===============================================================================================\n___________________________________________________________________________________ test_infinite_solution_detection ___________________________________________________________________________________\nlatch_issue_test.py:12: in test_infinite_solution_detection\n    with pytest.raises(NotImplementedError):\nE   Failed: DID NOT RAISE <class 'NotImplementedError'>\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-t2yam3w8/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_infinite_solution_detection - Failed: DID NOT RAISE <class 'NotImplementedError'>\n1 failed, 4 passed, 1 warning in 2.13s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "....F                                                                                                                                                                                            [100%]\n=============================================================================================== FAILURES ===============================================================================================\n___________________________________________________________________________________ test_infinite_solution_detection ___________________________________________________________________________________\nlatch_issue_test.py:12: in test_infinite_solution_detection\n    with pytest.raises(NotImplementedError):\nE   Failed: DID NOT RAISE <class 'NotImplementedError'>\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-t2yam3w8/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_infinite_solution_detection - Failed: DID NOT RAISE <class 'NotImplementedError'>\n1 failed, 4 passed, 1 warning in 1.68s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....                                                                                                                                                                                             [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-t2yam3w8/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n4 passed, 1 warning in 1.29s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-b7e011781f3d4ed3",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model may only rewrite existing files, not create path/relative/to/repo/root.py"
+    },
+    {
+      "iteration": 2,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-a9d764b77c269040",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    },
+    {
+      "iteration": 3,
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "completion_id": "chatcmpl-9e64fa8440157705",
+      "diff": "",
+      "changed_files": [],
+      "pytest_output": "",
+      "verdict": "invalid_patch",
+      "detail": "model returned no `=== FILE:` blocks"
+    }
+  ],
+  "gate": "gave_up",
+  "verdict": "FIX_FAILS_TEST",
+  "reason": "gate still shut after 3 iteration(s); the harness never saw the proof test pass with the repo suite green",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-3cc770d4",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 678,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-a5360635bdb27e45",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_infinite_solution_detection():\n    from sympy.abc import x, y\n    from sympy.solvers.polysys import solve_poly_system\n\n    # First case: system (x - 1,) with variables x, y -> should raise NotImplementedError\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((x - 1,), x, y)\n\n    # Second case: system (y - 1,) with variables x, y -> should also raise NotImplementedError\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((y - 1,), x, y)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the diff changes no non-test Python files, so there are no changed symbols to assert on",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the diff changes no non-test Python files, so there are no changed symbols to assert on",
+    "affected_symbols": []
+  },
+  "test_repair": {
+    "attempted": false,
+    "reason": "not needed: the proof test did not error"
+  },
+  "finished_at": "2026-10-30T09:36:07.467Z",
+  "verdict_reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)",
+  "proven": false,
+  "base_sha": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "head_sha": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "verdict_logs": {
+    "base": "ils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_infinite_solution_detection - Failed: DID NOT RAISE <class 'NotImplementedError'>\n1 failed, 4 passed, 1 warning in 2.13s\n",
+    "head": "ils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_infinite_solution_detection - Failed: DID NOT RAISE <class 'NotImplementedError'>\n1 failed, 4 passed, 1 warning in 1.68s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 3210,
+      "completion_tokens": 1024,
+      "latency_ms": 8561,
+      "completion_id": "chatcmpl-3cc770d4",
+      "cost_usd": 0.000438,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 738,
+      "completion_tokens": 1375,
+      "latency_ms": 4947,
+      "completion_id": "chatcmpl-a5360635bdb27e45",
+      "cost_usd": 0.004863,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1179,
+      "completion_tokens": 963,
+      "latency_ms": 6658,
+      "completion_id": "chatcmpl-75ecad60",
+      "cost_usd": 0.000302,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 15876,
+      "completion_tokens": 8192,
+      "latency_ms": 25137,
+      "completion_id": "chatcmpl-b7e011781f3d4ed3",
+      "cost_usd": 0.040452,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 15900,
+      "completion_tokens": 8192,
+      "latency_ms": 28047,
+      "completion_id": "chatcmpl-a9d764b77c269040",
+      "cost_usd": 0.040476,
+      "status": 200
+    },
+    {
+      "role": "fixer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 15917,
+      "completion_tokens": 8192,
+      "latency_ms": 28211,
+      "completion_id": "chatcmpl-9e64fa8440157705",
+      "cost_usd": 0.040493,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.127024,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:34:06.885Z",
+      "detail": {
+        "base": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+        "head": "2c83657ff1c62fc2761b639469fdac7f7561a72a"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:34:09.684Z",
+      "detail": {
+        "base": "2c83657ff1c6",
+        "head": "2c83657ff1c6",
+        "changed_files": []
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:34:09.709Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:34:22.063Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:34:22.063Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:34:27.011Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-a5360635bdb27e45"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:34:27.012Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:34:31.486Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:34:31.486Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:34:38.678Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T09:34:38.678Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T09:34:45.337Z",
+      "detail": {
+        "verdict": "reproduced",
+        "completion_id": "chatcmpl-75ecad60"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T09:34:45.337Z",
+      "detail": {
+        "iteration": 1,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T09:35:10.516Z",
+      "detail": {
+        "iteration": 1,
+        "detail": "model may only rewrite existing files, not create path/relative/to/repo/root.py"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T09:35:10.516Z",
+      "detail": {
+        "iteration": 2,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T09:35:39.204Z",
+      "detail": {
+        "iteration": 2,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "started",
+      "ts": "2026-10-30T09:35:39.204Z",
+      "detail": {
+        "iteration": 3,
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "fix",
+      "status": "failed",
+      "ts": "2026-10-30T09:36:07.467Z",
+      "detail": {
+        "iteration": 3,
+        "detail": "model returned no `=== FILE:` blocks"
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:36:07.467Z",
+      "detail": {
+        "verdict": "FIX_FAILS_TEST",
+        "reason": "the proof test fails on the change under test too (the bug is not fixed, or the fix is incomplete)"
+      }
+    }
+  ],
+  "final_iteration": 3
+}

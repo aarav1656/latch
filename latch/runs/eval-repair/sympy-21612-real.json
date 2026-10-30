@@ -1,0 +1,311 @@
+{
+  "run_id": "sympy21612.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-21612",
+  "base": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+  "head": "0d1ca4d35c039ee915f912bb85411056cae50112",
+  "issue": "Latex parsing of fractions yields wrong expression due to missing brackets\nProblematic latex expression: `\"\\\\frac{\\\\frac{a^3+b}{c}}{\\\\frac{1}{c^2}}\"`\r\n\r\nis parsed to: `((a**3 + b)/c)/1/(c**2)`.\r\n\r\nExpected is: `((a**3 + b)/c)/(1/(c**2))`. \r\n\r\nThe missing brackets in the denominator result in a wrong expression.\r\n\r\n## Tested on\r\n\r\n- 1.8\r\n- 1.6.2\r\n\r\n## Reproduce:\r\n\r\n```\r\nroot@d31ef1c26093:/# python3\r\nPython 3.6.9 (default, Jan 26 2021, 15:33:00)\r\n[GCC 8.4.0] on linux\r\nType \"help\", \"copyright\", \"credits\" or \"license\" for more information.\r\n>>> from sympy.parsing.latex import parse_latex\r\n>>> parse_latex(\"\\\\frac{\\\\frac{a^3+b}{c}}{\\\\frac{1}{c^2}}\")\r\n((a**3 + b)/c)/1/(c**2)",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/printing/tests/test_str.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:28:50.431Z",
+  "proof_test": {
+    "name": "test_latex_frac_nested_brackets",
+    "source": "import pytest\n\ndef test_latex_frac_nested_brackets():\n    import pytest\n    try:\n        from sympy.parsing.latex import parse_latex\n    except ImportError as e:\n        pytest.fail(f\"LaTeX parsing requires antlr4: {e}\")\n    latex_str = r\"\\frac{\\frac{a^3+b}{c}}{\\frac{1}{c^2}}\"\n    parsed = parse_latex(latex_str)\n    # The issue states the expected string representation\n    expected_str = \"((a**3 + b)/c)/(1/(c**2))\"\n    actual_str = str(parsed)\n    assert actual_str == expected_str, f\"Expected {expected_str!r}, got {actual_str!r}\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-91f437d969b6fb8a",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "....................................................................................................F                                                                                            [100%]\n=============================================================================================== FAILURES ===============================================================================================\n___________________________________________________________________________________ test_latex_frac_nested_brackets ____________________________________________________________________________________\nlatch_issue_test.py:10: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nsympy/parsing/latex/__init__.py:35: in parse_latex\n    return _latex.parse_latex(s)\nsympy/parsing/latex/_parse_latex_antlr.py:65: in parse_latex\n    raise ImportError(\"LaTeX parsing requires the antlr4 python package,\"\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\nlatch_issue_test.py::test_latex_frac_nested_brackets\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/base/sympy/parsing/latex/_parse_latex_antlr.py:23: UserWarning: antlr4.error.ErrorListener module is not installed\n    ErrorListener = import_module('antlr4.error.ErrorListener',\n\nlatch_issue_test.py::test_latex_frac_nested_brackets\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/base/sympy/parsing/latex/_parse_latex_antlr.py:62: UserWarning: antlr4 module is not installed\n    antlr4 = import_module('antlr4', warn_not_installed=True)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_latex_frac_nested_brackets - ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or co...\n1 failed, 100 passed, 4 warnings in 1.51s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "....................................................................................................F                                                                                            [100%]\n=============================================================================================== FAILURES ===============================================================================================\n___________________________________________________________________________________ test_latex_frac_nested_brackets ____________________________________________________________________________________\nlatch_issue_test.py:10: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nsympy/parsing/latex/__init__.py:35: in parse_latex\n    return _latex.parse_latex(s)\nsympy/parsing/latex/_parse_latex_antlr.py:65: in parse_latex\n    raise ImportError(\"LaTeX parsing requires the antlr4 python package,\"\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\nlatch_issue_test.py::test_latex_frac_nested_brackets\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/work/sympy/parsing/latex/_parse_latex_antlr.py:23: UserWarning: antlr4.error.ErrorListener module is not installed\n    ErrorListener = import_module('antlr4.error.ErrorListener',\n\nlatch_issue_test.py::test_latex_frac_nested_brackets\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/work/sympy/parsing/latex/_parse_latex_antlr.py:62: UserWarning: antlr4 module is not installed\n    antlr4 = import_module('antlr4', warn_not_installed=True)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_latex_frac_nested_brackets - ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or co...\n1 failed, 100 passed, 4 warnings in 1.50s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....................................................................................................                                                                                             [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-0ettr3iy/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n100 passed, 2 warnings in 1.34s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-1f0465d3",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 667,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-8e6460d19449d231",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_latex_frac_nested_brackets():\n    from sympy.parsing.latex import parse_latex\n    from sympy import symbols\n    a, b, c = symbols('a b c')\n    latex_str = r\"\\frac{\\frac{a^3+b}{c}}{\\frac{1}{c^2}}\"\n    parsed = parse_latex(latex_str)\n    expected = ((a**3 + b)/c) / (1/(c**2))\n    assert parsed.equals(expected)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-91f437d969b6fb8a",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_latex_frac_nested_brackets():\n    import pytest\n    try:\n        from sympy.parsing.latex import parse_latex\n    except ImportError as e:\n        pytest.fail(f\"LaTeX parsing requires antlr4: {e}\")\n    latex_str = r\"\\frac{\\frac{a^3+b}{c}}{\\frac{1}{c^2}}\"\n    parsed = parse_latex(latex_str)\n    # The issue states the expected string representation\n    expected_str = \"((a**3 + b)/c)/(1/(c**2))\"\n    actual_str = str(parsed)\n    assert actual_str == expected_str, f\"Expected {expected_str!r}, got {actual_str!r}\"",
+      "test_repair": true,
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "base",
+    "error_before": "latch_issue_test.py:8: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)",
+    "ok": false,
+    "outcome": "adopted",
+    "reason": "the repaired test still errored on base",
+    "completion_id": "chatcmpl-91f437d969b6fb8a",
+    "error_after": "latch_issue_test.py:10: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)"
+  },
+  "finished_at": "2026-10-30T09:30:07.971Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)",
+  "proven": false,
+  "base_sha": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+  "head_sha": "0d1ca4d35c039ee915f912bb85411056cae50112",
+  "verdict_logs": {
+    "base": "le is not installed\n    antlr4 = import_module('antlr4', warn_not_installed=True)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_latex_frac_nested_brackets - ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or co...\n1 failed, 100 passed, 4 warnings in 1.51s\n",
+    "head": "le is not installed\n    antlr4 = import_module('antlr4', warn_not_installed=True)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_latex_frac_nested_brackets - ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or co...\n1 failed, 100 passed, 4 warnings in 1.50s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2692,
+      "completion_tokens": 1024,
+      "latency_ms": 12840,
+      "completion_id": "chatcmpl-1f0465d3",
+      "cost_usd": 0.000407,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1154,
+      "completion_tokens": 2844,
+      "latency_ms": 9221,
+      "completion_id": "chatcmpl-8e6460d19449d231",
+      "cost_usd": 0.009686,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1475,
+      "completion_tokens": 4264,
+      "latency_ms": 18645,
+      "completion_id": "chatcmpl-91f437d969b6fb8a",
+      "cost_usd": 0.014267,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.02436,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:28:50.431Z",
+      "detail": {
+        "base": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+        "head": "0d1ca4d35c039ee915f912bb85411056cae50112"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:28:52.994Z",
+      "detail": {
+        "base": "b4777fdcef46",
+        "head": "0d1ca4d35c03",
+        "changed_files": [
+          "sympy/printing/str.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:29:04.381Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:29:20.932Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:29:20.932Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:29:30.154Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-8e6460d19449d231"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:29:30.155Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:29:36.852Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:29:36.852Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:29:42.788Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:29:42.788Z",
+      "detail": {
+        "side": "base",
+        "error_before": "latch_issue_test.py:8: in test_latex_frac_nested_brackets\n    parsed = parse_latex(latex_str)\nE   ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:30:01.435Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:30:04.684Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:30:04.684Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:30:07.971Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "failed",
+      "ts": "2026-10-30T09:30:07.971Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:30:07.972Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ImportError: LaTeX parsing requires the antlr4 python package, provided by pip (antlr4-python2-runtime or antlr4-python3-runtime) or conda (antlr-python-runtime)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

@@ -1,0 +1,379 @@
+{
+  "run_id": "cachetools423.wrong",
+  "provider": "nebius",
+  "repo": "tkem/cachetools@bcf9e8176e + constructed wrong patch",
+  "base": "6b51f0e032fc1f8fcfe3a1cc6df2524c4e6e933a",
+  "head": "91435cc47b0fc5358da30db1e90d1fcf041f2353",
+  "issue": "RRCache.popitem() on an empty cache raises the choice function's exception instead of KeyError\n\nTested with `cachetools` 7.2.0 (current release).\n\n**Describe the bug**\n\n`RRCache.popitem()` on an empty cache only raises `KeyError` when the `choice`\nfunction happens to raise `IndexError`, which is what the default\n`random.choice` does. With any other valid choice function, the caller gets\nwhatever exception that function raises for an empty sequence.\n\nThis is the documented contract for `choice` (docs/index.rst):\n\n> The optional argument `choice` may specify an alternative function that\n> returns an arbitrary element from a non-empty sequence.\n\nSo a choice function only has to handle non-empty sequences, but `popitem()`\ncalls it with an empty list and relies on the exception type it produces.\n\nThe other cache classes each detect emptiness on their own structure before\npicking a victim: `FIFOCache`, `LRUCache`, `TTLCache` and `TLRUCache` use\n`next(iter(...))` with `except StopIteration`, and `LFUCache` checks\n`if curr is root` explicitly.\n\n**Expected result**\n\n`popitem()` on an empty `RRCache` raises `KeyError(\"RRCache is empty\")`,\nlike every other cache class, whatever `choice` is.\n\n**Actual result**\n\n```\nFIFOCache                    -> KeyError: 'FIFOCache is empty'\nLRUCache                     -> KeyError: 'LRUCache is empty'\nLFUCache                     -> KeyError: 'LFUCache is empty'\nTTLCache                     -> KeyError: 'TTLCache is empty'\nRRCache(random.choice)       -> KeyError: 'RRCache is empty'\nRRCache(choice=min)          -> ValueError: min() iterable argument is empty\nRRCache(choice=max)          -> ValueError: max() iterable argument is empty\nRRCache(next(iter))          -> StopIteration:\n```\n\n`choice=min` is not a contrived example: it is the alternative choice function\nused by `tests/test_rr.py` itself, in `test_rr_getsizeof`, `test_rr_setitem`\nand others.\n\nThe `StopIteration` variant is the most unpleasant one, because inside a\ngenerator PEP 479 turns it into a `RuntimeError` far from its origin.\n\n**Reproduction steps**\n\n```python\nimport cachetools\n\ncache = cachetools.RRCache(maxsize=2, choice=min)\ncache.popitem()\n# ValueError: min() iterable argument is empty\n# expected: KeyError: 'RRCache is empty'\n```\n\nThe generic drain idiom is the realistic way to hit it:\n\n```python\nimport cachetools\n\ncache = cachetools.RRCache(maxsize=4, choice=min)\ncache[1] = 1\ncache[2] = 2\n\nwhile True:\n    try:\n        key, value = cache.popitem()\n    except KeyError:\n        break\n    print(\"popped\", key, value)\n# popped (1, 1)\n# popped (2, 2)\n# ValueError: min() iterable argument is empty\n```\n\n**Note**\n\n`popitem()` already contains the intended behaviour:\n`raise KeyError(\"%s is empty\" % type(self).__name__) from None`. That branch is\njust unreachable unless `choice` raises `IndexError`. I have a fix and a\nregression test ready and will open a pull request against `develop` linking\nthis issue.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-43c6d7eb",
+    "verdict": "unclear",
+    "text": ""
+  },
+  "started_at": "2026-10-30T09:23:11.420Z",
+  "proof_test": {
+    "name": "test_rrcache_popitem_empty_raises_keyerror",
+    "source": "import pytest\n\ndef test_rrcache_popitem_empty_raises_keyerror():\n    import cachetools\n    import random\n\n    # Test various choice functions\n    choice_functions = [\n        random.choice,\n        min,\n        max,\n        lambda seq: next(iter(seq)),\n    ]\n\n    for choice in choice_functions:\n        cache = cachetools.RRCache(maxsize=2, choice=choice)\n        with pytest.raises(KeyError) as excinfo:\n            cache.popitem()\n        assert str(excinfo.value) == \"RRCache is empty\"\n\n    # Test the drain idiom: pop until empty, then one more pop should raise KeyError\n    cache = cachetools.RRCache(maxsize=4, choice=min)\n    cache[1] = 1\n    cache[2] = 2\n\n    popped = []\n    while True:\n        try:\n            key, value = cache.popitem()\n        except KeyError:\n            break\n        popped.append((key, value))\n\n    assert popped == [(1, 1), (2, 2)]\n\n    # After draining, one more popitem should raise KeyError\n    with pytest.raises(KeyError) as excinfo:\n        cache.popitem()\n    assert str(excinfo.value) == \"RRCache is empty\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-b84d6d87de177da1"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:19: in test_rrcache_popitem_empty_raises_keyerror\n    assert str(excinfo.value) == \"RRCache is empty\"\nE   assert \"'RRCache is empty'\" == 'RRCache is empty'\nE     \nE     - RRCache is empty\nE     + 'RRCache is empty'\nE     ? +                +\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - assert \"'RRCache is empty'\" == 'RRCache is empty'\n1 failed in 0.15s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:19: in test_rrcache_popitem_empty_raises_keyerror\n    assert str(excinfo.value) == \"RRCache is empty\"\nE   assert \"'RRCache is empty'\" == 'RRCache is empty'\nE     \nE     - RRCache is empty\nE     + 'RRCache is empty'\nE     ? +                +\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - assert \"'RRCache is empty'\" == 'RRCache is empty'\n1 failed in 0.16s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "................................................................................................................................................................................................ [ 56%]\n.................................................................................................................................................                                                [100%]\n337 passed in 4.55s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "Lightning triage did not confirm the failure reproduces the issue (unclear): ; not patching",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-fd1ec9c9",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 5,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-b84d6d87de177da1",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_rrcache_popitem_empty_raises_keyerror():\n    import cachetools\n    import random\n\n    # Test various choice functions\n    choice_functions = [\n        random.choice,\n        min,\n        max,\n        lambda seq: next(iter(seq)),\n    ]\n\n    for choice in choice_functions:\n        cache = cachetools.RRCache(maxsize=2, choice=choice)\n        with pytest.raises(KeyError) as excinfo:\n            cache.popitem()\n        assert str(excinfo.value) == \"RRCache is empty\"\n\n    # Test the drain idiom: pop until empty, then one more pop should raise KeyError\n    cache = cachetools.RRCache(maxsize=4, choice=min)\n    cache[1] = 1\n    cache[2] = 2\n\n    popped = []\n    while True:\n        try:\n            key, value = cache.popitem()\n        except KeyError:\n            break\n        popped.append((key, value))\n\n    assert popped == [(1, 1), (2, 2)]\n\n    # After draining, one more popitem should raise KeyError\n    with pytest.raises(KeyError) as excinfo:\n        cache.popitem()\n    assert str(excinfo.value) == \"RRCache is empty\"",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "RRCache",
+          "popitem"
+        ],
+        "asserted_symbols": [
+          "RRCache",
+          "cachetools",
+          "popitem"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "Cache",
+          "Descriptor",
+          "FIFOCache",
+          "LFUCache",
+          "LRUCache",
+          "TLRUCache",
+          "TTLCache",
+          "Wrapper",
+          "_DescriptorBase",
+          "_Link",
+          "_TimedCache",
+          "_Timer",
+          "_UnboundTTLCache",
+          "__call__",
+          "__delitem",
+          "__delitem__",
+          "__get__",
+          "__getitem__",
+          "__init__",
+          "__len__",
+          "__reduce__",
+          "__repr__",
+          "__setitem__",
+          "__setstate__",
+          "__touch",
+          "_cache",
+          "_condition",
+          "_condition_info",
+          "_locked",
+          "_locked_info",
+          "_unlocked",
+          "_unlocked_info",
+          "cache_clear",
+          "cached",
+          "cachedmethod",
+          "classmethod_wrapper",
+          "clear",
+          "currsize",
+          "decorator",
+          "expire",
+          "fifo_cache",
+          "get",
+          "lfu_cache",
+          "lru_cache",
+          "make_info",
+          "pop",
+          "rr_cache",
+          "setdefault",
+          "ttl_cache",
+          "wrapper"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "RRCache",
+      "popitem"
+    ],
+    "asserted_symbols": [
+      "RRCache",
+      "cachetools",
+      "popitem"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "Cache",
+      "Descriptor",
+      "FIFOCache",
+      "LFUCache",
+      "LRUCache",
+      "TLRUCache",
+      "TTLCache",
+      "Wrapper",
+      "_DescriptorBase",
+      "_Link",
+      "_TimedCache",
+      "_Timer",
+      "_UnboundTTLCache",
+      "__call__",
+      "__delitem",
+      "__delitem__",
+      "__get__",
+      "__getitem__",
+      "__init__",
+      "__len__",
+      "__reduce__",
+      "__repr__",
+      "__setitem__",
+      "__setstate__",
+      "__touch",
+      "_cache",
+      "_condition",
+      "_condition_info",
+      "_locked",
+      "_locked_info",
+      "_unlocked",
+      "_unlocked_info",
+      "cache_clear",
+      "cached",
+      "cachedmethod",
+      "classmethod_wrapper",
+      "clear",
+      "currsize",
+      "decorator",
+      "expire",
+      "fifo_cache",
+      "get",
+      "lfu_cache",
+      "lru_cache",
+      "make_info",
+      "pop",
+      "rr_cache",
+      "setdefault",
+      "ttl_cache",
+      "wrapper"
+    ],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": false,
+    "reason": "not needed: the proof test did not error"
+  },
+  "finished_at": "2026-10-30T09:23:37.326Z",
+  "verdict_reason": "Lightning triage did not confirm the failure reproduces the issue (unclear)",
+  "proven": false,
+  "base_sha": "6b51f0e032fc1f8fcfe3a1cc6df2524c4e6e933a",
+  "head_sha": "91435cc47b0fc5358da30db1e90d1fcf041f2353",
+  "verdict_logs": {
+    "base": "_________________________________________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:19: in test_rrcache_popitem_empty_raises_keyerror\n    assert str(excinfo.value) == \"RRCache is empty\"\nE   assert \"'RRCache is empty'\" == 'RRCache is empty'\nE     \nE     - RRCache is empty\nE     + 'RRCache is empty'\nE     ? +                +\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - assert \"'RRCache is empty'\" == 'RRCache is empty'\n1 failed in 0.15s\n",
+    "head": "_________________________________________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:19: in test_rrcache_popitem_empty_raises_keyerror\n    assert str(excinfo.value) == \"RRCache is empty\"\nE   assert \"'RRCache is empty'\" == 'RRCache is empty'\nE     \nE     - RRCache is empty\nE     + 'RRCache is empty'\nE     ? +                +\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - assert \"'RRCache is empty'\" == 'RRCache is empty'\n1 failed in 0.16s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1389,
+      "completion_tokens": 1024,
+      "latency_ms": 3819,
+      "completion_id": "chatcmpl-fd1ec9c9",
+      "cost_usd": 0.000329,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1523,
+      "completion_tokens": 1071,
+      "latency_ms": 4027,
+      "completion_id": "chatcmpl-b84d6d87de177da1",
+      "cost_usd": 0.004736,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1350,
+      "completion_tokens": 2048,
+      "latency_ms": 11923,
+      "completion_id": "chatcmpl-43c6d7eb",
+      "cost_usd": 0.000573,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.005638,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:23:11.420Z",
+      "detail": {
+        "base": "6b51f0e032fc1f8fcfe3a1cc6df2524c4e6e933a",
+        "head": "91435cc47b0fc5358da30db1e90d1fcf041f2353"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:23:11.695Z",
+      "detail": {
+        "base": "6b51f0e032fc",
+        "head": "91435cc47b0f",
+        "changed_files": [
+          "._.git",
+          "src/cachetools/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:23:11.821Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:23:15.650Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:23:15.650Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:23:19.695Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-b84d6d87de177da1"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:23:19.696Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:23:20.153Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:23:20.153Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:23:25.400Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T09:23:25.400Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T09:23:37.326Z",
+      "detail": {
+        "verdict": "unclear",
+        "completion_id": "chatcmpl-43c6d7eb"
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:23:37.327Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "Lightning triage did not confirm the failure reproduces the issue (unclear)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

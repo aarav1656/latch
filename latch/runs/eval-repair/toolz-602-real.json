@@ -1,0 +1,338 @@
+{
+  "run_id": "toolz602.real",
+  "provider": "nebius",
+  "repo": "pytoolz/toolz@5a7e078c94",
+  "base": "1fb2b9f1b69ab664a264944f4eafc290acce127d",
+  "head": "5a7e078c941c990dcaca53ac6920e5d5c0b1475f",
+  "issue": "`partition_all` outputs padding tokens on sequences with inaccurate `__len__`\n\nThis is definitely an unusual edge case, but it really had me scratching my head for a little bit.\n\nI have a long-running process where I use [tqdm](https://tqdm.github.io) to display a progress bar. It works through an unknown number of items, but, at the start, I can estimate the total number, even though it might be slightly off. So I set tqdm\u2019s `total` argument to the estimated total. This causes tqdm to set its iterator\u2019s `__len__` to the estimated total. Then `partition_all` uses `__len__` as a shortcut to remove the padding tokens it adds to the batches. Since `__len__` isn\u2019t accurate, a bunch of padding tokens get left in the resulting output.\n\nHere\u2019s a really simplified example:\n\n```py\ndef make_n(n):\n    for i in range(n):\n        yield i\n\n# This has no __len__\nfive = make_n(5)\n\n# This has an incorrect __len__ of 7.\nprogress = tqdm(five, total=7)\n\nfor batch in toolz.partition_all(10, progress):\n    print(batch)\n\n# Prints: (0, 1, 2, 3, 4, '__no__pad__', '__no__pad__')\n```\n\nObviously those `'__no__pad__'` strings shouldn\u2019t be there.\n\nHere\u2019s the shortcut code that causes the problem by relying on `__len__`: https://github.com/pytoolz/toolz/blob/08f2604f599847272d801c7f0467451de59fa33a/toolz/itertoolz.py#L731-L736\n\nAgain, this is obviously a weird case (I can\u2019t think of many other situations where I\u2019d be dealing with an inaccurate `__len__`), but I\u2019m wondering if it could be solved for by checking to make sure `prev[len(seq) % n - 1] is not no_pad`. If that check fails, then you could fall back to the binary search that\u2019s used when `__len__` is not available.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--ignore=bench",
+    "--ignore=toolz/tests/test_package.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:25:07.136Z",
+  "proof_test": {
+    "name": "test_partition_all_invalid_len",
+    "source": "import pytest\n\ndef test_partition_all_invalid_len():\n    import pytest\n    from toolz.itertoolz import partition_all, no_pad\n\n    class BadLengthSequence:\n        def __init__(self, data, length):\n            self.data = data\n            self._length = length\n\n        def __iter__(self):\n            return iter(self.data)\n\n        def __len__(self):\n            return self._length\n\n    # Case 1: __len__ reports more elements than actual (too long)\n    seq_long = BadLengthSequence([0, 1, 2, 3, 4], 7)\n    try:\n        result_long = list(partition_all(10, seq_long))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    assert result_long == [(0, 1, 2, 3, 4)]\n    for batch in result_long:\n        assert no_pad not in batch\n\n    # Case 2: __len__ reports fewer elements than actual (too short)\n    seq_short = BadLengthSequence([0, 1, 2, 3, 4], 3)\n    try:\n        result_short = list(partition_all(10, seq_short))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    assert result_short == [(0, 1, 2, 3, 4)]\n    for batch in result_short:\n        assert no_pad not in batch\n\n    # Case 3: __len__ accurate (should still work)\n    seq_exact = BadLengthSequence([0, 1, 2, 3, 4], 5)\n    try:\n        result_exact = list(partition_all(10, seq_exact))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    assert result_exact == [(0, 1, 2, 3, 4)]\n    for batch in result_exact:\n        assert no_pad not in batch\n\n    # Case 4: Multiple batches with invalid __len__\n    seq_multi = BadLengthSequence(list(range(12)), 15)  # 12 elements, len=15\n    try:\n        result_multi = list(partition_all(5, seq_multi))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    expected_multi = [tuple(range(5)), tuple(range(5, 10)), (10, 11)]\n    assert result_multi == expected_multi\n    for batch in result_multi:\n        assert no_pad not in batch\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-80aa4390a5eb157e",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________________ test_partition_all_invalid_len ____________________________________________________________________________________\nlatch_issue_test.py:24: in test_partition_all_invalid_len\n    assert result_long == [(0, 1, 2, 3, 4)]\nE   AssertionError: assert [(0, 1, 2, 3,..._pad__', ...)] == [(0, 1, 2, 3, 4)]\nE     \nE     At index 0 diff: (0, 1, 2, 3, 4, '__no__pad__', '__no__pad__') != (0, 1, 2, 3, 4)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_invalid_len - AssertionError: assert [(0, 1, 2, 3,..._pad__', ...)] == [(0, 1, 2, 3, 4)]\n1 failed in 0.16s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________________ test_partition_all_invalid_len ____________________________________________________________________________________\nlatch_issue_test.py:21: in test_partition_all_invalid_len\n    result_long = list(partition_all(10, seq_long))\ntoolz/itertoolz.py:737: in partition_all\n    raise LookupError(\nE   LookupError: The sequence passed to `parition_all` has invalid length\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:23: in test_partition_all_invalid_len\n    pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\nE   Failed: partition_all raised LookupError: The sequence passed to `parition_all` has invalid length\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_invalid_len - Failed: partition_all raised LookupError: The sequence passed to `parition_all` has invalid length\n1 failed in 0.18s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".........................................................................................................................................................................................        [100%]\n185 passed in 1.48s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": null
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-3b802122",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 11,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-b310cc792c48d3f6",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_partition_all_invalid_len():\n    from toolz.itertoolz import partition_all, no_pad\n\n    class BadLengthSequence:\n        def __init__(self, data, length):\n            self.data = data\n            self._length = length\n\n        def __iter__(self):\n            return iter(self.data)\n\n        def __len__(self):\n            return self._length\n\n    # Case 1: __len__ reports more elements than actual (too long)\n    seq_long = BadLengthSequence([0, 1, 2, 3, 4], 7)\n    result_long = list(partition_all(10, seq_long))\n    assert result_long == [(0, 1, 2, 3, 4)]\n    # Ensure no padding tokens in output\n    for batch in result_long:\n        assert no_pad not in batch\n\n    # Case 2: __len__ reports fewer elements than actual (too short)\n    seq_short = BadLengthSequence([0, 1, 2, 3, 4], 3)\n    result_short = list(partition_all(10, seq_short))\n    assert result_short == [(0, 1, 2, 3, 4)]\n    for batch in result_short:\n        assert no_pad not in batch\n\n    # Case 3: __len__ accurate (should still work)\n    seq_exact = BadLengthSequence([0, 1, 2, 3, 4], 5)\n    result_exact = list(partition_all(10, seq_exact))\n    assert result_exact == [(0, 1, 2, 3, 4)]\n    for batch in result_exact:\n        assert no_pad not in batch\n\n    # Case 4: Multiple batches with invalid __len__\n    seq_multi = BadLengthSequence(list(range(12)), 15)  # 12 elements, len=15\n    result_multi = list(partition_all(5, seq_multi))\n    # 12 elements -> batches of 5: (0-4), (5-9), (10,11)\n    expected_multi = [tuple(range(5)), tuple(range(5, 10)), (10, 11)]\n    assert result_multi == expected_multi\n    for batch in result_multi:\n        assert no_pad not in batch",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "partition_all"
+        ],
+        "asserted_symbols": [
+          "no_pad",
+          "partition_all"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "fold"
+        ],
+        "mode": "repo"
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-80aa4390a5eb157e",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_partition_all_invalid_len():\n    import pytest\n    from toolz.itertoolz import partition_all, no_pad\n\n    class BadLengthSequence:\n        def __init__(self, data, length):\n            self.data = data\n            self._length = length\n\n        def __iter__(self):\n            return iter(self.data)\n\n        def __len__(self):\n            return self._length\n\n    # Case 1: __len__ reports more elements than actual (too long)\n    seq_long = BadLengthSequence([0, 1, 2, 3, 4], 7)\n    try:\n        result_long = list(partition_all(10, seq_long))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    assert result_long == [(0, 1, 2, 3, 4)]\n    for batch in result_long:\n        assert no_pad not in batch\n\n    # Case 2: __len__ reports fewer elements than actual (too short)\n    seq_short = BadLengthSequence([0, 1, 2, 3, 4], 3)\n    try:\n        result_short = list(partition_all(10, seq_short))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    assert result_short == [(0, 1, 2, 3, 4)]\n    for batch in result_short:\n        assert no_pad not in batch\n\n    # Case 3: __len__ accurate (should still work)\n    seq_exact = BadLengthSequence([0, 1, 2, 3, 4], 5)\n    try:\n        result_exact = list(partition_all(10, seq_exact))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    assert result_exact == [(0, 1, 2, 3, 4)]\n    for batch in result_exact:\n        assert no_pad not in batch\n\n    # Case 4: Multiple batches with invalid __len__\n    seq_multi = BadLengthSequence(list(range(12)), 15)  # 12 elements, len=15\n    try:\n        result_multi = list(partition_all(5, seq_multi))\n    except Exception as e:\n        pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\n    expected_multi = [tuple(range(5)), tuple(range(5, 10)), (10, 11)]\n    assert result_multi == expected_multi\n    for batch in result_multi:\n        assert no_pad not in batch",
+      "test_repair": true,
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "partition_all"
+        ],
+        "asserted_symbols": [
+          "no_pad",
+          "partition_all"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "fold"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "partition_all"
+    ],
+    "asserted_symbols": [
+      "no_pad",
+      "partition_all"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "fold"
+    ],
+    "mode": "repo"
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "head",
+    "error_before": "latch_issue_test.py:19: in test_partition_all_invalid_len\n    result_long = list(partition_all(10, seq_long))\nE   LookupError: The sequence passed to `parition_all` has invalid length",
+    "ok": false,
+    "outcome": "adopted",
+    "reason": "the repaired test still errored on head",
+    "completion_id": "chatcmpl-80aa4390a5eb157e",
+    "error_after": "latch_issue_test.py:21: in test_partition_all_invalid_len\n    result_long = list(partition_all(10, seq_long))\nE   LookupError: The sequence passed to `parition_all` has invalid length\nlatch_issue_test.py:23: in test_partition_all_invalid_len\n    pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\nE   Failed: partition_all raised LookupError: The sequence passed to `parition_all` has invalid length"
+  },
+  "finished_at": "2026-10-30T09:25:37.122Z",
+  "verdict_reason": "the proof test errored on head (collection, import or runtime error) instead of failing an assertion (LookupError: The sequence passed to `parition_all` has invalid length)",
+  "proven": false,
+  "base_sha": "1fb2b9f1b69ab664a264944f4eafc290acce127d",
+  "head_sha": "5a7e078c941c990dcaca53ac6920e5d5c0b1475f",
+  "verdict_logs": {
+    "base": "______________________ test_partition_all_invalid_len ____________________________________________________________________________________\nlatch_issue_test.py:24: in test_partition_all_invalid_len\n    assert result_long == [(0, 1, 2, 3, 4)]\nE   AssertionError: assert [(0, 1, 2, 3,..._pad__', ...)] == [(0, 1, 2, 3, 4)]\nE     \nE     At index 0 diff: (0, 1, 2, 3, 4, '__no__pad__', '__no__pad__') != (0, 1, 2, 3, 4)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_invalid_len - AssertionError: assert [(0, 1, 2, 3,..._pad__', ...)] == [(0, 1, 2, 3, 4)]\n1 failed in 0.16s\n",
+    "head": "olz.py:737: in partition_all\n    raise LookupError(\nE   LookupError: The sequence passed to `parition_all` has invalid length\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:23: in test_partition_all_invalid_len\n    pytest.fail(f\"partition_all raised {type(e).__name__}: {e}\")\nE   Failed: partition_all raised LookupError: The sequence passed to `parition_all` has invalid length\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_invalid_len - Failed: partition_all raised LookupError: The sequence passed to `parition_all` has invalid length\n1 failed in 0.18s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1216,
+      "completion_tokens": 1024,
+      "latency_ms": 5687,
+      "completion_id": "chatcmpl-3b802122",
+      "cost_usd": 0.000319,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2363,
+      "completion_tokens": 2193,
+      "latency_ms": 7660,
+      "completion_id": "chatcmpl-b310cc792c48d3f6",
+      "cost_usd": 0.008942,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 3054,
+      "completion_tokens": 2196,
+      "latency_ms": 11658,
+      "completion_id": "chatcmpl-80aa4390a5eb157e",
+      "cost_usd": 0.009642,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.018903,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:25:07.136Z",
+      "detail": {
+        "base": "1fb2b9f1b69ab664a264944f4eafc290acce127d",
+        "head": "5a7e078c941c990dcaca53ac6920e5d5c0b1475f"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:25:07.535Z",
+      "detail": {
+        "base": "1fb2b9f1b69a",
+        "head": "5a7e078c941c",
+        "changed_files": [
+          "toolz/itertoolz.py",
+          "toolz/tests/test_itertoolz.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:25:07.656Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:25:13.364Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:25:13.364Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:25:21.028Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-b310cc792c48d3f6"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:25:21.028Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:25:22.064Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:25:22.065Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:25:24.721Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:25:24.721Z",
+      "detail": {
+        "side": "head",
+        "error_before": "latch_issue_test.py:19: in test_partition_all_invalid_len\n    result_long = list(partition_all(10, seq_long))\nE   LookupError: The sequence passed to `parition_all` has invalid length"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:25:36.385Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:25:36.748Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:25:36.748Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:25:37.121Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "failed",
+      "ts": "2026-10-30T09:25:37.122Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:25:37.122Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on head (collection, import or runtime error) instead of failing an assertion (LookupError: The sequence passed to `parition_all` has invalid length)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

@@ -1,0 +1,311 @@
+{
+  "run_id": "sympy24213.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-24213",
+  "base": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+  "head": "83458382ebab6f78e340d457a503ac23d9f233e9",
+  "issue": "collect_factor_and_dimension does not detect equivalent dimensions in addition\nCode to reproduce:\r\n```python\r\nfrom sympy.physics import units\r\nfrom sympy.physics.units.systems.si import SI\r\n\r\nv1 = units.Quantity('v1')\r\nSI.set_quantity_dimension(v1, units.velocity)\r\nSI.set_quantity_scale_factor(v1, 2 * units.meter / units.second)\r\n\r\na1 = units.Quantity('a1')\r\nSI.set_quantity_dimension(a1, units.acceleration)\r\nSI.set_quantity_scale_factor(a1, -9.8 * units.meter / units.second**2)\r\n\r\nt1 = units.Quantity('t1')\r\nSI.set_quantity_dimension(t1, units.time)\r\nSI.set_quantity_scale_factor(t1, 5 * units.second)\r\n\r\nexpr1 = a1*t1 + v1\r\nSI._collect_factor_and_dimension(expr1)\r\n```\r\nResults in:\r\n```\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 1, in <module>\r\n  File \"C:\\Python\\Python310\\lib\\site-packages\\sympy\\physics\\units\\unitsystem.py\", line 179, in _collect_factor_and_dimension\r\n    raise ValueError(\r\nValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/physics/units/tests/test_quantities.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:37:08.816Z",
+  "proof_test": {
+    "name": "test_collect_factor_and_dimension_equivalent_dimensions_in_addition",
+    "source": "import pytest\n\ndef test_collect_factor_and_dimension_equivalent_dimensions_in_addition():\n    import pytest\n    from sympy.physics import units\n    from sympy.physics.units.systems.si import SI\n\n    v1 = units.Quantity('v1')\n    SI.set_quantity_dimension(v1, units.velocity)\n    SI.set_quantity_scale_factor(v1, 2 * units.meter / units.second)\n\n    a1 = units.Quantity('a1')\n    SI.set_quantity_dimension(a1, units.acceleration)\n    SI.set_quantity_scale_factor(a1, -9.8 * units.meter / units.second**2)\n\n    t1 = units.Quantity('t1')\n    SI.set_quantity_dimension(t1, units.time)\n    SI.set_quantity_scale_factor(t1, 5 * units.second)\n\n    expr1 = a1 * t1 + v1\n\n    try:\n        factor, dim = SI._collect_factor_and_dimension(expr1)\n    except ValueError as e:\n        pytest.fail(f\"Unexpected ValueError: {e}\")\n\n    expected_factor = -47 * units.meter / units.second\n    assert factor.equals(expected_factor)\n    assert SI.get_dimension_system().equivalent_dims(dim, units.velocity)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-81ba2ac2e6712f52",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "..................x..............F                                                                                                                                                               [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_________________________________________________________________ test_collect_factor_and_dimension_equivalent_dimensions_in_addition __________________________________________________________________\nlatch_issue_test.py:23: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nsympy/physics/units/unitsystem.py:179: in _collect_factor_and_dimension\n    raise ValueError(\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:25: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_collect_factor_and_dimension_equivalent_dimensions_in_addition - Failed: Unexpected ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension...\n1 failed, 32 passed, 1 xfailed in 0.87s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "..................x..............F                                                                                                                                                               [100%]\n=============================================================================================== FAILURES ===============================================================================================\n_________________________________________________________________ test_collect_factor_and_dimension_equivalent_dimensions_in_addition __________________________________________________________________\nlatch_issue_test.py:28: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    assert factor.equals(expected_factor)\nE   assert None\nE    +  where None = equals(-47*meter/second)\nE    +    where equals = -47.0000000000000.equals\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_collect_factor_and_dimension_equivalent_dimensions_in_addition - assert None\n1 failed, 32 passed, 1 xfailed in 0.90s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "..................x..............                                                                                                                                                                [100%]\n32 passed, 1 xfailed in 0.83s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-ed1f6422",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 688,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-8cdceb572a7c26ed",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_collect_factor_and_dimension_equivalent_dimensions_in_addition():\n    from sympy.physics import units\n    from sympy.physics.units.systems.si import SI\n\n    v1 = units.Quantity('v1')\n    SI.set_quantity_dimension(v1, units.velocity)\n    SI.set_quantity_scale_factor(v1, 2 * units.meter / units.second)\n\n    a1 = units.Quantity('a1')\n    SI.set_quantity_dimension(a1, units.acceleration)\n    SI.set_quantity_scale_factor(a1, -9.8 * units.meter / units.second**2)\n\n    t1 = units.Quantity('t1')\n    SI.set_quantity_dimension(t1, units.time)\n    SI.set_quantity_scale_factor(t1, 5 * units.second)\n\n    expr1 = a1 * t1 + v1\n    factor, dim = SI._collect_factor_and_dimension(expr1)\n\n    expected_factor = -47 * units.meter / units.second\n    assert factor.equals(expected_factor)\n    assert SI.get_dimension_system().equivalent_dims(dim, units.velocity)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-81ba2ac2e6712f52",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_collect_factor_and_dimension_equivalent_dimensions_in_addition():\n    import pytest\n    from sympy.physics import units\n    from sympy.physics.units.systems.si import SI\n\n    v1 = units.Quantity('v1')\n    SI.set_quantity_dimension(v1, units.velocity)\n    SI.set_quantity_scale_factor(v1, 2 * units.meter / units.second)\n\n    a1 = units.Quantity('a1')\n    SI.set_quantity_dimension(a1, units.acceleration)\n    SI.set_quantity_scale_factor(a1, -9.8 * units.meter / units.second**2)\n\n    t1 = units.Quantity('t1')\n    SI.set_quantity_dimension(t1, units.time)\n    SI.set_quantity_scale_factor(t1, 5 * units.second)\n\n    expr1 = a1 * t1 + v1\n\n    try:\n        factor, dim = SI._collect_factor_and_dimension(expr1)\n    except ValueError as e:\n        pytest.fail(f\"Unexpected ValueError: {e}\")\n\n    expected_factor = -47 * units.meter / units.second\n    assert factor.equals(expected_factor)\n    assert SI.get_dimension_system().equivalent_dims(dim, units.velocity)",
+      "test_repair": true,
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "base",
+    "error_before": "latch_issue_test.py:20: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)",
+    "ok": false,
+    "outcome": "adopted",
+    "reason": "the repaired test still errored on base",
+    "completion_id": "chatcmpl-81ba2ac2e6712f52",
+    "error_after": "latch_issue_test.py:23: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\nlatch_issue_test.py:25: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)"
+  },
+  "finished_at": "2026-10-30T09:38:01.906Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time))",
+  "proven": false,
+  "base_sha": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+  "head_sha": "83458382ebab6f78e340d457a503ac23d9f233e9",
+  "verdict_logs": {
+    "base": "il(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_collect_factor_and_dimension_equivalent_dimensions_in_addition - Failed: Unexpected ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension...\n1 failed, 32 passed, 1 xfailed in 0.87s\n",
+    "head": "atch_issue_test.py:28: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    assert factor.equals(expected_factor)\nE   assert None\nE    +  where None = equals(-47*meter/second)\nE    +    where equals = -47.0000000000000.equals\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_collect_factor_and_dimension_equivalent_dimensions_in_addition - assert None\n1 failed, 32 passed, 1 xfailed in 0.90s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2715,
+      "completion_tokens": 1024,
+      "latency_ms": 6405,
+      "completion_id": "chatcmpl-ed1f6422",
+      "cost_usd": 0.000409,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1202,
+      "completion_tokens": 1956,
+      "latency_ms": 6334,
+      "completion_id": "chatcmpl-8cdceb572a7c26ed",
+      "cost_usd": 0.00707,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1633,
+      "completion_tokens": 1016,
+      "latency_ms": 4122,
+      "completion_id": "chatcmpl-81ba2ac2e6712f52",
+      "cost_usd": 0.004681,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.01216,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:37:08.816Z",
+      "detail": {
+        "base": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+        "head": "83458382ebab6f78e340d457a503ac23d9f233e9"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:37:11.918Z",
+      "detail": {
+        "base": "e8c22f6eac73",
+        "head": "83458382ebab",
+        "changed_files": [
+          "sympy/physics/units/unitsystem.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:37:23.634Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:37:33.865Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:37:33.865Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:37:40.200Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-8cdceb572a7c26ed"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:37:40.203Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:37:47.185Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:37:47.185Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:37:52.593Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:37:52.594Z",
+      "detail": {
+        "side": "base",
+        "error_before": "latch_issue_test.py:20: in test_collect_factor_and_dimension_equivalent_dimensions_in_addition\n    factor, dim = SI._collect_factor_and_dimension(expr1)\nE   ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time)"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:37:56.717Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:37:59.287Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:37:59.287Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:38:01.905Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "failed",
+      "ts": "2026-10-30T09:38:01.906Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:38:01.906Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ValueError: Dimension of \"v1\" is Dimension(velocity), but it should be Dimension(acceleration*time))"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

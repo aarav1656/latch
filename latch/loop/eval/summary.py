@@ -156,9 +156,12 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
 
     featured, featured_note = None, None
     shut = [r for r in wrong if r.get("loop_verdict") == "gave_up" and r["receipt"]]
+    # the strongest exhibit is a wrong patch failed by a valid proof test, on an uncontested case
+    shut.sort(key=lambda r: (r.get("verdict") != "FIX_FAILS_TEST", r["case"] in CONTESTED))
     if shut:
         featured = shut[0]["receipt"]
-        featured_note = "NOT PROVEN: the gate stayed shut on a wrong patch"
+        featured_note = ("NOT PROVEN: a valid proof test failed on the wrong patch" if shut[0].get("verdict") == "FIX_FAILS_TEST"
+                         else "NOT PROVEN: the gate stayed shut on a wrong patch")
     else:
         early = [r for r in wrong if r["outcome"] in ("repaired", "repaired_but_oracle_fails") and r["receipt"]]
         if early:

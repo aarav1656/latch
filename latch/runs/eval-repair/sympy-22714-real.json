@@ -1,0 +1,311 @@
+{
+  "run_id": "sympy22714.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-22714",
+  "base": "3ff4717b6aef6086e78f01cdfa06f64ae23aed7e",
+  "head": "706cc25ef1536eec86b9b47727c189fcb2888d1b",
+  "issue": "simpify gives `Imaginary coordinates are not permitted.` with evaluate(False)\n## Issue\r\n`with evaluate(False)` crashes unexpectedly with `Point2D`\r\n\r\n## Code\r\n```python\r\nimport sympy as sp\r\nwith sp.evaluate(False):\r\n  sp.S('Point2D(Integer(1),Integer(2))')\r\n```\r\n\r\n## Error\r\n```\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 1, in <module>\r\n  File \"/home/avinash/.local/lib/python3.8/site-packages/sympy/core/sympify.py\", line 472, in sympify\r\n    expr = parse_expr(a, local_dict=locals, transformations=transformations, evaluate=evaluate)\r\n  File \"/home/avinash/.local/lib/python3.8/site-packages/sympy/parsing/sympy_parser.py\", line 1026, in parse_expr\r\n    raise e from ValueError(f\"Error from parse_expr with transformed code: {code!r}\")\r\n  File \"/home/avinash/.local/lib/python3.8/site-packages/sympy/parsing/sympy_parser.py\", line 1017, in parse_expr\r\n    rv = eval_expr(code, local_dict, global_dict)\r\n  File \"/home/avinash/.local/lib/python3.8/site-packages/sympy/parsing/sympy_parser.py\", line 911, in eval_expr\r\n    expr = eval(\r\n  File \"<string>\", line 1, in <module>\r\n  File \"/home/avinash/.local/lib/python3.8/site-packages/sympy/geometry/point.py\", line 912, in __new__\r\n    args = Point(*args, **kwargs)\r\n  File \"/home/avinash/.local/lib/python3.8/site-packages/sympy/geometry/point.py\", line 153, in __new__\r\n    raise ValueError('Imaginary coordinates are not permitted.')\r\nValueError: Imaginary coordinates are not permitted.\r\n```\r\n\r\nHowever, it works without `with evaluate(False)`. Both of following commands work\r\n```python\r\nsp.S('Point2D(Integer(1),Integer(2))')\r\nsp.S('Point2D(Integer(1),Integer(2))', evaluate=False)\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/geometry/tests/test_point.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T09:34:56.491Z",
+  "proof_test": {
+    "name": "test_point2d_with_evaluate_false",
+    "source": "import pytest\n\ndef test_point2d_with_evaluate_false():\n    import sympy as sp\n    import pytest\n    try:\n        with sp.evaluate(False):\n            point = sp.S('Point2D(Integer(1),Integer(2))')\n    except ValueError as e:\n        pytest.fail(f\"Unexpected ValueError: {e}\")\n    assert isinstance(point, sp.Point2D)\n    assert point.x == sp.Integer(1)\n    assert point.y == sp.Integer(2)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-b3b6b5e2cead17db",
+    "test_repaired": true
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "............F                                                                                                                                                                                    [100%]\n=============================================================================================== FAILURES ===============================================================================================\n___________________________________________________________________________________ test_point2d_with_evaluate_false ___________________________________________________________________________________\nValueError: Error from parse_expr with transformed code: <code object <module> at 0x10784c450, file \"<string>\", line 1>\n\nThe above exception was the direct cause of the following exception:\nlatch_issue_test.py:8: in test_point2d_with_evaluate_false\n    point = sp.S('Point2D(Integer(1),Integer(2))')\nsympy/core/sympify.py:476: in sympify\n    expr = parse_expr(a, local_dict=locals, transformations=transformations, evaluate=evaluate)\nsympy/parsing/sympy_parser.py:1100: in parse_expr\n    raise e from ValueError(f\"Error from parse_expr with transformed code: {code!r}\")\nsympy/parsing/sympy_parser.py:1091: in parse_expr\n    rv = eval_expr(code, local_dict, global_dict)\nsympy/parsing/sympy_parser.py:913: in eval_expr\n    expr = eval(\n<string>:1: in <module>\n    ???\nsympy/geometry/point.py:915: in __new__\n    args = Point(*args, **kwargs)\nsympy/geometry/point.py:156: in __new__\n    raise ValueError('Imaginary coordinates are not permitted.')\nE   ValueError: Imaginary coordinates are not permitted.\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:10: in test_point2d_with_evaluate_false\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Imaginary coordinates are not permitted.\n=========================================================================================== warnings summary ===========================================================================================\nsympy/geometry/tests/test_point.py::test_point\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-osxfgigp/base/sympy/geometry/point.py:148: UserWarning: Dimension of (0, 0) needs to be changed from 2 to 3.\n    warnings.warn(message)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_point2d_with_evaluate_false - Failed: Unexpected ValueError: Imaginary coordinates are not permitted.\n1 failed, 12 passed, 1 warning in 2.02s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".............                                                                                                                                                                                    [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/geometry/tests/test_point.py::test_point\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-osxfgigp/work/sympy/geometry/point.py:148: UserWarning: Dimension of (0, 0) needs to be changed from 2 to 3.\n    warnings.warn(message)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n13 passed, 1 warning in 1.84s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "............                                                                                                                                                                                     [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/geometry/tests/test_point.py::test_point\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-osxfgigp/work/sympy/geometry/point.py:148: UserWarning: Dimension of (0, 0) needs to be changed from 2 to 3.\n    warnings.warn(message)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n12 passed, 1 warning in 2.20s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-a74ea7ed",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 688,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-ba6422d67b03e1ff",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_point2d_with_evaluate_false():\n    import sympy as sp\n    with sp.evaluate(False):\n        point = sp.S('Point2D(Integer(1),Integer(2))')\n    assert isinstance(point, sp.Point2D)\n    assert point.x == sp.Integer(1)\n    assert point.y == sp.Integer(2)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    },
+    {
+      "attempt": "test_repair",
+      "completion_id": "chatcmpl-b3b6b5e2cead17db",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_point2d_with_evaluate_false():\n    import sympy as sp\n    import pytest\n    try:\n        with sp.evaluate(False):\n            point = sp.S('Point2D(Integer(1),Integer(2))')\n    except ValueError as e:\n        pytest.fail(f\"Unexpected ValueError: {e}\")\n    assert isinstance(point, sp.Point2D)\n    assert point.x == sp.Integer(1)\n    assert point.y == sp.Integer(2)",
+      "test_repair": true,
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "test_repair": {
+    "attempted": true,
+    "side": "base",
+    "error_before": "latch_issue_test.py:6: in test_point2d_with_evaluate_false\n    point = sp.S('Point2D(Integer(1),Integer(2))')\nE   ValueError: Imaginary coordinates are not permitted.",
+    "ok": false,
+    "outcome": "adopted",
+    "reason": "the repaired test still errored on base",
+    "completion_id": "chatcmpl-b3b6b5e2cead17db",
+    "error_after": "latch_issue_test.py:8: in test_point2d_with_evaluate_false\n    point = sp.S('Point2D(Integer(1),Integer(2))')\nE   ValueError: Imaginary coordinates are not permitted.\nlatch_issue_test.py:10: in test_point2d_with_evaluate_false\n    pytest.fail(f\"Unexpected ValueError: {e}\")\nE   Failed: Unexpected ValueError: Imaginary coordinates are not permitted."
+  },
+  "finished_at": "2026-10-30T09:36:06.755Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ValueError: Imaginary coordinates are not permitted.)",
+  "proven": false,
+  "base_sha": "3ff4717b6aef6086e78f01cdfa06f64ae23aed7e",
+  "head_sha": "706cc25ef1536eec86b9b47727c189fcb2888d1b",
+  "verdict_logs": {
+    "base": "/T/latch-loop-osxfgigp/base/sympy/geometry/point.py:148: UserWarning: Dimension of (0, 0) needs to be changed from 2 to 3.\n    warnings.warn(message)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_point2d_with_evaluate_false - Failed: Unexpected ValueError: Imaginary coordinates are not permitted.\n1 failed, 12 passed, 1 warning in 2.02s\n",
+    "head": ".............                                                                                                                                                                                    [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/geometry/tests/test_point.py::test_point\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-osxfgigp/work/sympy/geometry/point.py:148: UserWarning: Dimension of (0, 0) needs to be changed from 2 to 3.\n    warnings.warn(message)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n13 passed, 1 warning in 1.84s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 3022,
+      "completion_tokens": 1024,
+      "latency_ms": 4609,
+      "completion_id": "chatcmpl-a74ea7ed",
+      "cost_usd": 0.000427,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1376,
+      "completion_tokens": 2469,
+      "latency_ms": 9042,
+      "completion_id": "chatcmpl-ba6422d67b03e1ff",
+      "cost_usd": 0.008783,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1627,
+      "completion_tokens": 5460,
+      "latency_ms": 19447,
+      "completion_id": "chatcmpl-b3b6b5e2cead17db",
+      "cost_usd": 0.018007,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.027217,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T09:34:56.492Z",
+      "detail": {
+        "base": "3ff4717b6aef6086e78f01cdfa06f64ae23aed7e",
+        "head": "706cc25ef1536eec86b9b47727c189fcb2888d1b"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T09:34:59.432Z",
+      "detail": {
+        "base": "3ff4717b6aef",
+        "head": "706cc25ef153",
+        "changed_files": [
+          "sympy/geometry/point.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T09:35:11.131Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T09:35:19.455Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T09:35:19.455Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T09:35:28.498Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-ba6422d67b03e1ff"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:35:28.499Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:35:32.543Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:35:32.543Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:35:39.753Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "started",
+      "ts": "2026-10-30T09:35:39.753Z",
+      "detail": {
+        "side": "base",
+        "error_before": "latch_issue_test.py:6: in test_point2d_with_evaluate_false\n    point = sp.S('Point2D(Integer(1),Integer(2))')\nE   ValueError: Imaginary coordinates are not permitted."
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T09:35:59.202Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T09:36:03.209Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T09:36:03.210Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T09:36:06.755Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "test_repair",
+      "status": "failed",
+      "ts": "2026-10-30T09:36:06.755Z",
+      "detail": {
+        "outcome": "adopted",
+        "ok": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T09:36:06.755Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ValueError: Imaginary coordinates are not permitted.)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}
