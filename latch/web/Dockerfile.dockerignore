@@ -8,6 +8,12 @@
 !latch/runs/loop-demo-events.jsonl
 !latch/runs/eval-summary.json
 !latch/runs/eval/**
+# development-only and answer-key output never ships (the whitelist above does not admit them; this makes it explicit)
+latch/runs/dev
+latch/runs/dev/**
+latch/runs/eval-dryrun
+latch/runs/eval-dryrun/**
+latch/runs/eval-oracle-baseline.*
 latch/test_*.py
 latch/harness/test_*.py
 latch/loop/test_*.py

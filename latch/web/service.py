@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .sandbox import SandboxConfig, SandboxError, net_namespace_available, SandboxRunner, SandboxTimeout
+from .provenance import is_dev_output
 from .store import make_envelope, utc_iso
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -424,6 +425,8 @@ class Service:
         except (OSError, ValueError):
             return None
         if not events or events[-1].get("type") not in ("gate_open", "gave_up"):
+            return None
+        if any(is_dev_output(e) for e in events):
             return None
         return {"source": "recorded", "events": events}
 

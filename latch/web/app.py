@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from .sandbox import SandboxConfig, drop_dumpable
+from .provenance import is_dev_output, is_dev_path
 from .service import ApiError, Config, Service
 from .store import Store, make_envelope
 
@@ -38,6 +39,9 @@ def boot_json(payload):
 
 
 EVAL_PENDING = "Eval pending: latch/runs/eval-summary.json has not been committed yet."
+EVAL_DEV = "Eval unavailable: the summary is a dry run or carries development-only output, which is never shown as a result."
+# Served to nobody: the oracle answer key (no model, 100% by construction) must never appear next to Latch's numbers.
+EVAL_WITHHELD = ("oracle_baseline",)
 
 
 def eval_root():
@@ -58,17 +62,21 @@ def eval_payload():
     summary = _load_object(root / "latch" / "runs" / "eval-summary.json")
     if summary is None:
         return {"available": False, "reason": EVAL_PENDING}
+    if is_dev_output(summary) or summary.get("fixture") is True or summary.get("mode") not in (None, "live"):
+        return {"available": False, "reason": EVAL_DEV}
+    for key in EVAL_WITHHELD:
+        summary.pop(key, None)
     featured = None
     ref = summary.get("featured_wrong_fix_receipt")
-    if isinstance(ref, str) and ref and "\x00" not in ref:
+    if isinstance(ref, str) and ref and "\x00" not in ref and not is_dev_path(ref):
         allowed = (root / "latch" / "runs" / "eval").resolve()
         try:
             target = (root / ref).resolve()
         except (OSError, RuntimeError, ValueError):
             target = None
-        if target is not None and allowed in target.parents and target.is_file():
+        if target is not None and allowed in target.parents and target.is_file() and not is_dev_path(target):
             loaded = _load_object(target)
-            if loaded is not None:
+            if loaded is not None and not is_dev_output(loaded):
                 if isinstance(loaded.get("receipt"), dict) and isinstance(loaded.get("meta"), dict):
                     featured = loaded
                 else:
