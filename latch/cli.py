@@ -45,6 +45,7 @@ def _prove(argv):
     p.add_argument("--no-revert", action="store_true", help="skip the revert check (not recommended)")
     p.add_argument("--no-mutation", action="store_true", help="skip the AST mutation check of the changed lines (not recommended)")
     p.add_argument("--no-strengthen", action="store_true", help="do not give the test writer the one survivor-driven retry after a failed mutation check")
+    p.add_argument("--no-test-repair", action="store_true", help="do not give the test writer the one repair retry when its proof test errors instead of failing an assertion")
     p.add_argument("--no-triage", action="store_true")
     p.add_argument("--flake-runs", type=int, default=5, metavar="N",
                    help="rerun the proof test N times on base and head to catch flakiness (default 5, max 10; 1 = off)")
@@ -58,7 +59,7 @@ def _prove(argv):
         text = args.issue if args.issue is not None else Path(args.issue_file).read_text(encoding="utf-8")
         result = prove(args.repo, args.base, args.head, text, args.test_command, args.receipt,
                        revert=not args.no_revert, triage=not args.no_triage, flake_runs=args.flake_runs,
-                       mutation=not args.no_mutation, strengthen=not args.no_strengthen)
+                       mutation=not args.no_mutation, strengthen=not args.no_strengthen, test_repair=not args.no_test_repair)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"Latch proof failed: {error}", file=sys.stderr)
         return 2

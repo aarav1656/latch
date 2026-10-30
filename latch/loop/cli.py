@@ -38,6 +38,7 @@ def _common(p):
                    help="rerun the proof test N times on base and head to catch flakiness (default 5, max 10; 1 = off)")
     p.add_argument("--no-mutation", action="store_true", help="skip the AST mutation check of the changed lines (not recommended)")
     p.add_argument("--no-strengthen", action="store_true", help="do not give the test writer the one survivor-driven retry after a failed mutation check")
+    p.add_argument("--no-test-repair", action="store_true", help="do not give the test writer the one repair retry when its proof test errors instead of failing an assertion")
     p.add_argument("--no-revert", action="store_true", help="skip the revert check (not recommended)")
 
 
@@ -131,6 +132,7 @@ def main(argv=None):
         flake_runs=args.flake_runs,
         mutation=not args.no_mutation,
         strengthen=not args.no_strengthen,
+        test_repair=not args.no_test_repair,
     )
     started = time.monotonic()
     try:
