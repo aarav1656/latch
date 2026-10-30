@@ -162,7 +162,7 @@ class CacheTests(unittest.TestCase):
         status, headers, page = h.request("GET", "/")
         text = page.decode()
         self.assertEqual(status, 200)
-        self.assertIn("Space+Grotesk", text)
+        self.assertIn("/static/fonts/mona-sans-latin.woff2", text)  # self-hosted display face (CSP allows no other font origin)
         self.assertNotIn("Inter", text.replace("Interne", ""))
         boot = json.loads(text.split('id="boot" type="application/json">')[1].split("</script>")[0])
         self.assertTrue(boot["example"]["receipt"]["proven"])
@@ -1035,6 +1035,15 @@ class PageRouteTests(unittest.TestCase):
             self.assertNotIn("onclick=", text, path)
             for tag in re.findall(r"<script\b[^>]*>", text):
                 self.assertTrue("src=" in tag or "application/json" in tag, (path, tag))
+
+    def test_fonts_are_self_hosted_and_the_csp_allows_only_self(self):
+        h = Harness(self)
+        status, headers, body = h.request("GET", "/static/fonts/mona-sans-latin.woff2")
+        self.assertEqual(status, 200)
+        self.assertEqual(body[:4], b"wOF2")
+        csp = h.request("GET", "/")[1]["Content-Security-Policy"]
+        self.assertIn("font-src 'self'", csp)
+        self.assertNotIn("googleapis", csp + h.request("GET", "/")[2].decode())
 
     def test_pages_share_the_same_nav_and_mark_their_own_link_current(self):
         h = Harness(self)

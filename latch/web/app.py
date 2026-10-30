@@ -27,8 +27,8 @@ SEGMENT = r"[A-Za-z0-9_.-]{1,100}"
 RECEIPT_PATH = re.compile(rf"^/(?:r|api/receipt)/({SEGMENT})/({SEGMENT})/(\d{{1,9}})/?$")
 PROOF_PATH = re.compile(r"^/api/(?:proof|loop)/([0-9a-f]{32})(/events)?$")
 CSP = (
-    "default-src 'self'; style-src 'self' https://fonts.googleapis.com; "
-    "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
+    "default-src 'self'; style-src 'self'; "
+    "font-src 'self'; img-src 'self' data:; connect-src 'self'; "
     "script-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 )
 

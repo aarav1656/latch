@@ -69,7 +69,7 @@
   }
 
   function pendingView(reason) {
-    const hero = el("section", "eval-hero");
+    const hero = el("section", "eval-hero is-pending");
     hero.append(el("h2", "eval-state", "Eval pending"), el("p", null, String(reason || "The evaluation summary has not been committed yet.").replace(/^Eval pending:\s*/i, "")));
     hero.appendChild(el("p", "eval-sub", "No Latch number is shown because none exists yet. Model credit ran out before the run (Token Factory HTTP 402)."));
     const demo = section("What exists today",
@@ -98,6 +98,7 @@
       p.setAttribute("data-verdict", vi.code || (proven ? "proven" : "not_proven"));
       line.append(p, el("span", "mono", (r.test_name || (r.proof_test && r.proof_test.name) || NR)));
       box.appendChild(line);
+      box.appendChild(window.LatchGate.build(window.LatchGate.fromReceipt(r), proven));
       // prove.py receipts carry base_result/head_result; fix-loop receipts carry initial.base_proof/head_proof
       const init = r.initial || {};
       const exit = (x) => (x && typeof x.returncode === "number" ? "exit " + x.returncode : NR);
@@ -252,7 +253,7 @@
     if (changed.length) {
       kids.push(el("h3", "section-sub", "Verdicts that changed"));
       kids.push(table(["Case", "Variant", "First run", "Repair run", "Test repaired"],
-        changed.map((c) => [c.case || NR, c.variant || NR, c.verdict_before || NR, c.verdict_after || NR, c.test_repair ? "yes" : "no"]), 0));
+        changed.map((c) => [c.case || NR, c.variant || NR, c.verdict_before || NR, c.verdict_after || NR, c.test_repair ? "yes" : "no"])));
     }
     if (d && d.note) kids.push(el("p", "hint", d.note));
     kids.push(el("p", "hint", "First run: Latch " + String(p.latch_git_sha || NR).slice(0, 7) + ". Repair run: Latch " + String(s.latch_git_sha || NR).slice(0, 7) + "."));
@@ -266,16 +267,27 @@
     const b = s.benchmark || {};
     const rv = b.real_validated || {};
     const accepted = Array.isArray(wf.false_accepts) ? wf.false_accepts.length : null;
-    const hero = el("section", "eval-hero " + (accepted === 0 && isNum(wf.n) && wf.n > 0 ? "is-pass" : ""));
-    hero.append(
-      el("p", "hero-num", isNum(accepted) && isNum(wf.n) ? accepted + " of " + wf.n : NR),
-      el("p", null, "constructed wrong patches accepted by the gate."),
-    );
+    const hero = el("section", "eval-hero");
+    const fig = (num, of, caption, tallyNode, subs) => {
+      const f = el("div", "eval-fig");
+      const n = el("p", "hero-num num");
+      n.appendChild(el("span", null, num));
+      if (of) n.appendChild(el("span", "fig-of", of));
+      f.append(n, el("p", "fig-cap", caption));
+      if (tallyNode) f.appendChild(tallyNode);
+      (subs || []).forEach((t) => f.appendChild(el("p", "eval-sub", t)));
+      return f;
+    };
+    const wrongKnown = isNum(accepted) && isNum(wf.n);
     const vt = wf.caught_by_valid_test;
-    const lines = [];
-    if (isNum(rv.k) && isNum(rv.n)) lines.push(rv.k + " of " + rv.n + " real bug fixes proven (" + pct(rv.rate) + ").");
-    if (vt && isNum(vt.caught)) lines.push(frac(vt.caught, vt.n) + " wrong patches failed by a valid proof test; the rest never got a usable test, so the gate stayed shut by default.");
-    lines.forEach((t) => hero.appendChild(el("p", "eval-sub", t)));
+    const wrongSubs = [];
+    if (vt && isNum(vt.caught)) wrongSubs.push(frac(vt.caught, vt.n) + " wrong patches failed by a valid proof test; the rest never got a usable test, so the gate stayed shut by default.");
+    hero.appendChild(fig(wrongKnown ? String(accepted) : NR, wrongKnown ? "of " + wf.n : "", "constructed wrong patches accepted by the gate.",
+      wrongKnown ? window.LatchGate.tally(wf.n, accepted, "fail", accepted + " of " + wf.n + " wrong patches accepted") : null, wrongSubs));
+    if (wrongKnown) hero.firstChild.classList.add(accepted === 0 ? "is-clear" : "is-breach");
+    const realKnown = isNum(rv.k) && isNum(rv.n);
+    hero.appendChild(fig(realKnown ? String(rv.k) : NR, realKnown ? "of " + rv.n : "", "real bug fixes proven" + (realKnown && isNum(rv.rate) ? " (" + pct(rv.rate) + ")." : "."),
+      realKnown ? window.LatchGate.tally(rv.n, rv.k, "pass", rv.k + " of " + rv.n + " real fixes proven") : null, []));
     const notes = el("details", "eval-notes");
     notes.appendChild(el("summary", null, "How wrong patches are counted"));
     if (wf.rule) notes.appendChild(el("p", "hint", wf.rule));

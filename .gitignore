@@ -7,3 +7,4 @@ mitm_mcp_traffic.db
 build/
 *.egg-info/
 latch/runs/eval-dryrun/
+.uicraft-read.json

@@ -1,6 +1,17 @@
 /* Use in CI page. */
-.ship-code { max-width: 52rem; }
-.ship-code pre { white-space: pre; overflow-x: auto; margin: 0; padding: var(--space-3); }
-.ship-limits { display: grid; gap: var(--space-2); max-width: var(--measure); }
-.ship-limits li { padding: var(--space-2) 0 var(--space-2) var(--space-4); border-left: 2px solid var(--line); }
-.ship-code .pane pre { max-height: none; }
+.page-title { font: 600 clamp(2.25rem, 6.4vw, 5.5rem)/1 var(--font-display); font-stretch: 112%; letter-spacing: -0.04em; max-width: 16ch; }
+.page > .section:first-child { gap: var(--space-5); }
+.ship-step { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: var(--space-4) var(--space-8); align-items: start; }
+.ship-step > .section-title, .ship-step > .lede { grid-column: 1; }
+.ship-step > .ship-code { grid-column: 2; grid-row: 1 / span 3; }
+.ship-step > .hint { grid-column: 1 / -1; }
+.ship-step .lede { font-size: 1.0625rem; }
+.ship-code { min-width: 0; }
+.ship-code pre { white-space: pre-wrap; overflow-wrap: break-word; margin: 0; padding: var(--space-4); }
+.ship-code .pane pre { max-height: none; font-size: 0.8125rem; }
+.ship-limits { display: grid; gap: var(--space-3); max-width: var(--measure); }
+.ship-limits li { padding: var(--space-1) 0 var(--space-1) var(--space-4); border-left: 2px solid var(--line); color: var(--body); }
+@media (max-width: 64rem) {
+  .ship-step { grid-template-columns: minmax(0, 1fr); }
+  .ship-step > .ship-code { grid-column: 1; grid-row: auto; }
+}
