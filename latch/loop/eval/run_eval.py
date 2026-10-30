@@ -2,6 +2,10 @@
 
     python3 -m latch.loop.eval.run_eval validate [--only ID ...]   check every case's ground truth (no model calls)
     python3 -m latch.loop.eval.run_eval run [--only ID ...] [--jobs 3] [--out latch/runs/eval-DATE.json]
+    python3 -m latch.loop.eval.run_eval summarize latch/runs/eval-DATE.json   rebuild latch/runs/eval-summary.json
+
+A finished `run` also copies each receipt to latch/runs/eval/<case>-<variant>.json and writes
+latch/runs/eval-summary.json (schema: latch/loop/eval/RESULTS.md). Nothing is written before a real run exists.
 
 Ground truth ("oracle") for each case is the upstream fix commit's own test files:
   - they must FAIL on the base, PASS on the real fix, and FAIL on the constructed wrong patch;
@@ -306,6 +310,9 @@ def run_one(case, variant, max_iterations, out_dir):
             "fix": [i.get("completion_id") for i in its],
         },
         triage_verdict=(receipt.get("triage") or {}).get("verdict"),
+        model_cost_usd=receipt.get("model_cost_usd"),
+        model_calls=len(receipt.get("model_calls") or []),
+        proof_test_rejections=sum(1 for a in receipt.get("proof_test_attempts") or [] if not a.get("valid")),
         proof_test_name=(receipt.get("proof_test") or {}).get("name"),
         receipt=str(receipt_path),
     )
@@ -374,7 +381,14 @@ def main(argv=None):
     r.add_argument("--max-iterations", type=int, default=3)
     r.add_argument("--out", default=None)
     r.add_argument("--skip-validate", action="store_true")
+    r.add_argument("--no-summary", action="store_true", help="do not write latch/runs/eval-summary.json")
+    sm = sub.add_parser("summarize", help="rebuild latch/runs/eval-summary.json from a finished eval-DATE.json")
+    sm.add_argument("eval_json")
     args = ap.parse_args(argv)
+    if args.cmd == "summarize":
+        doc = json.loads(Path(args.eval_json).read_text())
+        write_eval_summary(doc, doc.get("summary", {}).get("dropped_cases", []))
+        return 0
     cases = selected(args.only)
 
     valid, dropped, vdetails = [], [], {}
@@ -425,11 +439,44 @@ def main(argv=None):
         "elapsed_seconds": round(time.time() - t0, 1),
         "summary": summarize(rows, dropped + [dict(d, source="dropped before the run (record only)") for d in DROPPED]), "cases": case_meta, "runs": rows,
     }
+    publish_receipts(doc)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(doc["summary"], indent=2))
     print(f"wrote {out}", file=sys.stderr)
+    if not args.no_summary:
+        write_eval_summary(doc, dropped)
     return 0
+
+
+def publish_receipts(doc, dest=None):
+    """Copy each run's receipt to latch/runs/eval/<case>-<variant>.json and point the row at the copy (repo-relative)."""
+    dest = Path(dest or REPO_ROOT / "latch" / "runs" / "eval")
+    dest.mkdir(parents=True, exist_ok=True)
+    for row in doc["runs"]:
+        source = Path(row["receipt"]) if row.get("receipt") else None
+        if source and source.exists():
+            target = dest / f"{row['case']}-{row['variant']}.json"
+            shutil.copyfile(source, target)
+            row["receipt"] = str(target.relative_to(REPO_ROOT)) if target.is_relative_to(REPO_ROOT) else str(target)
+        else:
+            row["receipt"] = None
+
+
+def write_eval_summary(doc, dropped=(), path=None):
+    """latch/runs/eval-summary.json for latch-web. Only ever called with a finished run: never writes placeholders."""
+    from .summary import write_summary
+
+    def load(rel):
+        if not rel:
+            return None
+        file = Path(rel) if Path(rel).is_absolute() else REPO_ROOT / rel
+        return json.loads(file.read_text()) if file.exists() else None
+
+    path = Path(path or REPO_ROOT / "latch" / "runs" / "eval-summary.json")
+    summary = write_summary(path, doc, CASES, load, dropped=list(dropped) + list(DROPPED), root=REPO_ROOT)
+    print(f"wrote {path}", file=sys.stderr)
+    return summary
 
 
 if __name__ == "__main__":
