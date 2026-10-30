@@ -9,6 +9,22 @@
 .ship-code { min-width: 0; }
 .ship-code pre { white-space: pre-wrap; overflow-wrap: break-word; margin: 0; padding: var(--space-4); }
 .ship-code .pane pre { max-height: none; font-size: 0.8125rem; }
+.compare-lead { font: 600 clamp(1.5rem, 4vw, 2rem)/1.1 var(--font-display); font-stretch: 112%; color: var(--ink); letter-spacing: -0.02em; }
+.compare-lead .num { color: var(--accent); font: inherit; font-variant-numeric: tabular-nums; }
+.compare-cap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.compare-table td.ours { color: var(--ink); background: var(--surface); }
+.compare-table thead a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.compare-table thead a:hover { text-decoration-color: var(--accent); }
+.compare-table td, .compare-table tbody th { min-width: 9rem; font-size: 0.9375rem; }
+@media (max-width: 64rem) {
+  .compare-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .compare-table, .compare-table tbody, .compare-table tr, .compare-table th, .compare-table td { display: block; width: 100%; min-width: 0; }
+  .compare-table tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+  .compare-table tbody th { border: 0; padding: 0 0 var(--space-2); color: var(--ink); font-size: 1.0625rem; }
+  .compare-table td { border: 0; padding: var(--space-1) 0; }
+  .compare-table td::before { content: attr(data-label); display: block; color: var(--muted); font: 400 0.75rem/1.4 var(--font-mono); }
+  .compare-table td.ours { padding: var(--space-2) var(--space-3); border-radius: var(--radius); }
+}
 .ship-limits { display: grid; gap: var(--space-3); max-width: var(--measure); }
 .ship-limits li { padding: var(--space-1) 0 var(--space-1) var(--space-4); border-left: 2px solid var(--line); color: var(--body); }
 @media (max-width: 64rem) {
