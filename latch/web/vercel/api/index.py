@@ -16,4 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from latch.web.app import build_service, make_handler  # noqa: E402
 
-handler = make_handler(build_service(), trust_proxy=True)
+
+
+class handler(make_handler(build_service(), trust_proxy=True)):  # @vercel/python wants a top-level class named handler
+    pass

@@ -106,8 +106,10 @@ load_github_token() {
 
 # ---------------------------------------------------------------- vercel fallback
 deploy_vercel() {
-  need vercel
-  local stage; stage="$(mktemp -d)"
+  # VERCEL_CLI=vca runs as the vca profile that owns the repo (vca use aarav); bare `vercel` uses whatever login is the default
+  local cli="${VERCEL_CLI:-vca}"; need "$cli"
+  [ "$cli" != vca ] || say "Vercel profile: $(vca current)"
+  local stage; stage="$(mktemp -d)/latch"; mkdir -p "$stage"   # the directory name becomes the Vercel project name
   say "Staging a cached-receipts-only Vercel project in $stage"
   mkdir -p "$stage/latch"
   (cd "$REPO_ROOT" && shopt -s nullglob && tar --exclude='__pycache__' --exclude='.data' --exclude='test_*.py' \
@@ -116,9 +118,11 @@ deploy_vercel() {
     | tar -xf - -C "$stage"
   mkdir -p "$stage/api"
   cp "$REPO_ROOT/latch/web/vercel/api/index.py" "$stage/api/index.py"
-  printf '{ "rewrites": [ { "source": "/(.*)", "destination": "/api/index" } ] }\n' > "$stage/vercel.json"
+  # explicit build: zero-config detection skipped api/index.py (empty build, every route 404); includeFiles bundles the receipts and static
+  printf '%s\n' '{ "builds": [ { "src": "api/index.py", "use": "@vercel/python", "config": { "includeFiles": "latch/**" } } ],' \
+    '  "routes": [ { "src": "/(.*)", "dest": "/api/index.py" } ] }' > "$stage/vercel.json"
   say "Deploying (live runs are off on Vercel; the UI shows the cached receipts)"
-  (cd "$stage" && run vercel deploy --prod)
+  (cd "$stage" && run "$cli" deploy --prod --yes)
 }
 
 if [ "$CMD" = "vercel" ]; then deploy_vercel; exit 0; fi
