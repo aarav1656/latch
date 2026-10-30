@@ -187,7 +187,8 @@ class DevOutputTests(unittest.TestCase):
             self.assertIn(rule, ignore)
         self.assertIn("**", ignore)
         whitelist = [line for line in ignore if line.startswith("!latch/runs")]
-        self.assertEqual(sorted(whitelist), sorted(["!latch/runs/click-3298.json", "!latch/runs/loop-demo-events.jsonl", "!latch/runs/eval-summary.json", "!latch/runs/eval/**"]))
+        self.assertEqual(sorted(whitelist), sorted(["!latch/runs/click-3298.json", "!latch/runs/loop-demo-events.jsonl", "!latch/runs/eval-summary.json", "!latch/runs/eval/**",
+                                                   "!latch/runs/eval-summary-repair.json", "!latch/runs/eval-diff-repair.json", "!latch/runs/eval-repair/**"]))
         # the exclusions come after the whitelist, so they win
         self.assertGreater(ignore.index("latch/runs/dev"), max(ignore.index(line) for line in whitelist))
 
