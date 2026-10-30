@@ -1,0 +1,237 @@
+{
+  "run_id": "toolz602.wrong",
+  "provider": "openrouter",
+  "dev_only": true,
+  "note": "Dev-only run via OpenRouter free tier; not Nebius Token Factory numbers.",
+  "repo": "pytoolz/toolz@5a7e078c94 + constructed wrong patch",
+  "base": "b65632e0b18f5551ed1e08cc5f27e0c6ec1bb861",
+  "head": "ff1badd22a0995eeed91a687ebf694c8567dffa1",
+  "issue": "`partition_all` outputs padding tokens on sequences with inaccurate `__len__`\n\nThis is definitely an unusual edge case, but it really had me scratching my head for a little bit.\n\nI have a long-running process where I use [tqdm](https://tqdm.github.io) to display a progress bar. It works through an unknown number of items, but, at the start, I can estimate the total number, even though it might be slightly off. So I set tqdm\u2019s `total` argument to the estimated total. This causes tqdm to set its iterator\u2019s `__len__` to the estimated total. Then `partition_all` uses `__len__` as a shortcut to remove the padding tokens it adds to the batches. Since `__len__` isn\u2019t accurate, a bunch of padding tokens get left in the resulting output.\n\nHere\u2019s a really simplified example:\n\n```py\ndef make_n(n):\n    for i in range(n):\n        yield i\n\n# This has no __len__\nfive = make_n(5)\n\n# This has an incorrect __len__ of 7.\nprogress = tqdm(five, total=7)\n\nfor batch in toolz.partition_all(10, progress):\n    print(batch)\n\n# Prints: (0, 1, 2, 3, 4, '__no__pad__', '__no__pad__')\n```\n\nObviously those `'__no__pad__'` strings shouldn\u2019t be there.\n\nHere\u2019s the shortcut code that causes the problem by relying on `__len__`: https://github.com/pytoolz/toolz/blob/08f2604f599847272d801c7f0467451de59fa33a/toolz/itertoolz.py#L731-L736\n\nAgain, this is obviously a weird case (I can\u2019t think of many other situations where I\u2019d be dealing with an inaccurate `__len__`), but I\u2019m wondering if it could be solved for by checking to make sure `prev[len(seq) % n - 1] is not no_pad`. If that check fails, then you could fall back to the binary search that\u2019s used when `__len__` is not available.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--ignore=bench",
+    "--ignore=toolz/tests/test_package.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 2,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T07:57:18.985Z",
+  "proof_test": {
+    "name": "test_partition_all_inaccurate_len",
+    "source": "import pytest\n\ndef test_partition_all_inaccurate_len():\n    from toolz.itertoolz import partition_all, no_pad\n    \n    class InaccurateLenIterable:\n        def __init__(self, items, fake_len):\n            self.items = items\n            self.fake_len = fake_len\n        \n        def __iter__(self):\n            return iter(self.items)\n        \n        def __len__(self):\n            return self.fake_len\n    \n    # Test case 1: 5 items, fake len of 7, partition size 10\n    # Should yield (0, 1, 2, 3, 4) without padding\n    seq = InaccurateLenIterable(range(5), 7)\n    result = list(partition_all(10, seq))\n    assert result == [(0, 1, 2, 3, 4)], f\"Expected [(0, 1, 2, 3, 4)], got {result}\"\n    assert no_pad not in result[0], \"Padding token found in output\"\n    \n    # Test case 2: 5 items, fake len of 12, partition size 10\n    # Should yield (0, 1, 2, 3, 4) without padding\n    seq = InaccurateLenIterable(range(5), 12)\n    result = list(partition_all(10, seq))\n    assert result == [(0, 1, 2, 3, 4)], f\"Expected [(0, 1, 2, 3, 4)], got {result}\"\n    assert no_pad not in result[0], \"Padding token found in output\"\n    \n    # Test case 3: 15 items, fake len of 17, partition size 10\n    # Should yield (0..9), (10..14) without padding\n    seq = InaccurateLenIterable(range(15), 17)\n    result = list(partition_all(10, seq))\n    assert result == [tuple(range(10)), tuple(range(10, 15))], f\"Unexpected result: {result}\"\n    for batch in result:\n        assert no_pad not in batch, \"Padding token found in output\"\n    \n    # Test case 4: Exact multiple with inaccurate len\n    # 10 items, fake len of 12, partition size 5\n    # Should yield (0..4), (5..9) without padding\n    seq = InaccurateLenIterable(range(10), 12)\n    result = list(partition_all(5, seq))\n    assert result == [tuple(range(5)), tuple(range(5, 10))], f\"Unexpected result: {result}\"\n    for batch in result:\n        assert no_pad not in batch, \"Padding token found in output\"\n    \n    # Test case 5: Empty sequence with fake len\n    seq = InaccurateLenIterable([], 5)\n    result = list(partition_all(10, seq))\n    assert result == [], f\"Expected [], got {result}\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "gen-1793347074-zy4HyuLmC2ZJGXRVicJK"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_partition_all_inaccurate_len ___________________________________________________________________________________\nlatch_issue_test.py:21: in test_partition_all_inaccurate_len\n    assert result == [(0, 1, 2, 3, 4)], f\"Expected [(0, 1, 2, 3, 4)], got {result}\"\nE   AssertionError: Expected [(0, 1, 2, 3, 4)], got [(0, 1, 2, 3, 4, '__no__pad__', '__no__pad__')]\nE   assert [(0, 1, 2, 3,..._pad__', ...)] == [(0, 1, 2, 3, 4)]\nE     \nE     At index 0 diff: (0, 1, 2, 3, 4, '__no__pad__', '__no__pad__') != (0, 1, 2, 3, 4)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_inaccurate_len - AssertionError: Expected [(0, 1, 2, 3, 4)], got [(0, 1, 2, 3, 4, '__no__pad__', '__no__pad__')]\n1 failed in 0.18s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_partition_all_inaccurate_len ___________________________________________________________________________________\nlatch_issue_test.py:20: in test_partition_all_inaccurate_len\n    result = list(partition_all(10, seq))\ntoolz/itertoolz.py:737: in partition_all\n    raise LookupError('The sequence passed to `partition_all` has invalid length')\nE   LookupError: The sequence passed to `partition_all` has invalid length\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_inaccurate_len - LookupError: The sequence passed to `partition_all` has invalid length\n1 failed in 0.18s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".........................................................................................................................................................................................        [100%]\n185 passed in 1.01s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": null
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+  "repo_map": {
+    "status": "ok",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "gen-1793347039-zxYoU89AfHApFfAAMTrI",
+    "files": [
+      {
+        "path": "toolz/itertoolz.py",
+        "symbols": [
+          "partition_all"
+        ],
+        "changed": true
+      }
+    ],
+    "dropped": [],
+    "text": "toolz/itertoolz.py  (touched by the submitted diff)\n  def partition_all(n, seq)  L708  - Partition all elements of sequence into tuples of length at most n",
+    "files_indexed": 11
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "gen-1793347074-zy4HyuLmC2ZJGXRVicJK",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_partition_all_inaccurate_len():\n    from toolz.itertoolz import partition_all, no_pad\n    \n    class InaccurateLenIterable:\n        def __init__(self, items, fake_len):\n            self.items = items\n            self.fake_len = fake_len\n        \n        def __iter__(self):\n            return iter(self.items)\n        \n        def __len__(self):\n            return self.fake_len\n    \n    # Test case 1: 5 items, fake len of 7, partition size 10\n    # Should yield (0, 1, 2, 3, 4) without padding\n    seq = InaccurateLenIterable(range(5), 7)\n    result = list(partition_all(10, seq))\n    assert result == [(0, 1, 2, 3, 4)], f\"Expected [(0, 1, 2, 3, 4)], got {result}\"\n    assert no_pad not in result[0], \"Padding token found in output\"\n    \n    # Test case 2: 5 items, fake len of 12, partition size 10\n    # Should yield (0, 1, 2, 3, 4) without padding\n    seq = InaccurateLenIterable(range(5), 12)\n    result = list(partition_all(10, seq))\n    assert result == [(0, 1, 2, 3, 4)], f\"Expected [(0, 1, 2, 3, 4)], got {result}\"\n    assert no_pad not in result[0], \"Padding token found in output\"\n    \n    # Test case 3: 15 items, fake len of 17, partition size 10\n    # Should yield (0..9), (10..14) without padding\n    seq = InaccurateLenIterable(range(15), 17)\n    result = list(partition_all(10, seq))\n    assert result == [tuple(range(10)), tuple(range(10, 15))], f\"Unexpected result: {result}\"\n    for batch in result:\n        assert no_pad not in batch, \"Padding token found in output\"\n    \n    # Test case 4: Exact multiple with inaccurate len\n    # 10 items, fake len of 12, partition size 5\n    # Should yield (0..4), (5..9) without padding\n    seq = InaccurateLenIterable(range(10), 12)\n    result = list(partition_all(5, seq))\n    assert result == [tuple(range(5)), tuple(range(5, 10))], f\"Unexpected result: {result}\"\n    for batch in result:\n        assert no_pad not in batch, \"Padding token found in output\"\n    \n    # Test case 5: Empty sequence with fake len\n    seq = InaccurateLenIterable([], 5)\n    result = list(partition_all(10, seq))\n    assert result == [], f\"Expected [], got {result}\"",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: toolz/._itertoolz.py: cannot parse the changed file: source code string cannot contain null bytes",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: toolz/._itertoolz.py: cannot parse the changed file: source code string cannot contain null bytes",
+    "affected_symbols": []
+  },
+  "finished_at": "2026-10-30T07:58:14.542Z",
+  "verdict_reason": "the proof test errored on head (collection, import or runtime error) instead of failing an assertion (LookupError: The sequence passed to `partition_all` has invalid length)",
+  "proven": false,
+  "base_sha": "b65632e0b18f5551ed1e08cc5f27e0c6ec1bb861",
+  "head_sha": "ff1badd22a0995eeed91a687ebf694c8567dffa1",
+  "verdict_logs": {
+    "base": "test.py:21: in test_partition_all_inaccurate_len\n    assert result == [(0, 1, 2, 3, 4)], f\"Expected [(0, 1, 2, 3, 4)], got {result}\"\nE   AssertionError: Expected [(0, 1, 2, 3, 4)], got [(0, 1, 2, 3, 4, '__no__pad__', '__no__pad__')]\nE   assert [(0, 1, 2, 3,..._pad__', ...)] == [(0, 1, 2, 3, 4)]\nE     \nE     At index 0 diff: (0, 1, 2, 3, 4, '__no__pad__', '__no__pad__') != (0, 1, 2, 3, 4)\nE     Use -v to get more diff\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_inaccurate_len - AssertionError: Expected [(0, 1, 2, 3, 4)], got [(0, 1, 2, 3, 4, '__no__pad__', '__no__pad__')]\n1 failed in 0.18s\n",
+    "head": "_________________________ test_partition_all_inaccurate_len ___________________________________________________________________________________\nlatch_issue_test.py:20: in test_partition_all_inaccurate_len\n    result = list(partition_all(10, seq))\ntoolz/itertoolz.py:737: in partition_all\n    raise LookupError('The sequence passed to `partition_all` has invalid length')\nE   LookupError: The sequence passed to `partition_all` has invalid length\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_partition_all_inaccurate_len - LookupError: The sequence passed to `partition_all` has invalid length\n1 failed in 0.18s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "prompt_tokens": 1216,
+      "completion_tokens": 3137,
+      "latency_ms": 34234,
+      "completion_id": "gen-1793347039-zxYoU89AfHApFfAAMTrI",
+      "cost_usd": null,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "prompt_tokens": 1380,
+      "completion_tokens": 993,
+      "latency_ms": 18722,
+      "completion_id": "gen-1793347074-zy4HyuLmC2ZJGXRVicJK",
+      "cost_usd": null,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": null,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T07:57:18.986Z",
+      "detail": {
+        "base": "b65632e0b18f5551ed1e08cc5f27e0c6ec1bb861",
+        "head": "ff1badd22a0995eeed91a687ebf694c8567dffa1"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T07:57:19.482Z",
+      "detail": {
+        "base": "b65632e0b18f",
+        "head": "ff1badd22a09",
+        "changed_files": [
+          "toolz/._itertoolz.py",
+          "toolz/itertoolz.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T07:57:19.549Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "done",
+      "ts": "2026-10-30T07:57:53.823Z",
+      "detail": {
+        "files": [
+          "toolz/itertoolz.py"
+        ],
+        "dropped": [],
+        "detail": null
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T07:57:53.823Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T07:58:12.548Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "gen-1793347074-zy4HyuLmC2ZJGXRVicJK"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T07:58:12.548Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T07:58:12.956Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T07:58:12.956Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T07:58:14.542Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T07:58:14.542Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on head (collection, import or runtime error) instead of failing an assertion (LookupError: The sequence passed to `partition_all` has invalid length)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}
