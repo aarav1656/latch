@@ -490,5 +490,53 @@ class CliTests(unittest.TestCase):
         self.assertTrue(all(l["run_id"] == "t1" for l in lines))
 
 
+class TimelineTests(unittest.TestCase):
+    """The human timeline is driven by the same events the JSONL carries."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo, self.base, self.head = make_repo(self._tmp.name)
+
+    def timeline(self, **kw):
+        from latch.loop.human import Timeline, submitted_diff
+        out = io.StringIO()
+        return out, Timeline(out, color=kw.pop("color", False), diff_text=submitted_diff(self.repo, self.base, self.head), **kw)
+
+    def test_gate_shut_triage_patch_gate_open_in_order(self):
+        out, tl = self.timeline()
+        run_loop(self.repo, self.base, self.head, ISSUE, on_event=tl, model_fn=Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        text = out.getvalue()
+        order = ["Issue: Back-to-back bookings", "Submitted change:", "Proof test frozen", "GATE SHUT", "Lightning triage: reproduced",
+                 "Ultra writes a patch (iteration 1)", "+        if merged and start < merged[-1][1]:", "pass: ", "GATE OPEN"]
+        positions = [text.find(item) for item in order]
+        self.assertNotIn(-1, positions, text)
+        self.assertEqual(positions, sorted(positions), text)
+        self.assertIn("repo_map", text)
+        self.assertIn("cmpl-fix-3", text)
+        self.assertNotIn("\x1b[", text)
+
+    def test_color_and_gave_up(self):
+        out, tl = self.timeline(color=True)
+        run_loop(self.repo, self.base, self.head, ISSUE, on_event=tl, model_fn=Stub(fixes=["no idea"]), max_iterations=1)
+        text = out.getvalue()
+        self.assertIn("\x1b[31m", text)
+        self.assertNotIn("GATE OPEN", text)
+        self.assertIn("GATE SHUT", text)
+
+    def test_cli_human_flag_prints_timeline_and_jsonl_flag_prints_json(self):
+        saved = core.load_key
+        core.load_key = lambda: None
+        try:
+            for flag, expect_json in (("--human", False), ("--jsonl", True)):
+                out = io.StringIO()
+                with redirect_stdout(out), redirect_stderr(io.StringIO()):
+                    self.assertEqual(cli_main(["demo", flag, "--no-color"]), 2)
+                first = out.getvalue().splitlines()[0]
+                self.assertEqual(first.startswith("{"), expect_json, first)
+        finally:
+            core.load_key = saved
+
+
 if __name__ == "__main__":
     unittest.main()
