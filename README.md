@@ -26,6 +26,25 @@ Live: [latch-mauve.vercel.app](https://latch-mauve.vercel.app) serves the record
 
 For context on a different benchmark with a looser pass condition (fail-to-pass only): Otter 31.4% ([arXiv 2502.05368](https://arxiv.org/abs/2502.05368)), AssertFlip 43.6% ([arXiv 2507.17542](https://arxiv.org/abs/2507.17542)).
 
+## How Latch compares
+
+**0 of 9 wrong patches accepted.** Latch is the entry that measures the number a merge gate lives on: how often it opens for a patch that is wrong. Otter and AssertFlip report only fail-to-pass, whether a test fails before the gold fix and passes after. Latch also reports the other side, nine plausible-but-wrong patches, none of which opened the gate, 6 of 9 failed by a valid proof test.
+
+| | **Latch** | CodeRabbit | qodo-cover / Qodo Merge | AegisPR | Slopgate | Otter / AssertFlip |
+|---|---|---|---|---|---|---|
+| What it proves | A pull request's fix changes the behaviour its issue describes, by execution | Not stated (AI review comments; the Team plan generates unit tests) | Generated tests pass and raise coverage | The outcome of one proposed test on the base and PR commits | A slop rewrite keeps behaviour, via characterization tests | A generated test fails before the gold fix and passes after |
+| Test anchored to the issue | Yes, the linked issue is the oracle | Not stated | Not stated (coverage-driven) | Not stated (risk hypotheses from the code change) | No (characterizes the original code) | Yes (Otter: tests from issues; AssertFlip: bug reproduction) |
+| Red on base and green on fix, executed | Yes | Not stated | Not stated (new tests must pass; coverage must rise) | Yes, in Docker sandboxes; evidence from one seeded PR | Tests pass on original and rewrite, in Token Factory Sandboxes | Yes, fail-to-pass |
+| Revert check | Yes | Not stated | Not stated | Not stated | Not stated | Not stated |
+| Mutation check | Yes, 28 of 31 mutants killed | Not stated | Not stated | Not stated in the evidence run | Yes, up to 8 boundary mutants per function | Not stated |
+| Wrong-patch acceptance measured | **0 of 9** | Not stated | Not stated | Not stated | Not stated (0 of 14 proven rewrites broke a hidden test) | Not stated (fail-to-pass only) |
+| Cost per run | Median $0.018; **$0.22 per proven fix** | Not stated | Not stated (credits at $0.012 each) | $0.00145 for one run (app estimate) | $1.16 for 15 instances; $0.08 per proven rewrite | Not stated |
+| Price | Your own model credit, no seat fee | $24 per user a month annual (Essentials); Team $48 annual | $30 a month Pro Team plan (qodo-cover is AGPL-3.0) | MIT, free | Not stated | Papers |
+
+Latch's cells come from `latch/runs/eval-summary-repair.json` and the Results table above. Cost per proven fix is `benchmark.cost_usd / real_validated.k`, which is $2.2239 across all 42 runs divided by 10 proven real fixes, so the figure carries the spend on wrong patches and unproven runs too. Slopgate's per proven rewrite is its published $1.16 divided by its 14 proven fixes.
+
+The Otter (31.4%) and AssertFlip (43.6%) numbers are on a different benchmark, with a looser pass condition and different instances, so they are context and not a head-to-head score. Competitor cells are read from their own pages ([CodeRabbit pricing](https://www.coderabbit.ai/pricing), [qodo-cover](https://github.com/qodo-ai/qodo-cover) and [Qodo pricing](https://www.qodo.ai/pricing/), [AegisPR](https://github.com/Hari-Aditya-003/AegisPR), [Slopgate](https://github.com/agno-nymous/slopgate), [Otter](https://arxiv.org/abs/2502.05368), [AssertFlip](https://arxiv.org/abs/2507.17542)); "Not stated" means that page does not say.
+
 ## The problem, in the words of people hitting it
 
 - "All 12 tests passed. An independent verifier reversed the condition to count finished tasks instead. All 12 still passed." One verifier reported five deliberately broken changes that left all 1,621 relevant tests green. [@NatureBlueee](https://x.com/NatureBlueee/status/2115186551407944177)

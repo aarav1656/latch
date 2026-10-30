@@ -1069,6 +1069,18 @@ class PageRouteTests(unittest.TestCase):
         for needle in ("latch prove", "latch comment", "NEBIUS_API_KEY", "aarav1656/latch/.github/actions/latch", "GITHUB_TOKEN"):
             self.assertIn(needle, ship)
 
+    def test_ship_page_has_comparison_section_linking_every_competitor_source(self):
+        ship = Harness(self).request("GET", "/ship")[2].decode()
+        self.assertIn('id="compare-title"', ship)
+        self.assertIn("0 of 9", ship)
+        for url in ("https://www.coderabbit.ai/pricing", "https://github.com/qodo-ai/qodo-cover",
+                    "https://www.qodo.ai/pricing/", "https://github.com/Hari-Aditya-003/AegisPR",
+                    "https://github.com/agno-nymous/slopgate", "https://arxiv.org/abs/2502.05368",
+                    "https://arxiv.org/abs/2507.17542"):
+            self.assertIn(f'href="{url}"', ship)
+        self.assertEqual(ship.count("<tbody>"), 1)
+        self.assertEqual(ship.split("<tbody>")[1].split("</tbody>")[0].count("<tr>"), 8)
+
     def test_ship_page_workflow_matches_the_shipped_example(self):
         example = (web.REPO_ROOT / "latch/loop/github/latch.yml")
         if not example.is_file():
