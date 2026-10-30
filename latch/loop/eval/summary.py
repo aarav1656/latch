@@ -11,7 +11,9 @@ import json
 import statistics
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+from . import bench, compare
+
+SCHEMA_VERSION = 2  # v2 is additive over v1; the one exception: cases[].verdict is now the named verdict (v1 loop verdict -> cases[].loop_verdict)
 CONTESTED = ("cachetools-423", "click-3360")  # the second reviewer called the wrong patch "equivalent"; I do not; both reported
 CONTESTED_NOTE = ("A second reviewer (codex) judged the constructed wrong patches for these cases semantically equivalent "
                   "to the real fix; I judge them wrong. Both counts are reported, with and without them.")
@@ -49,7 +51,8 @@ def _relative(path, root):
         return str(path)
 
 
-def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), generated_at=None, root="."):
+def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), generated_at=None, root=".", oracle=None, manifest=None,
+                  mode="live", latch_git_sha=None):
     runs = {(r["case"], r["variant"]): r for r in doc["runs"]}
     dropped_by_id = {}
     for d in dropped:
@@ -67,14 +70,16 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
             if run is None:
                 why = ("dropped before the run: " + dropped_by_id[case["id"]]) if case["id"] in dropped_by_id else \
                     "this case did not run in this evaluation (it is listed so the omission is visible)"
-                rows.append({**base, "status": "not run", "outcome": None, "reason": why})
+                rows.append({**base, "status": "not run", "outcome": None, "reason": why, "verdict": None, "verdict_reason": None,
+                             "loop_verdict": None, "flaky": None, "mutation": None})
                 continue
             receipt = load_receipt(run.get("receipt")) or {}
-            row = {**base, "status": "ran", "label": run.get("label"), "outcome": run["outcome"], "verdict": run.get("verdict"),
+            row = {**base, "status": "ran", "label": run.get("label"), "outcome": run["outcome"], "loop_verdict": run.get("verdict"),
                    "reason": run.get("reason"), "wall_s": run.get("wall_seconds"), "cost_usd": receipt.get("model_cost_usd", run.get("model_cost_usd")),
                    "iterations_used": run.get("iterations_used"), "gate_open_at_iteration_0": run.get("gate_open_at_iteration_0"),
                    "completion_ids": run.get("completion_ids"), "receipt": _relative(run.get("receipt"), root),
                    "links": next((m.get("links") for m in doc.get("cases", []) if m["id"] == case["id"]), None)}
+            row.update(bench.case_metrics(variant, run, receipt))
             rows.append(row)
             for attempt in receipt.get("proof_test_attempts") or []:
                 if not attempt.get("valid"):
@@ -120,7 +125,7 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
                                         "oracle_pass": sum(1 for r in wrong if r["outcome"] == "repaired")}}
 
     featured, featured_note = None, None
-    shut = [r for r in wrong if r.get("verdict") == "gave_up" and r["receipt"]]
+    shut = [r for r in wrong if r.get("loop_verdict") == "gave_up" and r["receipt"]]
     if shut:
         featured = shut[0]["receipt"]
         featured_note = "NOT PROVEN: the gate stayed shut on a wrong patch"
@@ -138,8 +143,19 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
                   f"against Otter's 31.4% (TDD-Bench-Verified) and AssertFlip's 43.6% (SWT-Bench-Verified) fail-to-pass rates, "
                   f"but with only {len(real_all)} cases, on different benchmarks and a different pass condition (proof test plus repo suite "
                   f"plus revert check), so treat it as a small-sample indication, not a like-for-like comparison.")
+    benchmark = bench.totals(rows)
     return {
         "schema_version": SCHEMA_VERSION,
+        "mode": mode,  # "live" (real model calls) or "dry-run" (fixture receipts, spends nothing; never a result)
+        "fixture": mode != "live",
+        "latch_git_sha": latch_git_sha,
+        "verdicts": bench.verdict_counts(rows),
+        "flaky": bench.flaky_totals(rows),
+        "benchmark": benchmark,
+        "slopgate_comparison": {"slopgate": compare.SLOPGATE, "latch": compare.latch_side(benchmark, rows),
+                                "caveat": compare.DIFFERENT_TASKS},
+        "oracle_baseline": oracle,
+        "manifest": manifest,
         "generated_at": generated_at or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_run": doc.get("date"), "models": doc.get("models"), "max_iterations": doc.get("max_iterations"),
         "suites": suites,
@@ -156,6 +172,7 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
         "not_run": [{"case": r["case"], "variant": r["variant"], "reason": r["reason"]} for r in rows if r["status"] == "not run"]
                    + [{"case": i, "variant": None, "reason": "dropped before the run: " + why}
                       for i, why in dropped_by_id.items() if i not in case_ids],
+        "dropped_cases": [{"id": i, "reason": why} for i, why in dropped_by_id.items()],
         "baselines": BASELINES,
         "comparison": comparison,
         "caveat": CAVEAT,
@@ -165,8 +182,24 @@ def build_summary(doc, cases, load_receipt=lambda path: None, dropped=(), genera
     }
 
 
-def write_summary(path, doc, cases, load_receipt, dropped=(), root="."):
-    summary = build_summary(doc, cases, load_receipt, dropped, root=root)
+def write_summary(path, doc, cases, load_receipt, dropped=(), root=".", **kwargs):
+    summary = build_summary(doc, cases, load_receipt, dropped, root=root, **kwargs)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return summary
+
+
+def extras(root):
+    """oracle baseline, compact manifest and the Latch git SHA, each only if it exists: {oracle, manifest, latch_git_sha}."""
+    root = Path(root)
+    oracle_file = root / "latch" / "runs" / "eval-oracle-baseline.json"
+    oracle = json.loads(oracle_file.read_text()) if oracle_file.exists() else None
+    manifest_file = root / "latch" / "loop" / "eval" / "manifest.json"
+    manifest = None
+    if manifest_file.exists():
+        m = json.loads(manifest_file.read_text())
+        manifest = {"path": "latch/loop/eval/manifest.json", "models": m.get("models"), "latch": m.get("latch"),
+                    "prompts": [{"role": p["role"], "path": p["path"], "sha256": p["sha256"]} for p in m.get("prompts", [])],
+                    "dataset": {k: (m.get("dataset") or {}).get(k) for k in ("name", "revision", "n_instances")}}
+    from .manifest import latch_git
+    return {"oracle": oracle, "manifest": manifest, "latch_git_sha": latch_git(root).get("sha")}

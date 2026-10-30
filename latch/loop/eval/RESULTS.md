@@ -5,6 +5,14 @@
 exist yet and will only be written by a real run. This file currently documents the method and the output schema;
 the results section is added after the run.
 
+The one measured thing so far is the **oracle baseline (no model)**: the human-written upstream tests, run for real with git and
+pytest, $0, no Token Factory call. Over the 21 kept cases the upstream tests fail on base for 21/21, pass on the real fix for
+21/21, and reject the constructed wrong patch for 9/9 upstream cases (total 185 s wall with 3 jobs; `latch/runs/eval-oracle-baseline.json`,
+`.md`). That is the answer key the gate is judged against, not a Latch result: the cases were selected for this property (3 were
+dropped before any run: cachetools-221, boltons-4457decc, boltons-8177b933), so the oracle separates real from wrong by construction.
+Nemotron numbers stay "not run" until credit returns. Run `latch eval run --dry-run` to exercise the whole pipeline on stubbed
+output (clearly labelled, never written to `latch/runs/eval-summary.json`).
+
 ## What is measured
 
 Two suites, one gate (`latch.loop`): a model-written proof test must fail on the base commit with an assertion, pass on
@@ -32,7 +40,7 @@ map and does reproduction triage.
 
 Not like-for-like: different benchmarks, and Latch's "proven" additionally needs a green repo suite and a revert check.
 
-## `latch/runs/eval-summary.json` schema (version 1)
+## `latch/runs/eval-summary.json` schema (version 1; see version 2 below)
 
 Written by `python3 -m latch.loop.eval.run_eval run ...` (or rebuilt with `... run_eval summarize latch/runs/eval-DATE.json`).
 Per-case receipts are copied to `latch/runs/eval/<case>-<variant>.json` (`variant` is `real`, `wrong` or `nofix`). Every path
@@ -94,3 +102,57 @@ in the file is relative to the repo root. A value that is unknown is `null`, nev
 ```
 
 Receipts contain `model_calls[]` (role, model, tokens, latency, completion id, cost), `steps[]`, `revert_check` and the repo map.
+
+## Schema version 2 (additive over version 1)
+
+`schema_version` is 2. Every v1 key above is still written with the same meaning, with **one exception**: `cases[].verdict` is now the
+Latch *named verdict* (one of `INVALID_TEST`, `FLAKY`, `NO_REGRESSION_FOUND`, `FIX_FAILS_TEST`, `MUTATION_SURVIVED`, `VALIDATED`; see
+`latch/verdict.py`); the v1 loop verdict (`gate_open|gave_up|error`) moved to `cases[].loop_verdict`. The named verdict is the verdict of
+the change as submitted (iteration 0, before any repair), so a wrong patch reads `FIX_FAILS_TEST` and a repaired one is still shown by
+`outcome`. If a receipt has no named verdict, the harness derives it with `decide_verdict` from the receipt's own evidence
+(`verdict_source: "derived"`); a receipt that carries one is used as is (`"receipt"`).
+
+New per-case keys (`null` when unknown, never `0`): `verdict_reason`, `verdict_source`, `flaky` (the receipt's `flaky` dict:
+`{ran, runs, base_fail_rate, head_pass_rate, flake_rate, flaky, outcomes, note}`), `mutation {killed, total, kill_rate}` and
+`mutation_source`, `fail_on_base`, `pass_on_head`, `fail_to_pass`, `suite_green_on_head`, `wrong_patch_rejected`, `prompt_tokens`,
+`completion_tokens`, `model_calls`, `tokens_by_role`, `loop_verdict`. `cost_usd` and `wall_s` come from receipt `model_calls` and the run.
+
+New top-level keys:
+
+```jsonc
+{
+  "verdicts": {"INVALID_TEST": 0, "FLAKY": 0, "NO_REGRESSION_FOUND": 0, "FIX_FAILS_TEST": 0, "MUTATION_SURVIVED": 0, "VALIDATED": 0},
+  "flaky": {"n_cases_checked": 0, "n_flaky": 0, "median_flake_rate": null},   // runs whose receipt has flaky.ran
+  "mode": "live|dry-run", "fixture": false,    // dry-run = stubbed output, never a result; written only under latch/runs/eval-dryrun/
+  "latch_git_sha": "", "dropped_cases": [{"id": "", "reason": ""}],
+  "benchmark": {"runs": 0, "real_validated": {"k": 0, "n": 0, "rate": null}, "real_fail_on_base": {}, "real_fail_to_pass": {},
+                "wrong_patch_rejection": {"k": 0, "n": 0, "rate": null, "without_contested": {}}, "nofix_gate_open": {},
+                "gate_accepted_but_oracle_fails": {"n": 0, "cases": []}, "mutation": {"pooled_kill_rate": null},
+                "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0, "wall_s": {"total": 0.0, "median": 0.0}},
+  "slopgate_comparison": {"slopgate": {...}, "latch": {...}, "caveat": "..."},   // Slopgate's numbers as its repo states them, with links
+  "oracle_baseline": null,                     // embeds latch/runs/eval-oracle-baseline.json when present
+  "manifest": null                             // compact view of latch/loop/eval/manifest.json when present
+}
+```
+
+### Slopgate comparison
+
+Slopgate (https://github.com/agno-nymous/slopgate; results https://github.com/agno-nymous/slopgate/blob/main/bench/results/swebench/swebench.md,
+run 2026-10-25) injects slop into 15 SWE-bench Lite instances, flags 41 of 45 items (91%), proves a one-click fix for 14 of the 41 (34%),
+broke 0 hidden tests and cost $1.16. Latch's table is parallel in shape (dataset, items, flagged, proven, broke a hidden test, cost) but
+not in meaning: Slopgate proves a slop rewrite keeps behavior, Latch proves a PR's fix is correct. Mapping: flagged is wrong patches
+rejected, proven is real fixes `VALIDATED`, broke a hidden test is gate-accepted patches the oracle rejects. Slopgate was not re-run.
+
+### Commands
+
+```
+latch eval run --dry-run                 # stubbed model output, spends nothing; writes latch/runs/eval-dryrun/ (git-ignored)
+latch eval oracle                        # oracle baseline (no model), real git + pytest, $0
+latch eval manifest --write | --check    # pin models, prompt hashes, dataset revision, repo SHAs, Latch SHA
+latch eval report [--summary F] [--out F]
+# LIVE (spends Token Factory credit; do not run without it):
+LATCH_EVAL_ROOT=/Volumes/PortableSSD/nvdia/loop latch eval run --jobs 3 --max-iterations 3
+```
+
+A live run writes `latch/runs/eval-DATE.json`, `latch/runs/eval/<case>-<variant>.json`, `latch/runs/eval-summary.json` and
+`latch/runs/eval-report.md`. `latch eval summarize latch/runs/eval-DATE.json` rebuilds the last two.

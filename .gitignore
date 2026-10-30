@@ -6,3 +6,4 @@ mitm_mcp_traffic.db
 .progress/
 build/
 *.egg-info/
+latch/runs/eval-dryrun/

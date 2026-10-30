@@ -46,6 +46,14 @@ def build(**kw):
 
 
 class SummaryTests(unittest.TestCase):
+    def test_schema_2_keeps_the_loop_verdict_under_loop_verdict(self):
+        out = build()
+        self.assertEqual(out["schema_version"], 2)
+        by = {(c["case"], c["variant"]): c for c in out["cases"]}
+        self.assertEqual(by[("up-b", "real")]["loop_verdict"], "gave_up")
+        self.assertIn(by[("up-a", "real")]["verdict"], (None, *__import__("latch.verdict", fromlist=["VERDICTS"]).VERDICTS))
+        self.assertEqual(set(out["verdicts"]), set(__import__("latch.verdict", fromlist=["VERDICTS"]).VERDICTS))
+
     def test_suites_are_split_with_counts_and_rates(self):
         s = build()["suites"]
         self.assertEqual({k: s["upstream"][k] for k in ("n", "proven", "errors", "not_run")}, {"n": 4, "proven": 2, "errors": 1, "not_run": 1})

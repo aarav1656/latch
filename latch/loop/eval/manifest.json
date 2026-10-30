@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-30T05:19:37Z",
+  "latch": {
+    "sha": "4c3b87f59f81edc0d5f00b59b0d0060f2320688d",
+    "dirty": true
+  },
+  "models": {
+    "proof_test_and_fix": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "triage_and_repo_map": "nvidia/Nemotron-3_5-Lightning",
+    "endpoint": "Nebius Token Factory (OpenAI-compatible)"
+  },
+  "prompts": [
+    {
+      "role": "proof_test_writer",
+      "constant": "TEST_SYSTEM",
+      "path": "latch/loop/core.py",
+      "sha256": "bc6603e4e32653d21f2d6d0e9c605192a6bacc2fc3fc8f1ce65fd57e1a6dab78",
+      "chars": 204
+    },
+    {
+      "role": "fixer",
+      "constant": "FIX_SYSTEM",
+      "path": "latch/loop/core.py",
+      "sha256": "fa7b7053e2cbd39ba3f4327b1ce81609452d4f435dc48f76fa46c953d1e59315",
+      "chars": 445
+    },
+    {
+      "role": "triage",
+      "constant": "TRIAGE_SYSTEM",
+      "path": "latch/prove.py",
+      "sha256": "a80910715accb642ea03c1aa7f577778ae8fce6161e4d5f0b18267d7a45523ac",
+      "chars": 109
+    },
+    {
+      "role": "repo_map",
+      "constant": "REPO_MAP_SYSTEM",
+      "path": "latch/repomap.py",
+      "sha256": "1c80c2f27f2b2c76e2a344d6a203a325f3271ab75043f8a31c82edbbff33e4b9",
+      "chars": 378
+    },
+    {
+      "role": "lightning_system",
+      "constant": "LIGHTNING_SYSTEM",
+      "path": "latch/run.py",
+      "sha256": "aac81294243fce5b05ada6d0bfc7bda4a88342e2d2fbf604620e25f41e5bb6a1",
+      "chars": 86
+    }
+  ],
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Lite",
+    "url": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite",
+    "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+    "revision_note": null,
+    "instance_ids": [
+      "sympy__sympy-20590",
+      "sympy__sympy-21055",
+      "sympy__sympy-21612",
+      "sympy__sympy-21614",
+      "sympy__sympy-21627",
+      "sympy__sympy-21847",
+      "sympy__sympy-22005",
+      "sympy__sympy-22714",
+      "sympy__sympy-23262",
+      "sympy__sympy-24066",
+      "sympy__sympy-24213",
+      "sympy__sympy-24909"
+    ],
+    "n_instances": 12
+  },
+  "cases": [
+    {
+      "id": "cachetools-423",
+      "repo": "tkem/cachetools",
+      "suite": "upstream",
+      "base_sha": "eadb91cc9d54a57d6738386bc5c575ff3c7d22ec",
+      "fix_sha": "bcf9e8176ebe16da58751fce971c98ffe045ede1"
+    },
+    {
+      "id": "boltons-319",
+      "repo": "mahmoud/boltons",
+      "suite": "upstream",
+      "base_sha": "6c7fa3e05659fac6515f661153c89d4ad02df168",
+      "fix_sha": "8ba3a7fa0d99b73f7f43c1aed82c571b941eecea"
+    },
+    {
+      "id": "tabulate-180",
+      "repo": "astanin/python-tabulate",
+      "suite": "upstream",
+      "base_sha": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+      "fix_sha": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c"
+    },
+    {
+      "id": "tabulate-190",
+      "repo": "astanin/python-tabulate",
+      "suite": "upstream",
+      "base_sha": "bf58e37e6b35e3cc9a0bd740f752abfd32b6e6f8",
+      "fix_sha": "6c48142c0b57ea6108cb1d304b69b90b18748e45"
+    },
+    {
+      "id": "toolz-602",
+      "repo": "pytoolz/toolz",
+      "suite": "upstream",
+      "base_sha": "1fb2b9f1b69ab664a264944f4eafc290acce127d",
+      "fix_sha": "5a7e078c941c990dcaca53ac6920e5d5c0b1475f"
+    },
+    {
+      "id": "packaging-810",
+      "repo": "pypa/packaging",
+      "suite": "upstream",
+      "base_sha": "65ed5e92673aaabbfbeafa9b70463ba41bbae9db",
+      "fix_sha": "16f558722612e8ad637c37f11464d5de62c8bb33"
+    },
+    {
+      "id": "more-itertools-409",
+      "repo": "more-itertools/more-itertools",
+      "suite": "upstream",
+      "base_sha": "c0465331cbc0d882cd7dce5c0bd19aaf46dfb968",
+      "fix_sha": "62411c1618493f94b16901746c34e72ad415061e"
+    },
+    {
+      "id": "click-3360",
+      "repo": "pallets/click",
+      "suite": "upstream",
+      "base_sha": "7c99ebe23b931f27562d926814423cce85fd9766",
+      "fix_sha": "0551bf53588ae87f462d336f24f853a156fefe3a"
+    },
+    {
+      "id": "click-3019",
+      "repo": "pallets/click",
+      "suite": "upstream",
+      "base_sha": "a8b41c077b225c30921a78190507a463a20ebb1b",
+      "fix_sha": "812b8000f79c1fbb747a2de5114fc74515558857"
+    },
+    {
+      "id": "sympy-21612",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-21612",
+      "gold_patch_sha256": "72e403affa86c748aad0332d53ef48a2bff26cad6ee96d5588c28c1b30982c3e",
+      "test_patch_sha256": "d199d4ee685de99f64461d66f3b8424c6544dd38c665812a6ff0d6f3ccfd6f6b"
+    },
+    {
+      "id": "sympy-21614",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "b4777fdcef467b7132c055f8ac2c9a5059e6a145",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-21614",
+      "gold_patch_sha256": "5a20f33fdb0a731064a81dc26e925e91557900bb7edbfce84463de6280e8e3cd",
+      "test_patch_sha256": "55d2672c66a3ddce4236b7cfe912c730232657a7008d7ab26ec50c40ad4a1ee7"
+    },
+    {
+      "id": "sympy-21627",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "126f80578140e752ad5135aac77b8ff887eede3e",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-21627",
+      "gold_patch_sha256": "b5ba97320a3af097a979e4fd2ec66ade3c7480c130a611a6c7aab137387144f2",
+      "test_patch_sha256": "92f1f2a16bb8e757c797091153e9b22a6adad18619fe24b971105098620c4b10"
+    },
+    {
+      "id": "sympy-21847",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "d9b18c518d64d0ebe8e35a98c2fb519938b9b151",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-21847",
+      "gold_patch_sha256": "6968f37a7e4a10e6b40fda408d9ae7bbbea2074ebe1fa0de3ad8dde4e49aaa02",
+      "test_patch_sha256": "5b7f4777d3758f017525597a935d95a0516f90b653bd21ccdcc9a92e681d16e6"
+    },
+    {
+      "id": "sympy-22005",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-22005",
+      "gold_patch_sha256": "10762dbd420f083b97d105bc6c7835a3b89f0d406b21e15bc09e12fad1a888d1",
+      "test_patch_sha256": "02693afc0a8cf0d1335c5eaf67dea771e0064a3ec2d68c6d3047bb2b803930e4"
+    },
+    {
+      "id": "sympy-22714",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "3ff4717b6aef6086e78f01cdfa06f64ae23aed7e",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-22714",
+      "gold_patch_sha256": "1e50cdf5a6d2ede21b40239ee2b9cc117f7356b9dbd979cc3236c1a0e789d289",
+      "test_patch_sha256": "f16fe70f83de6d58be622f2fb95895585b2f390bbc423b4e0f535652f4eae2ca"
+    },
+    {
+      "id": "sympy-24066",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "514579c655bf22e2af14f0743376ae1d7befe345",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-24066",
+      "gold_patch_sha256": "9affe87abc0b5580bfb8946cd0075746f0cada6d0ca35e2ce6550fe6a8fe637a",
+      "test_patch_sha256": "9561e6f005a08e91edab9a49c1cc8722e4d6d57f255f3e8639c092c72d50473c"
+    },
+    {
+      "id": "sympy-24213",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-24213",
+      "gold_patch_sha256": "070dcd3e530c91549a7b8c94bfe90f67457151c961adca4a021803152592b469",
+      "test_patch_sha256": "64ea4c6ee44904d8464e5923d38043ae8a56692b70363b322496eeb2e3784686"
+    },
+    {
+      "id": "sympy-24909",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "d3b4158dea271485e3daa11bf82e69b8dab348ce",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-24909",
+      "gold_patch_sha256": "fc8ec06d7cb7e45260608aa65da67219b160cd101fdabc61d65ebe0206b2399c",
+      "test_patch_sha256": "2337eacab354d4dff2b0085a67f74b17d4ffae49f1e6510a16016c1f13b7572e"
+    },
+    {
+      "id": "sympy-21055",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "748ce73479ee2cd5c861431091001cc18943c735",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-21055",
+      "gold_patch_sha256": "87d45465c20f16dc0cd141eef23a4ceefe22b5688a919209a9a3e3f508dde4fd",
+      "test_patch_sha256": "4347276e1339d2eea1f7f7d983d9cec0678957eaf68846c820c65a82031dcdc2"
+    },
+    {
+      "id": "sympy-20590",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "cffd4e0f86fefd4802349a9f9b19ed70934ea354",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-20590",
+      "gold_patch_sha256": "2726d808ea27b330fcec46cf49e60de768796feb42a36d62b0f164444c785876",
+      "test_patch_sha256": "6d707e09c191585bacc8cde388d740f9539228ff19e7feab87221b6527f147f2"
+    },
+    {
+      "id": "sympy-23262",
+      "repo": "sympy/sympy",
+      "suite": "swebench_lite",
+      "base_sha": "fdc707f73a65a429935c01532cd3970d3355eab6",
+      "fix_sha": null,
+      "instance_id": "sympy__sympy-23262",
+      "gold_patch_sha256": "cdb5c722cb72b1bf4a16b7c4f18b06094cbcec0ee1611d833038bf5daf801cf2",
+      "test_patch_sha256": "93364bb4634aab816f68f82f2b017708ccd412a98de15f602670027914db6089"
+    }
+  ],
+  "dropped": [
+    "cachetools-221",
+    "boltons-4457decc",
+    "boltons-8177b933"
+  ]
+}
