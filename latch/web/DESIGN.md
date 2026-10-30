@@ -143,3 +143,13 @@ accepted. `test_eval_v2.py` pins each of these.
 `style-src 'self'` plus Google Fonts: no inline `<style>` and no `style=""` attributes in HTML. Setting
 `el.style.x` from JS is allowed. Scripts are `'self'` only, no inline scripts except the
 `application/json` boot block.
+
+## Strengthened test (`strengthen` step, `mutation.strengthened`)
+
+The engine may rewrite the proof test once, after a real MUTATION_SURVIVED. Everything the page says about it is read from the engine's own data and never softens the verdict.
+
+- **Live ledger (`app.js`).** After a failed `mutation_check` the engine emits `strengthen` (started, then done or failed), and `base_run`..`mutation_check` run again. The page opens a "Strengthened test" heading row; the repeats go under it (`li.in-round`). The last occurrence of a step is the current one: when the round counts (adopted, still_surviving) the first attempt's rows are marked `superseded` (struck through, still visible). When the stronger test did not clear the gate (kept_original) the first attempt stays current and the round's rows are marked `discarded`. Unknown step names are ignored, never rendered, never an error. The verdict row shows its reason in full.
+- **Receipt (`mutationSection`).** `mutation.strengthened` renders a plain line from `LatchVerdict.strengthened`: "First test let N mutants survive (kill rate X); Latch wrote a stronger test, which now kills K/T (Y%)." For still_surviving and kept_original it says the Mutation survived verdict stands (kept_original: the original test is the one judged). A missing or unknown outcome says only that the verdict stands as written. The first test's survivors are listed in a closed details block.
+- **Loop timeline (`loop.js`).** Only `strengthen` step events are shown; other step events stay hidden. `proof_test` with `strengthened: true` reads "Stronger proof test written and frozen".
+- **INVALID_TEST.** Reasons now name the error (up to 160 characters, often unbroken); `.verdict-reason` wraps with `overflow-wrap: anywhere` so nothing overflows at 390px.
+

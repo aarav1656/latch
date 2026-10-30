@@ -131,7 +131,7 @@ strong { font-weight: 600; }
 .verdict-word svg { width: 0.7em; height: 0.7em; flex: none; }
 .verdict-why { max-width: var(--measure); color: var(--ink); }
 .verdict-code { color: var(--muted); font: 500 var(--t-small)/1.5 var(--font-mono); overflow-wrap: anywhere; }
-.verdict-reason { max-width: var(--measure); color: var(--ink); border-left: 2px solid var(--line); padding-left: var(--space-3); }
+.verdict-reason { overflow-wrap: anywhere; max-width: var(--measure); color: var(--ink); border-left: 2px solid var(--line); padding-left: var(--space-3); }
 .verdict.is-pass .verdict-reason { border-left-color: var(--pass); }
 .verdict.is-fail .verdict-reason { border-left-color: var(--fail); }
 .verdict-meta { display: flex; gap: var(--space-2) var(--space-3); flex-wrap: wrap; align-items: center; color: var(--muted); font: 400 var(--t-small)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -255,3 +255,20 @@ strong { font-weight: 600; }
 .tautology[data-tautology="rejected"] .tautology-reason { border-left: 2px solid var(--fail); padding-left: var(--space-3); }
 .tautology[data-tautology="rejected"] .tautology-result dd { color: var(--fail); }
 .tautology[data-tautology="ok"] .tautology-result dd { color: var(--pass); }
+
+/* ---- strengthened test (survivor-driven retry) ---- */
+.steps li.round { background: var(--inset); border-left: 3px solid var(--accent); padding-left: var(--space-3); }
+.steps li.round .lbl { font-weight: 600; color: var(--ink); }
+.steps li.round[data-outcome="adopted"] { border-left-color: var(--pass); }
+.steps li.round[data-outcome="still_surviving"], .steps li.round[data-outcome="kept_original"] { border-left-color: var(--fail); }
+.steps li.in-round { padding-left: var(--space-4); }
+.steps li[data-mark] .lbl, .steps li[data-mark] .sub, .steps li[data-mark] .ts { color: var(--muted); }
+.steps li[data-mark="superseded"] .lbl { text-decoration: line-through; text-decoration-color: var(--faint); }
+.steps li[data-mark="superseded"] .st, .steps li[data-mark="discarded"] .st { color: var(--muted); }
+.strengthened { margin: var(--space-4) 0; padding: var(--space-3) 0 var(--space-3) var(--space-3); border-left: 3px solid var(--accent); display: grid; gap: var(--space-2); min-width: 0; }
+.strengthened[data-strengthened="adopted"] { border-left-color: var(--pass); }
+.strengthened[data-strengthened="still_surviving"], .strengthened[data-strengthened="kept_original"] { border-left-color: var(--fail); }
+.strengthened-title { margin: 0; font: 600 var(--t-base)/1.3 var(--font-display); }
+.strengthened-line { margin: 0; max-width: var(--measure); overflow-wrap: anywhere; }
+.strengthened-facts { margin: 0; }
+.strengthened-survivors summary { color: var(--accent); cursor: pointer; }
