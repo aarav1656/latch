@@ -112,6 +112,18 @@ class TagLayoutTests(unittest.TestCase):
             run_eval.write_eval_summary(doc, [])
         self.assertEqual(sorted(p.name for p in self.runs.iterdir()), ["eval-report-repair.md", "eval-summary-repair.json"])
 
+    def test_summarize_keeps_the_sha_recorded_when_the_run_started(self):
+        doc = {"provider": "nebius", "date": "2026-10-30", "tag": "repair", "runs": [], "models": {}, "summary": {"dropped_cases": []},
+               "latch_git_sha": "f" * 40}
+        with clean_env(), mock.patch("sys.stderr"):
+            summary = run_eval.write_eval_summary(doc, [])
+        self.assertEqual(summary["latch_git_sha"], "f" * 40)
+
+    def test_a_run_records_the_sha_it_started_at(self):
+        with clean_env(), mock.patch("latch.loop.eval.manifest.latch_git", return_value={"sha": "e" * 40, "dirty": False}):
+            self.run_main("--tag", "sha")
+        self.assertEqual(json.loads((self.runs / f"eval-{self.date}-sha.json").read_text())["latch_git_sha"], "e" * 40)
+
     def test_dev_provider_tag_stays_under_dev(self):
         with clean_env(LATCH_PROVIDER="openrouter"):
             self.assertEqual(self.run_main("--tag", "repair"), 0)
