@@ -87,7 +87,7 @@ jobs:
       <li>Python repositories with pytest. Other languages are not supported.</li>
       <li>The pull request description must link the issue it fixes, for example Fixes #123.</li>
       <li>Every run makes model calls with your own key and costs credit. Latch does not run on a pull request unless the workflow does.</li>
-      <li>The Action and the comment renderer are tested against fixtures. This site has not posted a comment to a real pull request.</li>
+      <li>Posting is opt-in: the comment renderer prints by default, and only <code>latch comment --post</code> writes to a pull request. The Action and the renderer are covered by fixture tests.</li>
     </ul>
   </section>
 </main>
