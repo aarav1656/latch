@@ -470,6 +470,8 @@ def main(argv=None):
     rec_dir = paths["receipts"]
     rec_dir.mkdir(parents=True, exist_ok=True)
     jobs = [(c, v) for c in valid for v in (("real", "nofix") if c.get("swe") else ("real", "wrong"))]
+    from .manifest import latch_git
+    started_sha = latch_git(REPO_ROOT).get("sha")  # the code that runs; a later summarize must not restamp it with a newer HEAD
     rows, t0 = [], time.time()
     with cf.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futs = {pool.submit(run_one, c, v, args.max_iterations, rec_dir, not args.no_test_repair): (c, v) for c, v in jobs}
@@ -495,7 +497,7 @@ def main(argv=None):
     doc = {
         "date": date, "generated_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "max_iterations": args.max_iterations, "jobs": args.jobs,
-        "provider": provider, "tag": tag, "test_repair_enabled": not args.no_test_repair,
+        "provider": provider, "tag": tag, "test_repair_enabled": not args.no_test_repair, "latch_git_sha": started_sha,
         "models": {"proof_test": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
                    "fix": providers.resolve_model("nvidia/Nemotron-3-Ultra-550b-a55b", provider),
                    "triage": providers.resolve_model("nvidia/Nemotron-3_5-Lightning", provider)},
@@ -544,7 +546,9 @@ def write_eval_summary(doc, dropped=(), path=None):
     providers.check_write(path, provider)  # a dev provider can never write latch/runs/eval-summary.json
     from .report import render
     from .summary import build_summary, extras
-    summary = build_summary(doc, CASES, load, [*dropped, *DROPPED], root=REPO_ROOT, **extras(REPO_ROOT))
+    ex = extras(REPO_ROOT)
+    ex["latch_git_sha"] = doc.get("latch_git_sha") or ex["latch_git_sha"]  # the sha recorded when the run started wins
+    summary = build_summary(doc, CASES, load, [*dropped, *DROPPED], root=REPO_ROOT, **ex)
     providers.mark_dev(summary, provider)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

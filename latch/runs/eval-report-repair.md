@@ -1,6 +1,6 @@
 # Latch eval report
 
-Generated 2026-10-30T10:54:35Z. Schema 2. Latch `632918e5b72959885839458db3937149c1b38312`.
+Generated 2026-10-30T10:55:46Z. Schema 2. Latch `96eb8d57512dfb20646f47aa602669b81e4d8236`.
 
 ## Comparison with Slopgate
 

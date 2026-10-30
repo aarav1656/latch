@@ -2,7 +2,7 @@
   "schema_version": 2,
   "mode": "live",
   "fixture": false,
-  "latch_git_sha": "632918e5b72959885839458db3937149c1b38312",
+  "latch_git_sha": "96eb8d57512dfb20646f47aa602669b81e4d8236",
   "verdicts": {
     "INVALID_TEST": 14,
     "FLAKY": 0,
@@ -747,7 +747,7 @@
       "n_instances": 12
     }
   },
-  "generated_at": "2026-10-30T10:54:35Z",
+  "generated_at": "2026-10-30T10:55:46Z",
   "run": {
     "date": "2026-10-30",
     "tag": "repair",

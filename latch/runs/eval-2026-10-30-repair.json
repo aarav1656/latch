@@ -3013,5 +3013,7 @@
       "receipt": "latch/runs/eval-repair/sympy-23262-nofix.json",
       "outcome": "gave_up"
     }
-  ]
+  ],
+  "latch_git_sha": "96eb8d57512dfb20646f47aa602669b81e4d8236",
+  "latch_git_sha_note": "recorded after the run: HEAD when the run was launched (96eb8d5); the eval and gate code is identical at e1caf1b, where the run finished (only latch/web differs)"
 }

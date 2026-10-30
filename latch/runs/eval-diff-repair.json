@@ -9,7 +9,7 @@
     "tag": "repair",
     "label": "repair",
     "test_repair_enabled": true,
-    "latch_git_sha": "b4924a53212190bea971bfcb0001e5451dd16c33"
+    "latch_git_sha": "96eb8d57512dfb20646f47aa602669b81e4d8236"
   },
   "headline": {
     "real_validated": {
