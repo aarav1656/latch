@@ -133,7 +133,7 @@ class LoopTests(unittest.TestCase):
     def test_shut_then_loop_opens_the_gate(self):
         stub = Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
         receipt = self.run_it(stub)
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertEqual(len(receipt["iterations"]), 1)
         it = receipt["iterations"][0]
         self.assertEqual(it["verdict"], "gate_open")
@@ -147,7 +147,7 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(self.types(), ["started", "proof_test", "gate_shut", "triage", "iteration_started",
                                          "model_response", "patch_applied", "iteration_result", "gate_open"])
         saved = json.loads(Path(receipt["receipt_path"]).read_text())
-        self.assertEqual(saved["verdict"], "gate_open")
+        self.assertEqual(saved["gate"], "gate_open")
         self.assertEqual(self.events[-1]["receipt"]["run_id"], receipt["run_id"])
         self.assertEqual(self.events[-1]["receipt_path"], receipt["receipt_path"])
         self.assertTrue(self.base != self.head)
@@ -157,7 +157,7 @@ class LoopTests(unittest.TestCase):
         name = "test_" + "back_to_back_bookings_must_not_be_merged_or_reported_as_conflicts_" * 2
         long_test = GOOD_TEST.replace(GOOD_TEST.split("def ")[1].split("(")[0], name, 1)
         receipt = self.run_it(Stub(test=long_test, fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertEqual(receipt["initial"]["base_proof"]["failure_type"], "assertion")
 
     def test_case_note_lands_in_receipt_and_started_event(self):
@@ -175,7 +175,7 @@ class LoopTests(unittest.TestCase):
             return {"ok": True}
 
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), inspect_final=inspect)
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertEqual(receipt["inspection"], {"ok": True})
         self.assertEqual(seen, [FIXED_BOOKINGS])
 
@@ -183,7 +183,7 @@ class LoopTests(unittest.TestCase):
             raise RuntimeError("nope")
 
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), inspect_final=boom)
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertIn("nope", receipt["inspection"]["error"])
 
     def test_event_envelope(self):
@@ -201,7 +201,7 @@ class LoopTests(unittest.TestCase):
         wrongs = [file_block("bookings.py", head_src + f"\n# attempt {n}\n") for n in range(3)]
         stub = Stub(fixes=wrongs)
         receipt = self.run_it(stub, max_iterations=2)
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertEqual([i["verdict"] for i in receipt["iterations"]], ["gate_shut", "gate_shut"])
         self.assertIn("still shut after 2", receipt["reason"])
         self.assertEqual(self.events[-1]["type"], "gave_up")
@@ -209,7 +209,7 @@ class LoopTests(unittest.TestCase):
     def test_model_cannot_edit_tests_to_get_green(self):
         cheat = file_block("test_bookings.py", "def test_x():\n    assert True\n")
         receipt = self.run_it(Stub(fixes=[cheat]), max_iterations=1)
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertEqual(receipt["iterations"][0]["verdict"], "invalid_patch")
         self.assertIn("may not edit tests", receipt["iterations"][0]["detail"])
 
@@ -223,7 +223,7 @@ class LoopTests(unittest.TestCase):
         broken = FIXED_BOOKINGS.replace("max(merged[-1][1], end)", "end")
         broken = broken.replace("a[0] < b[1] and b[0] < a[1]", "False")
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", broken)]), max_iterations=1)
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("REPO SUITE FAILED", receipt["iterations"][0]["pytest_output"])
 
     def test_gate_open_without_loop_when_head_is_already_correct(self):
@@ -235,26 +235,26 @@ class LoopTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.repo), "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", "commit", "-qam", "good"], env=env, check=True)
         head = subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
         receipt = run_loop(self.repo, self.base, head, ISSUE, model_fn=stub, on_event=self.events.append)
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertEqual(receipt["iterations"], [])
         self.assertEqual(len(stub.calls), 1)  # only the proof-test generation
 
     def test_proof_test_that_passes_on_base_proves_nothing(self):
         receipt = self.run_it(Stub(test=PASSING_ON_BASE_TEST))
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("does not reproduce", receipt["reason"])
         self.assertEqual(receipt["iterations"], [])
 
     def test_import_error_is_not_patched(self):
         receipt = self.run_it(Stub(test=IMPORT_ERROR_TEST))
-        self.assertEqual(receipt["verdict"], "gave_up")  # base fails with ModuleNotFoundError, not an assertion
+        self.assertEqual(receipt["gate"], "gave_up")  # base fails with ModuleNotFoundError, not an assertion
         self.assertEqual(receipt["iterations"], [])
 
     def test_lightning_triage_fails_closed(self):
         stub = Stub(triage="NOT_REPRODUCES: this is an ImportError in the harness.",
                     fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
         receipt = self.run_it(stub)
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("triage", receipt["reason"])
         self.assertEqual(receipt["iterations"], [])
         self.assertEqual(receipt["triage"]["model"], "nvidia/Nemotron-3_5-Lightning")
@@ -296,7 +296,7 @@ class LoopTests(unittest.TestCase):
                 return orig(key, user, model=model, system=system, **kw)
 
         receipt = self.run_it(Down(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertEqual(receipt["repo_map"]["status"], "unavailable")
 
     def test_step_events_are_emitted_in_order_and_saved(self):
@@ -321,19 +321,19 @@ class LoopTests(unittest.TestCase):
         bad = {"ran": True, "ok": False, "mutants": [], "summary": "the proof test did NOT fail on the mutant(s) revert_fix_to_base"}
         with mock.patch.object(core, "revert_check", return_value=bad):
             receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("revert", receipt["reason"])
         self.assertEqual(self.types()[-2:], ["gate_shut", "gave_up"])
 
     def test_revert_check_can_be_disabled(self):
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]), revert=False, repo_map=False)
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertFalse(receipt["revert_check"]["ran"])
         self.assertNotIn("repo_map", [c["role"] for c in receipt["model_calls"]])
 
     def test_unclear_triage_fails_closed(self):
         receipt = self.run_it(Stub(triage="hmm hard to say"))
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertEqual(receipt["triage"]["verdict"], "unclear")
 
     def test_api_error_emits_error_and_raises(self):
@@ -341,7 +341,7 @@ class LoopTests(unittest.TestCase):
             self.run_it(Stub(status=429))
         self.assertEqual(self.types(), ["started", "error"])
         self.assertIn("HTTP 429", self.events[-1]["reason"])
-        self.assertEqual(json.loads(Path(self.events[-1]["receipt_path"]).read_text())["verdict"], "error")
+        self.assertEqual(json.loads(Path(self.events[-1]["receipt_path"]).read_text())["gate"], "error")
 
     def test_vacuous_proof_test_is_retried_once_then_used(self):
         class Vacuous(Stub):
@@ -356,7 +356,7 @@ class LoopTests(unittest.TestCase):
 
         stub = Vacuous(fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
         receipt = self.run_it(stub)
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         attempts = receipt["proof_test_attempts"]
         self.assertEqual([a["valid"] for a in attempts], [False, True])
         self.assertEqual(attempts[0]["completion_id"], "cmpl-vac")
@@ -368,7 +368,7 @@ class LoopTests(unittest.TestCase):
     def test_vacuous_twice_gives_up_without_patching(self):
         stub = Stub(test="def test_nothing():\n    pass\n", fixes=[file_block("bookings.py", FIXED_BOOKINGS)])
         receipt = self.run_it(stub)
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertIn("vacuous twice", receipt["reason"])
         self.assertEqual(len(receipt["proof_test_attempts"]), 2)
         self.assertEqual(receipt["iterations"], [])
@@ -378,7 +378,7 @@ class LoopTests(unittest.TestCase):
     def test_provided_vacuous_proof_test_is_rejected(self):
         stub = Stub()
         receipt = self.run_it(stub, proof_test="def test_x():\n    ...\n")
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
         self.assertEqual(stub.calls, [])
 
     def test_transient_model_errors_are_retried_and_logged_in_the_receipt(self):
@@ -396,7 +396,7 @@ class LoopTests(unittest.TestCase):
         with mock.patch.object(core, "call_model", fake_call_model), mock.patch.object(core, "load_key", lambda: "k"):
             receipt = run_loop(self.repo, self.base, self.head, ISSUE, on_event=self.events.append,
                                receipt_path=str(Path(self._tmp.name) / "r.json"))
-        self.assertEqual(receipt["verdict"], "gate_open")
+        self.assertEqual(receipt["gate"], "gate_open")
         self.assertEqual(receipt["model_retries"][0]["error"], "RemoteDisconnected: Remote end closed connection")
         self.assertIn("model_retry", self.types())
 
@@ -466,6 +466,47 @@ class LoopTests(unittest.TestCase):
     def test_parse_files_handles_fences_and_think(self):
         text = "<think>=== FILE: a.py ===\nno\n=== END FILE ===</think>\n=== FILE: b.py ===\n```python\nx = 1\n```\n=== END FILE ==="
         self.assertEqual(core.parse_files(text), {"b.py": "x = 1\n"})
+
+
+class LoopVerdictTests(unittest.TestCase):
+    setUp = LoopTests.setUp
+    run_it = LoopTests.run_it
+
+    def test_gate_open_after_repair_is_validated(self):
+        receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual((receipt["gate"], receipt["verdict"], receipt["proven"]), ("gate_open", "VALIDATED", True))
+        self.assertEqual(receipt["base_sha"], receipt["base"])
+        self.assertEqual(receipt["head_sha"], receipt["head"])
+        final = [e for e in self.events if e["type"] == "step" and e["step"] == "verdict"][-1]
+        self.assertEqual(final["detail"], {"verdict": "VALIDATED", "reason": receipt["verdict_reason"]})
+        self.assertEqual(json.loads(Path(receipt["receipt_path"]).read_text())["verdict"], "VALIDATED")
+
+    def test_named_verdicts_for_each_way_to_give_up(self):
+        green = self.run_it(Stub(test=PASSING_ON_BASE_TEST))
+        self.assertEqual((green["verdict"], green["proven"]), ("NO_REGRESSION_FOUND", False))
+        self.assertEqual(self.run_it(Stub(test=IMPORT_ERROR_TEST))["verdict"], "INVALID_TEST")
+        self.assertEqual(self.run_it(Stub(test="def test_x():\n    pass\n"))["verdict"], "INVALID_TEST")
+        triage = self.run_it(Stub(triage="NOT_REPRODUCES: environment error.", fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual(triage["verdict"], "INVALID_TEST")
+        head_src = (DEMO / "head" / "bookings.py").read_text()
+        shut = self.run_it(Stub(fixes=[file_block("bookings.py", head_src + "\n# again\n")]), max_iterations=1)
+        self.assertEqual((shut["gate"], shut["verdict"]), ("gave_up", "FIX_FAILS_TEST"))
+        broken = self.run_it(Stub(fixes=[file_block("bookings.py", "def broken(:\n")]), max_iterations=1)
+        self.assertEqual(broken["verdict"], "FIX_FAILS_TEST")
+
+    def test_a_proof_test_that_survives_the_revert_is_mutation_survived(self):
+        # The test also passes on the reverted code only if it is not tied to the fix; fake it with a stub revert result.
+        from unittest import mock
+        survived = {"ran": True, "ok": False, "mutants": [], "summary": "the proof test did NOT fail on the mutant(s) revert_fix_to_base"}
+        with mock.patch.object(core, "revert_check", return_value=survived):
+            receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual((receipt["gate"], receipt["verdict"], receipt["proven"]), ("gave_up", "MUTATION_SURVIVED", False))
+
+    def test_infrastructure_error_has_no_named_verdict(self):
+        with self.assertRaises(LoopError):
+            self.run_it(Stub(status=500))
+        saved = json.loads((Path(self._tmp.name) / "receipt.json").read_text())
+        self.assertEqual((saved["gate"], saved["verdict"], saved["proven"]), ("error", None, False))
 
 
 class CliTests(unittest.TestCase):

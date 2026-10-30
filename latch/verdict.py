@@ -85,6 +85,7 @@ def decide_verdict(evidence):
       revert         the revert_check receipt: {ok, summary} or {skipped: ...}
       mutation       the mutation dict: {ok, kill_rate, threshold, killed, total}
       triage_blocked reason text when triage refused to confirm the failure (loop)
+      patch_loop     True when `head` is code the fix loop rewrote: its non-assertion errors indict the patch, not the test
     """
     from .prove import expected_base_failure
 
@@ -100,7 +101,7 @@ def decide_verdict(evidence):
     if base["returncode"] != 0 and expected_base_failure(base, name) is None:
         return INVALID_TEST, ("the proof test errored on base (collection, import or runtime error) "
                               "instead of failing an assertion")
-    if head["returncode"] != 0 and expected_base_failure(head, name) is None:
+    if head["returncode"] != 0 and expected_base_failure(head, name) is None and not e.get("patch_loop"):
         return INVALID_TEST, ("the proof test errored on head (collection, import or runtime error) "
                               "instead of failing an assertion")
     if e.get("triage_blocked"):
@@ -116,7 +117,7 @@ def decide_verdict(evidence):
         return FIX_FAILS_TEST, "the proof test passes but the repo's own test suite fails on the change under test"
     revert = e.get("revert")
     if revert is not None and not revert.get("skipped") and not revert.get("ok"):
-        return MUTATION_SURVIVED, "revert check: " + str(revert.get("summary"))
+        return MUTATION_SURVIVED, "revert check failed: " + str(revert.get("summary"))
     mutation = e.get("mutation")
     if mutation is not None and not mutation.get("ok", True):
         rate = mutation.get("kill_rate")
@@ -156,3 +157,8 @@ def verdict_fields(evidence, base_sha=None, head_sha=None):
         },
         "flaky": evidence.get("flaky"), "mutation": mutation, "tautology": evidence.get("tautology"),
     }
+
+
+def step_detail(fields):
+    """The detail of the `verdict` step event, a contract with latch-web: exactly {verdict, reason}."""
+    return {"verdict": fields["verdict"], "reason": fields["verdict_reason"]}

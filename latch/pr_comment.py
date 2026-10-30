@@ -39,12 +39,17 @@ def _run_cell(result, kind=None):
 
 
 def _is_loop(receipt):
-    return "verdict" in receipt and "initial" in receipt
+    return ("gate" in receipt or "verdict" in receipt) and "initial" in receipt
+
+
+def _gate(receipt):
+    """The loop outcome. Receipts written before named verdicts kept it in `verdict`."""
+    return receipt.get("gate") or receipt.get("verdict")
 
 
 def _headline(receipt):
     if _is_loop(receipt):
-        verdict, iterations = receipt["verdict"], receipt.get("iterations") or []
+        verdict, iterations = _gate(receipt), receipt.get("iterations") or []
         if verdict == "gate_open" and not iterations:
             return "✅ Gate open: the submitted change is proven by a model-written test"
         if verdict == "gate_open":
@@ -52,12 +57,16 @@ def _headline(receipt):
         if verdict == "gave_up":
             return "❌ Gate shut: not proven"
         return "⚠️ Error: nothing proven (fails closed)"
-    return "✅ PROVEN" if receipt.get("proven") else "❌ NOT PROVEN"
+    if receipt.get("proven"):
+        return "✅ PROVEN"
+    return f"❌ NOT PROVEN ({receipt['verdict']})" if receipt.get("verdict") else "❌ NOT PROVEN"
 
 
 def _reason(receipt):
     if _is_loop(receipt):
         return receipt.get("reason") or ""
+    if receipt.get("verdict_reason"):
+        return receipt["verdict_reason"]
     if receipt.get("proven"):
         return "The generated test failed on base and passes on head, and failed again with the fix reverted."
     return receipt.get("why_not_proven") or (
@@ -75,6 +84,25 @@ def _revert_cell(check):
     if check.get("ok"):
         return f"✅ proof test failed again on every mutant ({names})"
     return f"❌ proof test did NOT fail on a mutant ({names}); gate shut"
+
+
+def _flake_cell(flaky):
+    if not flaky or not flaky.get("ran"):
+        return None
+    if flaky.get("flaky"):
+        return (f"❌ inconsistent over {flaky['runs']} runs on each side "
+                f"(flake rate {flaky['flake_rate']:.0%}; base failed {flaky['base_fail_rate']:.0%}, head passed {flaky['head_pass_rate']:.0%})")
+    return f"✅ stable over {flaky['runs']} runs on base and head"
+
+
+def _mutation_cell(mutation):
+    if not mutation:
+        return None
+    if not mutation.get("total"):
+        return "no mutable lines in the change, nothing to mutate (does not block)"
+    mark = "✅" if mutation.get("ok") else "❌"
+    return (f"{mark} killed {mutation['killed']}/{mutation['total']} mutants of the changed lines "
+            f"(kill rate {mutation['kill_rate']:.0%}, needs {mutation['threshold']:.0%})")
 
 
 def _models_table(receipt):
@@ -125,7 +153,12 @@ def render_comment(receipt, run_url=None):
     if loop and receipt.get("iterations"):
         last = receipt["iterations"][-1]
         lines.append(f"| Repair | {len(receipt['iterations'])} iteration(s), last: {last.get('verdict')} |")
+    if receipt.get("verdict"):
+        lines.append(f"| Verdict | `{receipt['verdict']}` |")
     lines += [f"| Revert check | {_revert_cell(receipt.get('revert_check'))} |"]
+    for label, cell in (("Mutation check", _mutation_cell(receipt.get("mutation"))), ("Flake check", _flake_cell(receipt.get("flaky")))):
+        if cell:
+            lines.append(f"| {label} | {cell} |")
     triage = receipt.get("triage")
     if isinstance(triage, dict) and triage.get("verdict"):
         lines.append(f"| Triage (Lightning) | {triage['verdict']}{' (advisory)' if triage.get('advisory') else ''} |")
@@ -142,7 +175,8 @@ def render_comment(receipt, run_url=None):
             if it.get("verdict") == "gate_open" and it.get("diff"):
                 lines += [f"<details><summary>Patch that opened the gate (iteration {it['iteration']}, "
                           f"`{it.get('completion_id')}`)</summary>", "", _fence(it["diff"], "diff"), "", "</details>", ""]
-    footer = "Verdict set by the harness (the proof test must fail on base, pass on head and fail with the fix reverted), not by the model."
+    footer = ("Verdict set by the harness (the proof test must fail on base, pass on head, be stable on reruns, fail with the fix "
+              "reverted and kill most mutants of the changed lines), not by the model.")
     if run_url:
         footer += f" [Run]({run_url})."
     lines.append(f"<sub>{footer}</sub>")

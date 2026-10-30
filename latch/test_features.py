@@ -292,6 +292,38 @@ class ProveIntegrationTests(unittest.TestCase):
         self.assertEqual([c["role"] for c in saved["model_calls"]], ["test_writer"])
         self.assertEqual(saved["revert_check"], {"ran": False, "skipped": "revert check disabled"})
 
+    def test_named_verdict_fields_and_proven_back_compat(self):
+        result, saved, events = self.go(self.runner())
+        self.assertEqual(saved["verdict"], "VALIDATED")
+        self.assertTrue(saved["proven"] and result["proven"])  # proven == (verdict == VALIDATED)
+        self.assertEqual(len(saved["base_sha"]), 40)
+        self.assertNotEqual(saved["base_sha"], saved["head_sha"])
+        self.assertIn("red on base", saved["verdict_reason"])
+        self.assertIn("AssertionError", saved["verdict_logs"]["base"])
+        detail = events[-1]["detail"]
+        self.assertEqual(events[-1]["step"], "verdict")
+        self.assertEqual(detail, {"verdict": "VALIDATED", "reason": saved["verdict_reason"]})  # contract with latch-web
+
+    def test_surviving_revert_is_mutation_survived_and_not_proven(self):
+        result, saved, events = self.go(self.runner(revert_fails=False))
+        self.assertEqual((saved["verdict"], saved["proven"]), ("MUTATION_SURVIVED", False))
+        self.assertEqual(events[-1]["detail"], {"verdict": "MUTATION_SURVIVED", "reason": saved["verdict_reason"]})
+
+    def test_green_on_base_is_no_regression_found(self):
+        green = lambda snapshot, command: {"returncode": 0, "stdout": "1 passed", "stderr": ""}
+        result, saved, _ = self.go(green)
+        self.assertEqual((saved["verdict"], saved["proven"]), ("NO_REGRESSION_FOUND", False))
+
+    def test_collection_error_is_invalid_test(self):
+        broken = lambda snapshot, command: {"returncode": 2, "stdout": "ERROR collecting latch_issue_test.py\nImportError", "stderr": ""}
+        result, saved, _ = self.go(broken)
+        self.assertEqual((saved["verdict"], saved["proven"]), ("INVALID_TEST", False))
+
+    def test_still_red_on_head_is_fix_fails_test(self):
+        red = lambda snapshot, command: {"returncode": 1, "stdout": FAIL, "stderr": ""}
+        result, saved, _ = self.go(red)
+        self.assertEqual((saved["verdict"], saved["proven"]), ("FIX_FAILS_TEST", False))
+
 
 if __name__ == "__main__":
     unittest.main()

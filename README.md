@@ -124,6 +124,21 @@ latch comment receipt.json           # print the PR comment (dry run); --post ne
 - **GitHub Action.** `.github/actions/latch` (composite) and the example workflow `latch/loop/github/latch.yml` run Latch on `pull_request` and keep one PR comment up to date. PR-controlled text goes through `env:`, never into a script, and fork PRs get no secrets, so the action fails closed. Posting is opt-in and nothing in this repo posts by default.
 - **Evaluation.** `latch/loop/eval/RESULTS.md` has the method, baselines and the `latch/runs/eval-summary.json` schema.
 
+## Verdicts
+
+Every `latch prove` and `latch loop` run ends with exactly one named verdict. The harness decides it with fixed rules in `latch/verdict.py`, never the model. The first rule that matches wins:
+
+| # | Verdict | When |
+|---|---------|------|
+| 1 | `INVALID_TEST` | the generated test was rejected as vacuous, or it errored (import, collection, runtime) instead of failing an assertion, or triage said the failure is not the reported one |
+| 2 | `FLAKY` | the proof test gave different results on repeated runs of the same code |
+| 3 | `NO_REGRESSION_FOUND` | the proof test passes on base, so it shows no bug |
+| 4 | `FIX_FAILS_TEST` | the proof test still fails on head, or the repo's own suite goes red |
+| 5 | `MUTATION_SURVIVED` | the proof test still passes with the fix reverted (or too many mutants of the fix survive) |
+| 6 | `VALIDATED` | red on base, green on head, and every gate above passed |
+
+`proven` stays in the receipt as `verdict == "VALIDATED"`. Each receipt also carries `verdict_reason`, `base_sha`, `head_sha` and `verdict_logs` (log excerpts from base, head and any surviving mutants). A loop receipt keeps the old gate state (`gate_open`, `gave_up`, `error`) in `gate`; `verdict` is `null` only when the run died on an infrastructure error. `FIX_FAILS_TEST` is separate from the other four failure verdicts on purpose: a test that is right but a fix that is wrong should not read as a bad test.
+
 ## Prior art
 
 Mutation testing is old. [mutmut](https://github.com/boxed/mutmut) (BSD-3-Clause, 1,513 stars) flips operators and reports survivors. [Flawd](https://fixture.dev/flawd) mutation-tested 10 projects and found TypeORM's unit tests killed 72.6% of mutants. Its `flawd handoff` packages each survivor for a coding agent.

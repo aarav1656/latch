@@ -293,7 +293,8 @@ def run_one(case, variant, max_iterations, out_dir):
         receipt = {}
         row.update(outcome="error", reason=f"{type(error).__name__}: {error}", verdict="error")
     else:
-        row["verdict"] = receipt["verdict"]
+        row["verdict"] = receipt["gate"]  # the eval row keeps the loop outcome (gate_open | gave_up | error)
+        row["named_verdict"] = receipt.get("verdict")
         row["reason"] = receipt["reason"]
     row["wall_seconds"] = round(time.time() - started, 1)
     initial = receipt.get("initial") or {}
@@ -317,7 +318,7 @@ def run_one(case, variant, max_iterations, out_dir):
         receipt=str(receipt_path),
     )
     if "outcome" not in row:
-        opened = receipt["verdict"] == "gate_open"
+        opened = receipt["gate"] == "gate_open"
         oracle_ok = (receipt.get("inspection") or {}).get("oracle_pass")
         if variant == "real":
             row["outcome"] = "proven" if opened else ("gave_up" if True else "")

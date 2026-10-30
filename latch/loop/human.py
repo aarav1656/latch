@@ -154,6 +154,14 @@ class Timeline:
         else:
             self.line(self.c("red", self.c("bold", "GATE SHUT" if t == "gave_up" else "ERROR")) + f"  {e.get('reason', '')}")
         receipt = e.get("receipt") or {}
+        if receipt.get("verdict"):
+            self.line(self.c("bold", "VERDICT ") + self.c("green" if receipt.get("proven") else "red", receipt["verdict"])
+                      + self.c("dim", f"  {str(receipt.get('verdict_reason') or '')[:140]}"))
+            flaky, mutation = receipt.get("flaky") or {}, receipt.get("mutation") or {}
+            if flaky.get("ran"):
+                self.line(f"flake check: {flaky['runs']} runs on base and head, flake rate {flaky['flake_rate']:.0%}", indent=2)
+            if mutation.get("total"):
+                self.line(f"mutation check: killed {mutation['killed']}/{mutation['total']} (kill rate {mutation['kill_rate']:.0%}, needs {mutation['threshold']:.0%})", indent=2)
         calls = receipt.get("model_calls") or self.calls
         if calls:
             cost = receipt.get("model_cost_usd")
