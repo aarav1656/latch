@@ -1,16 +1,19 @@
 """CLI: python3 -m latch.loop {run,demo} ...
 
-stdout is JSONL, one event per line (flushed). A human summary goes to stderr.
+stdout is JSONL, one event per line (flushed) when piped or with --jsonl; on a terminal (or with --human) it
+is a coloured timeline instead (--pace slows it for a screen recording). A short summary goes to stderr.
 Exit status: 0 gate_open, 1 gave_up, 2 error (fail closed), 64 bad arguments.
 """
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+from .human import Timeline, submitted_diff
 from .core import (now, ALLOWED_MODELS, DEFAULT_MODEL, LoopError, prepare_demo, run_demo, run_loop)
 
 
@@ -23,6 +26,14 @@ def _common(p):
     p.add_argument("--proof-test", help="file with a pytest function to use instead of generating one")
     p.add_argument("--no-triage", action="store_true", help="skip the Lightning triage (not recommended)")
     p.add_argument("--run-id")
+    p.add_argument("--human", action="store_true",
+                   help="print a readable timeline on stdout instead of JSONL (default when stdout is a terminal)")
+    p.add_argument("--jsonl", action="store_true", help="always print JSONL events on stdout, even on a terminal")
+    p.add_argument("--no-color", action="store_true")
+    p.add_argument("--pace", type=float, default=0.0,
+                   help="film mode: seconds of pause scale between timeline lines (0 = none, 1 = readable)")
+    p.add_argument("--pr-comment", metavar="PATH", help="also write the receipt as a Markdown PR comment ('-' = stdout)")
+    p.add_argument("--no-revert", action="store_true", help="skip the revert/mutation check (not recommended)")
 
 
 def build_parser():
@@ -67,16 +78,33 @@ def main(argv=None):
     events_file = open(args.events, "w", encoding="utf-8") if args.events else None
 
     seen = {"error": False}
+    human = args.human or (sys.stdout.isatty() and not args.jsonl)
+    timeline = None
+    if human:
+        diff_text = ""
+        try:
+            if args.cmd == "demo":
+                prep = prepare_demo()
+                diff_text = submitted_diff(prep["repo"], prep["base"], prep["head"])
+            else:
+                diff_text = submitted_diff(args.repo, args.base, args.head)
+        except (LoopError, OSError, subprocess.SubprocessError):
+            pass
+        color = False if args.no_color or os.environ.get("NO_COLOR") else (True if sys.stdout.isatty() else None)
+        timeline = Timeline(sys.stdout, color=bool(color), pace=args.pace, diff_text=diff_text)
 
     def on_event(event):
         seen["error"] = seen["error"] or event["type"] == "error"
         line = json.dumps(event)
-        print(line, flush=True)
+        if timeline:
+            timeline(event)
+        else:
+            print(line, flush=True)
         if events_file:
             events_file.write(line + "\n")
             events_file.flush()
         t = event["type"]
-        if t in ("gate_shut", "iteration_result", "triage", "gate_open", "gave_up", "error"):
+        if not timeline and t in ("gate_shut", "iteration_result", "triage", "gate_open", "gave_up", "error"):
             note = event.get("verdict") or event.get("reason") or ""
             print(f"[{t}] iteration={event.get('iteration', '-')} {str(note)[:160]}", file=sys.stderr)
 
@@ -89,6 +117,7 @@ def main(argv=None):
         proof_test=proof_text,
         triage=not args.no_triage,
         run_id=args.run_id,
+        revert=not args.no_revert,
     )
     started = time.monotonic()
     try:
@@ -107,5 +136,12 @@ def main(argv=None):
     finally:
         if events_file:
             events_file.close()
+    if args.pr_comment:
+        from ..pr_comment import render_comment
+        markdown = render_comment(receipt)
+        if args.pr_comment == "-":
+            print(markdown, file=sys.stderr if not timeline else sys.stdout)
+        else:
+            Path(args.pr_comment).write_text(markdown, encoding="utf-8")
     print(f"wall time: {time.monotonic() - started:.1f}s", file=sys.stderr)
     return 0 if receipt["verdict"] == "gate_open" else 1
