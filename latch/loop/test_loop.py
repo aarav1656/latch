@@ -249,21 +249,25 @@ class LoopTests(unittest.TestCase):
         tautology = "def test_nothing():\n    from bookings import merge_bookings\n    v = merge_bookings([(1, 2)])\n    assert v == v\n"
         stub = Stub(test=tautology)
         receipt = self.run_it(stub)
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
+        self.assertEqual(receipt["verdict"], "INVALID_TEST")
         self.assertIn("rejected as vacuous twice", receipt["reason"])
         self.assertIn("tautolog", receipt["reason"])
         self.assertEqual(receipt["iterations"], [])
         self.assertFalse(receipt["tautology"]["ok"])
         self.assertTrue(receipt["tautology"]["checked"])
+        self.assertIn("tautology check", receipt["verdict_reason"])
         self.assertEqual([a["valid"] for a in receipt["proof_test_attempts"]], [False, False])
 
     def test_provided_tautological_proof_test_is_rejected(self):
         receipt = self.run_it(Stub(), proof_test="def test_nothing():\n    assert len('ab') == 2\n")
-        self.assertEqual(receipt["verdict"], "gave_up")
+        self.assertEqual(receipt["gate"], "gave_up")
+        self.assertEqual(receipt["verdict"], "INVALID_TEST")
         self.assertFalse(receipt["tautology"]["ok"])
 
     def test_good_proof_test_records_the_tautology_check(self):
         receipt = self.run_it(Stub(fixes=[file_block("bookings.py", FIXED_BOOKINGS)]))
+        self.assertEqual(receipt["verdict"], "VALIDATED")
         self.assertTrue(receipt["tautology"]["checked"])
         self.assertTrue(receipt["tautology"]["ok"])
         self.assertIn("merge_bookings", receipt["tautology"]["asserted_symbols"])
