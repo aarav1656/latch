@@ -1,71 +1,145 @@
-"""Tests for the verdict and mutation display against latch-loop's DRAFT receipt contract.
+"""Tests for the verdict, mutation and rerun displays against latch/verdict.py (the pinned schema).
 
-The fixtures here are the only place the draft contract lives in latch/web. They stand in for receipts the
-harness has not produced yet; once the final schema lands, adjust the builders below and nothing else.
-Run from the repo root:  python3 -m unittest latch.web.test_verdict -v
+The fixtures run the real `latch.verdict.verdict_fields`, so a schema change in the harness shows up here as a
+failing test rather than as a UI that quietly shows nothing. Run from the repo root:
+    python3 -m unittest latch.web.test_verdict -v
 """
 
+import copy
 import json
+import os
 import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from latch import tautology as taut
+from latch import verdict as harness
 from latch.web import store
 from latch.web.test_app import Harness, receipt
 
 STATIC = Path(__file__).parent / "static"
 BASE, HEAD = "b" * 40, "9" * 40
-CODES = ("VALIDATED", "NO_REGRESSION_FOUND", "INVALID_TEST", "MUTATION_SURVIVED", "FLAKY")
+CODES = harness.VERDICTS  # precedence order: INVALID_TEST, FLAKY, NO_REGRESSION_FOUND, FIX_FAILS_TEST, MUTATION_SURVIVED, VALIDATED
+
+# The one-line meanings are fixed copy, agreed with the user. They must not drift.
+MEANINGS = {
+    "VALIDATED": "The test fails on the old code, passes on the fix, and catches the fix being undone.",
+    "FIX_FAILS_TEST": "The test is good, but this change still fails it. The bug isn't fixed.",
+    "NO_REGRESSION_FOUND": "The test already passes on the old code, so it can't show the bug.",
+    "MUTATION_SURVIVED": "The test still passes when the fix is broken on purpose, so it isn't really checking the fix.",
+    "FLAKY": "The test gave different results on reruns, so it can't be trusted.",
+    "INVALID_TEST": "The test is empty, never checks the changed code, or crashed instead of asserting.",
+}
+
+FAIL = {"returncode": 1, "stdout": "____ test_x ____\nE   AssertionError: double(2) == 5\nFAILED latch_issue_test.py::test_x", "stderr": ""}
+PASS = {"returncode": 0, "stdout": "1 passed in 0.03s", "stderr": ""}
+ERR = {"returncode": 2, "stdout": "ERROR collecting latch_issue_test.py\nImportError: cannot import name 'price_totl' from 'widgets.price'", "stderr": ""}
 
 DIFF = "--- a/widgets/price.py\n+++ b/widgets/price.py\n@@ -14,1 +14,1 @@\n-    return round(total + 0.005, 2)\n+    return round(total, 2)\n"
+OPERATORS = ("compare_op", "constant_replace", "arith_op", "negate_condition")
+WHATS = ("flipped >= to >", "changed 0.005 to 0.0", "swapped + for -", "negated the guard on line 17")
 
 
-def mutant(i, killed, operator="constant_replace", file="widgets/price.py", line=14, output=None):
-    return {"id": f"m{i}", "operator": operator, "file": file, "line": line, "diff": DIFF, "killed": killed,
-            "output_excerpt": output or ("FAILED latch_issue_test.py::test_x - AssertionError" if killed else "1 passed in 0.03s")}
+def mutant(i, killed, file="widgets/price.py", line=None):
+    return {"id": f"m{i}", "operator": OPERATORS[i % 4], "file": file, "line": line or 14 + i, "what": WHATS[i % 4], "diff": DIFF,
+            "killed": killed, "output_excerpt": "FAILED latch_issue_test.py::test_x - AssertionError" if killed else "1 passed in 0.03s"}
 
 
-def mutation(flags):
-    mutants = [mutant(i + 1, k, operator=("compare_op", "constant_replace", "arith_op", "negate_condition")[i % 4], line=14 + i)
-               for i, k in enumerate(flags)]
+def mutation(flags, **over):
+    """The mutation dict as latch/verdict.py documents it: threshold 0.6, ok when kill_rate meets it."""
+    mutants = [mutant(i + 1, k) for i, k in enumerate(flags)]
     killed = sum(1 for k in flags if k)
-    return {"mutants": mutants, "killed": killed, "total": len(flags), "kill_rate": killed / len(flags) if flags else 0}
+    rate = round(killed / len(flags), 3) if flags else None
+    m = {"mutants": mutants, "killed": killed, "total": len(flags), "kill_rate": rate, "threshold": harness.MUTATION_THRESHOLD,
+         "ok": rate is None or rate >= harness.MUTATION_THRESHOLD,
+         "note": f"{killed} of {len(flags)} mutants of the changed lines were killed" if flags else "no mutable lines in the change"}
+    m.update(over)
+    return m
 
 
-REASONS = {
-    "VALIDATED": "The test failed on base, passed on head, and killed 8 of 8 mutants.",
-    "NO_REGRESSION_FOUND": "The test passed on both base and head, so it did not reproduce the issue.",
-    "INVALID_TEST": "The test failed on base with an ImportError, not the behaviour in the issue.",
-    "MUTATION_SURVIVED": "3 of 8 mutants survived: the test still passes when the fix is changed.",
-    "FLAKY": "The test passed on head in 2 of 3 repeat runs.",
+STABLE = harness.flake_summary([False] * 5, [True] * 5)
+FLAKY_RUN = harness.flake_summary([False, False, True, False, False], [True, True, False, True, True])
+SURVIVING = mutation([True, False, True, False, False, True, False, False])  # 3 of 8 is below the 0.6 threshold
+
+CHANGED = {"determined": True, "symbols": ["price_total", "round_half"], "affected": ["checkout"]}
+# The harness's own results, so the fixture has exactly the shape a receipt carries.
+TAUT_OK = taut.check_tautology("def test_x():\n    from widgets.price import price_total\n    assert price_total(2.675) == 2.68\n", CHANGED)
+TAUT_REJECTED = taut.check_tautology("def test_x():\n    assert 1 == 1\n", CHANGED)
+TAUT_UNCHECKED = {"checked": False, "changed_symbols": [], "asserted_symbols": [], "ok": True,
+                  "reason": "not checked: no proof test reached the tautology check"}
+
+EVIDENCE = {
+    "VALIDATED": dict(base=FAIL, head=PASS, flaky=STABLE, mutation=mutation([True] * 8)),
+    "MUTATION_SURVIVED": dict(base=FAIL, head=PASS, flaky=STABLE, mutation=SURVIVING),
+    "FIX_FAILS_TEST": dict(base=FAIL, head=FAIL, flaky=STABLE),
+    "NO_REGRESSION_FOUND": dict(base=PASS, head=PASS, flaky=STABLE),
+    "FLAKY": dict(base=FAIL, head=PASS, flaky=FLAKY_RUN),
+    "INVALID_TEST": dict(base=ERR, head=PASS),
 }
 
 
-def verdict_receipt(code, **extra):
-    """A receipt carrying the draft contract: verdict, verdict_reason, base_sha/head_sha, mutation, log excerpts."""
-    r = receipt(BASE, HEAD, proven=(code == "VALIDATED"))
-    r.update({"verdict": code, "verdict_reason": REASONS[code], "base_sha": BASE, "head_sha": HEAD})
-    flags = {"VALIDATED": [True] * 8, "MUTATION_SURVIVED": [True, False, True, True, False, True, False, True]}.get(code)
-    if flags:
-        r["mutation"] = mutation(flags)
-    if code == "NO_REGRESSION_FOUND":
-        r["base_result"] = {"returncode": 0, "stdout": "1 passed in 0.03s", "stderr": ""}
+def verdict_receipt(code, base_sha=BASE, head_sha=HEAD, **extra):
+    """A receipt carrying the pinned contract, built by the harness's own verdict_fields for the evidence behind `code`."""
+    evidence = copy.deepcopy(dict(EVIDENCE[code], test_name="test_x", suite_ok=True))
+    fields = harness.verdict_fields(evidence, base_sha, head_sha)
+    assert fields["verdict"] == code, (code, fields["verdict"])
+    base, head = evidence["base"], evidence["head"]
+    r = receipt(base_sha, head_sha, proven=fields["proven"], base_rc=base["returncode"], head_rc=head["returncode"])
+    r["base_result"], r["head_result"] = dict(base), dict(head)
+    r.update(fields)
+    r["tautology"] = copy.deepcopy(TAUT_OK)
     if code == "INVALID_TEST":
-        r["base_result"] = {"returncode": 2, "stdout": "ImportError: cannot import name 'price_totl' from 'widgets.price'", "stderr": ""}
         r["base_failure_is_expected"] = False
-    r["log_excerpts"] = [{"label": "base run", "text": "FAILED latch_issue_test.py::test_x - AssertionError"},
-                         {"label": "head run", "text": "1 passed in 0.03s"}]
     r.update(extra)
+    return r
+
+
+def tautology_receipt(base_sha=BASE, head_sha=HEAD, tautology=None):
+    """What prove.py writes when the proof test is rejected before any run: no test, no results, INVALID_TEST."""
+    tautology = copy.deepcopy(tautology or TAUT_REJECTED)
+    fields = harness.verdict_fields({"tautology": tautology}, base_sha, head_sha)
+    assert fields["verdict"] == "INVALID_TEST" and fields["verdict_reason"].startswith("tautology check: ")
+    r = receipt(base_sha, head_sha, proven=False)
+    r.update(fields)
+    r.update({"test": None, "test_name": None, "base_result": None, "head_result": None, "base_failure_is_expected": False,
+              "rejected_test_reason": tautology["reason"], "why_not_proven": tautology["reason"], "head": head_sha})
     return r
 
 
 def seed(h, number, code=None, **extra):
     """Store a receipt with the given verdict (or an old one without any) under acme/widgets#number."""
     head = f"{number:040x}"  # the receipt key is repo+base+head, so each seeded receipt needs its own head
-    r = verdict_receipt(code, head=head, head_sha=head, **extra) if code else receipt(BASE, head)
+    r = verdict_receipt(code, head_sha=head, **extra) if code else receipt(BASE, head)
+    if code:
+        r["head"] = head
     h.service.store.put("acme/widgets", number, store.make_envelope(r, "live", started=1.0, finished=2.0))
     return r
+
+
+class ContractTests(unittest.TestCase):
+    def test_every_field_the_harness_promises_is_in_the_fixture_receipts(self):
+        for code in CODES:
+            r = verdict_receipt(code)
+            self.assertTrue(set(harness.RECEIPT_FIELDS) <= set(r), code)
+            self.assertEqual(r["proven"], code == "VALIDATED")
+
+    def test_the_web_module_knows_the_six_verdicts_in_the_harness_order_with_the_agreed_wording(self):
+        out = subprocess.run([NODE, "-e", "global.window={};require(%s);process.stdout.write(JSON.stringify(window.LatchVerdict.VERDICTS))" % json.dumps(str(STATIC / "verdict.js"))],
+                             capture_output=True, text=True, timeout=30, check=True) if NODE else None
+        if out is None:
+            self.skipTest("node is not installed")
+        got = json.loads(out.stdout)
+        self.assertEqual(list(got), list(CODES))
+        for code in CODES:
+            self.assertEqual(got[code]["meaning"], MEANINGS[code], code)
+            self.assertEqual(got[code]["pass"], code == "VALIDATED", code)
+        self.assertEqual(len({v["label"] for v in got.values()}), 6)
+
+    def test_store_and_web_agree_on_the_codes(self):
+        self.assertEqual(tuple(store.VERDICT_CODES), tuple(CODES))
 
 
 class VerdictCodeTests(unittest.TestCase):
@@ -87,9 +161,12 @@ class VerdictCodeTests(unittest.TestCase):
             self.assertIsNone(store.make_envelope(r, "live", started=1.0, finished=2.0)["meta"]["verdict_code"])
 
     def test_the_harness_reason_explains_a_verdict_that_is_not_validated(self):
-        for code in CODES[1:]:
-            self.assertEqual(store.explain(verdict_receipt(code)).rstrip("."), REASONS[code].rstrip("."))
-        self.assertIsNone(store.explain(verdict_receipt("VALIDATED")))
+        for code in CODES:
+            r = verdict_receipt(code)
+            if code == "VALIDATED":
+                self.assertIsNone(store.explain(r))
+            else:
+                self.assertEqual(store.explain(r), store._sentence(r["verdict_reason"]))
 
     def test_old_receipts_still_explain_themselves_the_old_way(self):
         self.assertEqual(store.explain(receipt(BASE, HEAD, proven=False, head_rc=1)), store.explain(dict(receipt(BASE, HEAD, proven=False, head_rc=1))))
@@ -102,12 +179,12 @@ class ServedTests(unittest.TestCase):
         status, headers, body = h.request("GET", "/static/verdict.js")
         self.assertEqual(status, 200)
         self.assertIn("LatchVerdict", body.decode())
-        for page, script in (("/", "app.js"), ("/eval", "eval.js")):
+        for page, script in (("/", "app.js"), ("/", "loop.js"), ("/eval", "eval.js")):
             html = h.request("GET", page)[2].decode()
             self.assertIn('<script src="/static/verdict.js"></script>', html, page)
             self.assertLess(html.index("/static/verdict.js"), html.index("/static/" + script), page)
 
-    def test_every_draft_receipt_round_trips_unchanged_and_lists_its_verdict(self):
+    def test_every_receipt_round_trips_unchanged_and_lists_its_verdict(self):
         h = Harness(self)
         for number, code in enumerate(CODES, start=1):
             sent = seed(h, number, code)
@@ -116,8 +193,15 @@ class ServedTests(unittest.TestCase):
             self.assertEqual(got["meta"]["verdict_code"], code)
         items = {i["number"]: i for i in h.get_json("/api/recent")[1]["items"] if i["repo"] == "acme/widgets"}
         self.assertEqual({n: items[n]["verdict_code"] for n in items}, dict(enumerate(CODES, start=1)))
-        self.assertEqual(items[1]["verdict"], "proven")
-        self.assertEqual({items[n]["verdict"] for n in range(2, 6)}, {"not_proven"})
+        self.assertEqual({n: items[n]["verdict"] for n in items}, {n: ("proven" if c == "VALIDATED" else "not_proven") for n, c in enumerate(CODES, start=1)})
+
+    def test_a_wrong_fix_lands_on_fix_fails_test_with_the_head_tail_in_verdict_logs(self):
+        h = Harness(self)
+        seed(h, 4, "FIX_FAILS_TEST")
+        got = h.get_json("/api/receipt/acme/widgets/4")[1]
+        self.assertEqual(got["meta"]["verdict_code"], "FIX_FAILS_TEST")
+        self.assertIn("AssertionError", got["receipt"]["verdict_logs"]["head"])
+        self.assertEqual(got["receipt"]["head_result"]["returncode"], 1)
 
     def test_an_old_receipt_lists_no_verdict_code_and_the_recorded_click_still_does_not(self):
         h = Harness(self)
@@ -130,25 +214,91 @@ class ServedTests(unittest.TestCase):
         def run(url, path, command, on_step=None, runner=None, on_step_event=None):
             on_step("fetching")
             on_step_event({"step": "mutation", "status": "started", "ts": "2026-10-30T04:00:00.000Z", "detail": None})
-            on_step_event({"step": "mutation", "status": "done", "ts": "2026-10-30T04:00:09.000Z", "detail": {"killed": 5, "total": 8}})
-            on_step_event({"step": "verdict", "status": "done", "ts": "2026-10-30T04:00:10.000Z", "detail": {"verdict": "MUTATION_SURVIVED"}})
-            return verdict_receipt("MUTATION_SURVIVED", base=BASE, head="7" * 40, base_sha=BASE, head_sha="7" * 40)
+            on_step_event({"step": "mutation", "status": "done", "ts": "2026-10-30T04:00:09.000Z", "detail": {"killed": 3, "total": 8, "kill_rate": 0.375}})
+            on_step_event({"step": "verdict", "status": "done", "ts": "2026-10-30T04:00:10.000Z",
+                           "detail": {"verdict": "MUTATION_SURVIVED", "reason": "mutation kill rate 38% is below the 60% threshold"}})
+            return verdict_receipt("MUTATION_SURVIVED", head_sha="7" * 40, head="7" * 40)
 
         h = Harness(self, run_pr=run)
         events = h.events(h.post(h.add_pr(7))[2]["job_id"])
         relayed = [e["data"] for e in events if e["event"] == "step_event"]
         self.assertEqual([(e["step"], e["status"]) for e in relayed], [("mutation", "started"), ("mutation", "done"), ("verdict", "done")])
-        self.assertEqual(relayed[1]["detail"], {"killed": 5, "total": 8})
-        self.assertEqual(relayed[2]["detail"], {"verdict": "MUTATION_SURVIVED"})
+        self.assertEqual(relayed[1]["detail"], {"killed": 3, "total": 8, "kill_rate": 0.375})
+        self.assertEqual(relayed[2]["detail"]["verdict"], "MUTATION_SURVIVED")
+        self.assertIn("threshold", relayed[2]["detail"]["reason"])
         result = events[-1]
         self.assertEqual(result["event"], "result")
         self.assertEqual(result["data"]["meta"]["verdict_code"], "MUTATION_SURVIVED")
 
-    def test_the_ledger_has_rows_for_the_mutation_and_verdict_steps(self):
+    def test_a_proof_test_rejected_by_the_tautology_check_is_invalid_test_and_round_trips(self):
+        h = Harness(self)
+        sent = tautology_receipt(head_sha=f"{50:040x}")
+        h.service.store.put("acme/widgets", 50, store.make_envelope(sent, "live", started=1.0, finished=2.0))
+        got = h.get_json("/api/receipt/acme/widgets/50")[1]
+        self.assertEqual(got["receipt"], sent)
+        self.assertEqual(got["meta"]["verdict_code"], "INVALID_TEST")
+        self.assertEqual(got["meta"]["verdict"], "not_proven")
+        self.assertFalse(got["receipt"]["tautology"]["ok"])
+        self.assertTrue(got["receipt"]["verdict_reason"].startswith("tautology check: "))
+        self.assertIn("tautology check", store.explain(got["receipt"]).lower())
+
+    def test_every_harness_receipt_carries_the_tautology_fields_the_page_reads(self):
+        for result in (TAUT_OK, TAUT_REJECTED):
+            for key in ("checked", "changed_symbols", "asserted_symbols", "ok", "reason", "affected_symbols", "mode"):
+                self.assertIn(key, result)
+        # prove.py's "nothing reached the check" placeholder is smaller: the page must cope without the extras.
+        for key in ("checked", "changed_symbols", "asserted_symbols", "ok", "reason"):
+            self.assertIn(key, TAUT_UNCHECKED)
+        self.assertTrue(TAUT_OK["ok"] and TAUT_OK["asserted_symbols"])
+        self.assertFalse(TAUT_REJECTED["ok"])
+        self.assertEqual(TAUT_OK["mode"], "changed")
+
+    def test_the_receipt_page_script_renders_the_tautology_row(self):
+        js = (STATIC / "app.js").read_text()
+        for needle in ("tautologySection(r)", "Tautology check", "Changed symbols", "Asserted symbols", "changed_symbols", "asserted_symbols", "affected_symbols", "data-tautology", "t.reason"):
+            self.assertIn(needle, js, needle)
+        self.assertLess(js.index("tautologySection(r));"), js.index("flakySection(r));"))
+
+    def test_the_receipt_page_script_renders_every_section_the_contract_has(self):
         js = (STATIC / "app.js").read_text()
         self.assertIn('["mutation", "Mutation check (harness)", false]', js)
+        self.assertIn('["flake_check", "Rerun the test, expect the same result (harness)", false]', js)
         self.assertIn('["verdict", "Decide the verdict (harness)", true]', js)
-        self.assertIn("mutationSection(r)", js)
+        for needle in ("flakySection(r)", "mutationSection(r)", "Rerun check", "Mutation check", "verdict_logs", "base_fail_rate", "head_pass_rate", "flake_rate", "kill_rate", "threshold", "mu.what"):
+            self.assertIn(needle, js, needle)
+
+
+class EvalFixtureTests(unittest.TestCase):
+    """/api/eval hands the summary through unchanged, so the new per-case and top-level fields reach eval.js intact."""
+
+    def test_cases_carry_verdict_reason_and_flaky_and_the_summary_carries_the_flaky_totals(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        runs = Path(tmp.name) / "latch" / "runs"
+        (runs / "eval").mkdir(parents=True)
+        wrong = verdict_receipt("FIX_FAILS_TEST")
+        (runs / "eval" / "wrong.json").write_text(json.dumps(wrong))
+        summary = {
+            "featured_wrong_fix_receipt": "latch/runs/eval/wrong.json",
+            "flaky": {"n_cases_checked": 3, "n_flaky": 1, "median_flake_rate": 0.0},
+            "cases": [
+                {"case": "wrong-1", "variant": "wrong_fix", "status": "ran", "verdict": "FIX_FAILS_TEST", "verdict_reason": "the proof test fails on the change under test too", "flaky": STABLE},
+                {"case": "real-1", "variant": "real_fix", "status": "ran", "verdict": "VALIDATED", "verdict_reason": "red on base with an assertion, green on head", "flaky": STABLE},
+                {"case": "real-2", "variant": "real_fix", "status": "ran", "verdict": "FLAKY", "verdict_reason": "inconsistent", "flaky": FLAKY_RUN},
+                {"case": "real-3", "variant": "real_fix", "status": "not run"},
+            ],
+        }
+        (runs / "eval-summary.json").write_text(json.dumps(summary))
+        with mock.patch.dict(os.environ, {"LATCH_EVAL_ROOT": tmp.name}):
+            body = Harness(self).get_json("/api/eval")[1]
+        self.assertEqual(body["summary"], summary)
+        self.assertEqual(body["featured"]["meta"]["verdict_code"], "FIX_FAILS_TEST")
+        self.assertEqual(body["featured"]["meta"]["verdict"], "not_proven")
+
+    def test_the_eval_script_renders_the_verdict_breakdown_the_flaky_summary_and_per_case_cells(self):
+        js = (STATIC / "eval.js").read_text()
+        for needle in ("breakdown(cases)", "n_cases_checked", "n_flaky", "median_flake_rate", "verdict_reason", "caseFlaky", "caseVerdict", "Median mutation kill rate"):
+            self.assertIn(needle, js, needle)
 
 
 NODE = shutil.which("node")
@@ -158,21 +308,22 @@ NODE = shutil.which("node")
 class VerdictModuleTests(unittest.TestCase):
     """Run the real static/verdict.js under node: it is the single place the verdict wording and fail-closed rules live."""
 
-    def info(self, receipt_obj, meta=None):
-        script = ("global.window = {}; require(%s); process.stdout.write(JSON.stringify(window.LatchVerdict.info(%s, %s)));"
-                  % (json.dumps(str(STATIC / "verdict.js")), json.dumps(receipt_obj), json.dumps(meta or {})))
+    def call(self, expr):
+        script = "global.window = {}; require(%s); process.stdout.write(JSON.stringify(%s));" % (json.dumps(str(STATIC / "verdict.js")), expr)
         out = subprocess.run([NODE, "-e", script], capture_output=True, text=True, timeout=30, check=True)
         return json.loads(out.stdout)
+
+    def info(self, receipt_obj, meta=None):
+        return self.call("window.LatchVerdict.info(%s, %s)" % (json.dumps(receipt_obj), json.dumps(meta or {})))
 
     def test_only_validated_is_a_pass_and_every_other_verdict_carries_its_reason(self):
         for code in CODES:
             got = self.info(verdict_receipt(code))
             self.assertEqual(got["code"], code)
             self.assertEqual(got["pass"], code == "VALIDATED", code)
-            self.assertTrue(got["meaning"])
-            self.assertEqual(got["reason"], REASONS[code])
-        labels = [self.info(verdict_receipt(c))["label"] for c in CODES]
-        self.assertEqual(len(set(labels)), 5)
+            self.assertEqual(got["meaning"], MEANINGS[code])
+            self.assertEqual(got["reason"], store._sentence(verdict_receipt(code)["verdict_reason"]))
+        self.assertEqual(len({self.info(verdict_receipt(c))["label"] for c in CODES}), 6)
 
     def test_old_receipts_fall_back_to_proven_and_not_proven(self):
         self.assertEqual(self.info(receipt(BASE, HEAD, proven=True))["label"], "Proven")
@@ -182,10 +333,20 @@ class VerdictModuleTests(unittest.TestCase):
 
     def test_a_contradiction_or_an_unknown_verdict_never_reads_as_a_pass(self):
         self.assertFalse(self.info(verdict_receipt("VALIDATED", proven=False))["pass"])
-        self.assertFalse(self.info(verdict_receipt("FLAKY", proven=True))["pass"])
+        for code in CODES[:-1]:
+            self.assertFalse(self.info(verdict_receipt(code, proven=True))["pass"], code)
         unknown = self.info(verdict_receipt("VALIDATED", verdict="PROBABLY_FINE", proven=True))
         self.assertFalse(unknown["pass"])
         self.assertEqual(unknown["label"], "Unrecognised verdict")
+
+    def test_the_breakdown_counts_every_verdict_from_the_cases_and_keeps_unlabelled_cases_out_of_the_passes(self):
+        cases = [{"verdict": "VALIDATED"}, {"verdict": "VALIDATED"}, {"verdict": "FIX_FAILS_TEST"}, {"verdict": "FLAKY"},
+                 {"verdict": "NOPE"}, {"status": "not run"}, None]
+        got = self.call("window.LatchVerdict.breakdown(%s)" % json.dumps(cases))
+        self.assertEqual(got["counts"], {"INVALID_TEST": 0, "FLAKY": 1, "NO_REGRESSION_FOUND": 0, "FIX_FAILS_TEST": 1, "MUTATION_SURVIVED": 0, "VALIDATED": 2})
+        self.assertEqual((got["none"], got["total"]), (3, 7))
+        self.assertEqual(list(got["counts"]), list(CODES))
+        self.assertEqual(self.call("window.LatchVerdict.breakdown(undefined)")["total"], 0)
 
 
 if __name__ == "__main__":

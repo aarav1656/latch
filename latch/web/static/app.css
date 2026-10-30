@@ -215,3 +215,37 @@ strong { font-weight: 600; }
 .mutant pre.diff .hunk { color: var(--muted); }
 .receipt .mutant details { border: 0; padding: 0; }
 .receipt .mutant details summary { color: var(--accent); }
+.mutant-what { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.mutation[data-mutation="empty"] .mutation-frac { color: var(--muted); }
+.mutation-facts, .rerun-facts { margin: var(--space-2) 0; }
+.mutation-facts .row dd, .rerun-facts .row dd { font-variant-numeric: tabular-nums; }
+.mutation-note { margin: var(--space-2) 0; }
+
+/* ---- rerun check ---- */
+.rerun[data-rerun="flaky"] .row:nth-child(4) dd { color: var(--fail); }
+.rerun[data-rerun="stable"] .row:nth-child(4) dd { color: var(--pass); }
+.rerun-facts .row dd { overflow-wrap: anywhere; }
+
+/* ---- /eval: verdict summary, per-case cells ---- */
+.breakdown { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.breakdown-item { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: var(--space-3); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.breakdown-label { overflow-wrap: anywhere; }
+.breakdown-count { font: 600 var(--t-base)/1.3 var(--font-mono); font-variant-numeric: tabular-nums; }
+.breakdown-item[data-verdict="VALIDATED"] .breakdown-count { color: var(--pass); }
+.breakdown-item.is-zero { color: var(--muted); }
+.breakdown-item.is-zero .breakdown-count { color: var(--muted); font-weight: 400; }
+.case-verdict { display: grid; gap: var(--space-1); justify-items: start; min-width: 0; }
+.case-reason { color: var(--muted); font-size: var(--t-small); overflow-wrap: anywhere; max-width: 36rem; }
+.tl-verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin: var(--space-2) 0 0; }
+.tl-verdict .tl-text { margin: 0; min-width: 0; flex: 1 1 14rem; }
+
+/* Tautology check: symbols as inline code, the reason as a fail-ruled quote when the test was rejected. */
+.tautology-facts { margin: var(--space-2) 0; }
+.tautology-facts .row dd { overflow-wrap: anywhere; }
+.symbols { display: inline-flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.symbol { font: 400 var(--t-small)/1.4 var(--font-mono); }
+.symbols-more { color: var(--muted); font-size: var(--t-small); }
+.tautology-reason { margin: var(--space-2) 0 0; max-width: var(--measure); overflow-wrap: anywhere; }
+.tautology[data-tautology="rejected"] .tautology-reason { border-left: 2px solid var(--fail); padding-left: var(--space-3); }
+.tautology[data-tautology="rejected"] .tautology-result dd { color: var(--fail); }
+.tautology[data-tautology="ok"] .tautology-result dd { color: var(--pass); }

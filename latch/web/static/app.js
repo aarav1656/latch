@@ -20,6 +20,7 @@
     ["base_run", "Run on base, expect it to fail", true],
     ["head_run", "Run on head, expect it to pass", true],
     ["triage", "Triage the base failure (Lightning)", false],
+    ["flake_check", "Rerun the test, expect the same result (harness)", false],
     ["revert_check", "Revert the fix, expect it to fail again", false],
     ["mutation", "Mutation check (harness)", false],
     ["verdict", "Decide the verdict (harness)", true],
@@ -164,6 +165,7 @@
       pill(killed, killed ? "killed" : "survived"),
     );
     li.appendChild(head);
+    if (mu.what) li.appendChild(el("p", "mutant-what", String(mu.what)));
     if (mu.diff && !killed) li.appendChild(diffPre(mu.diff));  // survivors show the change; killed mutants fold it away
     if (mu.diff && killed) {
       const dd = el("details");
@@ -186,20 +188,30 @@
       sec.appendChild(el("p", "hint", "not run. This receipt has no mutation check, so how hard the test is to fool is " + NR + "."));
       return sec;
     }
-    const list = Array.isArray(mu.mutants) ? mu.mutants.filter((x) => x && typeof x === "object") : [];
+    let list = Array.isArray(mu.mutants) ? mu.mutants.filter((x) => x && typeof x === "object") : [];
+    // verdict_logs.survivors carries the survivors even when the full mutant list was not kept.
+    const logged = r.verdict_logs && Array.isArray(r.verdict_logs.survivors) ? r.verdict_logs.survivors.filter((x) => x && typeof x === "object") : [];
+    if (!list.length && logged.length) list = logged.map((x) => Object.assign({}, x, { killed: false }));
     const killed = isNum(mu.killed) ? mu.killed : list.filter((x) => x.killed === true).length;
     const total = isNum(mu.total) ? mu.total : list.length;
     const survived = list.filter((x) => x.killed !== true);
-    sec.setAttribute("data-mutation", survived.length ? "survived" : "killed");
+    const failed = survived.length > 0 || mu.ok === false;
+    sec.setAttribute("data-mutation", total === 0 && !failed ? "empty" : failed ? "survived" : "killed");
     const score = el("p", "mutation-score");
     score.append(el("span", "mutation-frac num", killed + "/" + total), el("span", null, " mutants killed"));
-    if (isNum(mu.kill_rate)) score.appendChild(el("span", "mutation-rate num", " " + Math.round(mu.kill_rate * 100) + "%"));
+    if (isNum(mu.kill_rate)) score.appendChild(el("span", "mutation-rate num", Math.round(mu.kill_rate * 100) + "%"));
     sec.appendChild(score);
-    sec.appendChild(el("p", "hint", total === 0
+    const facts = el("dl", "rows mutation-facts");
+    if (!isNum(mu.kill_rate)) facts.appendChild(row("Kill rate", NR, true));
+    facts.appendChild(row("Threshold", isNum(mu.threshold) ? Math.round(mu.threshold * 100) + "%" : NR, true));
+    facts.appendChild(row("Result", mu.ok === true ? "met the threshold" : mu.ok === false ? "below the threshold or could not complete" : NR));
+    sec.appendChild(facts);
+    if (typeof mu.note === "string" && mu.note.trim()) sec.appendChild(el("p", "hint mutation-note", mu.note.trim()));
+    sec.appendChild(el("p", "hint", total === 0 && !list.length
       ? "No mutants were generated, so this check says nothing about the test."
       : survived.length
         ? survived.length + " changed version" + (survived.length === 1 ? "" : "s") + " of the fix still passed the test. Survivors are listed first."
-        : "Every changed version of the fix was caught by the test."));
+        : mu.ok === false ? "The check did not reach its threshold." : "Every changed version of the fix was caught by the test."));
     if (list.length) {
       const ordered = survived.concat(list.filter((x) => x.killed === true));
       const ul = el("ol", "mutants");
@@ -208,21 +220,85 @@
     }
     return sec;
   }
-  // Log excerpts: a string, a list of strings, a list of {label, text}, or a {label: text} map.
+
+  // Rerun check: the frozen test run several times on base and on head (receipt.flaky).
+  function outcomeRun(list, passWord, failWord) {
+    return Array.isArray(list) && list.length ? list.map((p) => (p ? passWord : failWord)).join(" ") : NR;
+  }
+  function flakySection(r) {
+    const sec = el("section", "section rerun", null, { "data-rerun": "" });
+    sec.appendChild(el("h3", "section-title", "Rerun check"));
+    const f = r.flaky;
+    if (!f || typeof f !== "object" || f.ran !== true) {
+      sec.setAttribute("data-rerun", "not-run");
+      const why = f && typeof f === "object" && typeof f.note === "string" && f.note.trim() ? " " + f.note.trim() : "";
+      sec.appendChild(el("p", "hint", "not run." + why + " Whether the test gives the same result every time is " + NR + "."));
+      return sec;
+    }
+    sec.setAttribute("data-rerun", f.flaky === true ? "flaky" : "stable");
+    const pc = (x) => (isNum(x) ? Math.round(x * 1000) / 10 + "%" : NR);
+    const facts = el("dl", "rows rerun-facts");
+    facts.append(
+      row("Runs on each side", isNum(f.runs) ? String(f.runs) : NR, true),
+      row("Base fail rate", pc(f.base_fail_rate), true),
+      row("Head pass rate", pc(f.head_pass_rate), true),
+      row("Flake rate", pc(f.flake_rate), true),
+      row("Result", f.flaky === true ? "inconsistent across reruns" : "consistent across reruns"),
+    );
+    const o = f.outcomes && typeof f.outcomes === "object" ? f.outcomes : null;
+    if (o) {
+      facts.append(row("Base runs", outcomeRun(o.base_passed, "pass", "fail"), true), row("Head runs", outcomeRun(o.head_passed, "pass", "fail"), true));
+    }
+    sec.appendChild(facts);
+    if (typeof f.note === "string" && f.note.trim()) sec.appendChild(el("p", "hint", f.note.trim()));
+    return sec;
+  }
+  // receipt.tautology: the harness's pre-run check that the proof test asserts on code this change touched.
+  function symbolList(list, cap) {
+    const names = Array.isArray(list) ? list.filter((x) => typeof x === "string" && x) : [];
+    if (!names.length) return null;
+    const box = el("span", "symbols");
+    names.slice(0, cap).forEach((n) => box.appendChild(el("code", "symbol", n)));
+    if (names.length > cap) box.appendChild(el("span", "symbols-more", "and " + (names.length - cap) + " more"));
+    return box;
+  }
+  function tautologySection(r) {
+    const sec = el("section", "section tautology", null, { "data-tautology": "" });
+    sec.appendChild(el("h3", "section-title", "Tautology check"));
+    const t = r.tautology;
+    if (!t || typeof t !== "object") {
+      sec.setAttribute("data-tautology", "not-run");
+      sec.appendChild(el("p", "hint", "not run. This receipt has no tautology check, so whether the test asserts on the changed code is " + NR + "."));
+      return sec;
+    }
+    const checked = t.checked === true, rejected = checked && t.ok === false;
+    sec.setAttribute("data-tautology", !checked ? "unchecked" : rejected ? "rejected" : "ok");
+    const facts = el("dl", "rows tautology-facts");
+    facts.append(
+      row("Changed symbols", symbolList(t.changed_symbols, 12) || (checked ? "none recorded" : NR)),
+      row("Asserted symbols", symbolList(t.asserted_symbols, 12) || (checked ? "none: the test asserts on none of them" : NR)),
+    );
+    const callers = symbolList(t.affected_symbols, 12);
+    if (callers) facts.appendChild(row("Callers affected", callers));
+    const res = row("Result", !checked ? "not checked" : rejected ? "rejected before any run" : "the test asserts on changed code");
+    res.classList.add("tautology-result");
+    facts.appendChild(res);
+    if (typeof t.mode === "string" && t.mode) facts.appendChild(row("Mode", t.mode === "repo" ? "repository (any imported code counts)" : t.mode === "changed" ? "changed symbols only" : t.mode));
+    sec.appendChild(facts);
+    // The reason is always shown when the check did not pass, and for an unchecked run it says why.
+    if (typeof t.reason === "string" && t.reason.trim() && (rejected || !checked)) sec.appendChild(el("p", "tautology-reason", t.reason.trim()));
+    return sec;
+  }
+  // verdict_logs.flake: the log of the reruns, when the harness kept one.
   function logExcerpts(r) {
-    const raw = r.log_excerpts != null ? r.log_excerpts : r.log_excerpt;
-    if (raw == null || raw === "" || (Array.isArray(raw) && !raw.length)) return null;
-    let items = [];
-    if (typeof raw === "string") items = [["Log excerpt", raw]];
-    else if (Array.isArray(raw)) items = raw.map((x, i) => typeof x === "string" ? ["Excerpt " + (i + 1), x] : x && typeof x === "object" ? [x.label || x.name || x.step || "Excerpt " + (i + 1), x.text || x.excerpt || x.output || ""] : null).filter(Boolean);
-    else if (typeof raw === "object") items = Object.entries(raw).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)]);
-    items = items.filter((x) => x[1]);
-    if (!items.length) return null;
+    const flake = r.verdict_logs && typeof r.verdict_logs.flake === "string" ? r.verdict_logs.flake.trim() : "";
+    if (!flake) return null;
     const d = el("details", "logs");
-    d.appendChild(el("summary", null, "Log excerpts (" + items.length + ")"));
-    items.forEach(([label, text]) => { d.appendChild(el("p", "hint", String(label))); d.appendChild(el("pre", null, String(text), { tabindex: "0" })); });
+    d.appendChild(el("summary", null, "Flake log"));
+    d.appendChild(el("pre", null, flake, { tabindex: "0", role: "region", "aria-label": "Flake log" }));
     return d;
   }
+
 
   function checksSection(r) {
     const rows = el("dl", "rows");
@@ -257,7 +333,9 @@
     const quiet = [m.test_attempts_note, m.model_retries_note].filter(Boolean).join(" ");
     if (quiet) receiptEl.appendChild(el("p", "hint", quiet));
 
-    const ran = !!r.test && r.base_result != null && r.head_result != null;
+    const vl = r.verdict_logs && typeof r.verdict_logs === "object" ? r.verdict_logs : {};
+    const tail = (v, res) => (typeof v === "string" && v.trim() ? v : resultText(res));
+    const ran = !!r.test && ((r.base_result != null && r.head_result != null) || (typeof vl.base === "string" && typeof vl.head === "string"));
     if (ran) {
       const pair = el("div", "pair");
       const testPane = pane("test", "Generated test" + (r.test_name ? ": " + r.test_name : ""), null, r.test || "", "Generated test source");
@@ -265,8 +343,8 @@
       const baseOk = (r.base_result || {}).returncode;
       const headOk = (r.head_result || {}).returncode === 0;
       stack.append(
-        pane("base", "Base " + short(baseSha), pill(false, "fails, exit " + (typeof baseOk === "number" ? baseOk : "?")), resultText(r.base_result), "Base output"),
-        pane("head " + (headOk ? "is-pass" : "is-fail"), "Head " + short(headSha), pill(headOk, (headOk ? "passes" : "fails") + ", exit " + ((r.head_result || {}).returncode)), resultText(r.head_result), "Head output"),
+        pane("base", "Base " + short(baseSha), pill(false, (baseOk === 0 ? "passes" : "fails") + ", exit " + (typeof baseOk === "number" ? baseOk : "?")), tail(vl.base, r.base_result), "Base output, tail"),
+        pane("head " + (headOk ? "is-pass" : "is-fail"), "Head " + short(headSha), pill(headOk, (headOk ? "passes" : "fails") + ", exit " + (typeof (r.head_result || {}).returncode === "number" ? r.head_result.returncode : "?")), tail(vl.head, r.head_result), "Head output, tail"),
       );
       pair.append(testPane, stack);
       receiptEl.appendChild(pair);
@@ -286,6 +364,8 @@
     facts.appendChild(row("Test runner", r.test_runner || m.runner || NR));
     receiptEl.appendChild(facts);
 
+    receiptEl.appendChild(tautologySection(r));
+    receiptEl.appendChild(flakySection(r));
     receiptEl.appendChild(mutationSection(r));
     const logs = logExcerpts(r);
     if (logs) receiptEl.appendChild(logs);
@@ -377,10 +457,15 @@
   function detailText(d) {
     if (d == null) return "";
     if (typeof d === "string") return LV.VERDICTS[d] ? LV.VERDICTS[d].label : d;
-    if (typeof d === "object" && isNum(d.killed) && isNum(d.total)) return d.killed + "/" + d.total + " mutants killed";
-    if (typeof d === "object" && typeof d.verdict === "string" && LV.VERDICTS[d.verdict]) return LV.VERDICTS[d.verdict].label;
+    if (typeof d === "object" && typeof d.verdict === "string" && LV.VERDICTS[d.verdict]) {
+      return LV.VERDICTS[d.verdict].label + (typeof d.reason === "string" && d.reason ? ": " + d.reason : "");
+    }
+    if (typeof d === "object" && isNum(d.killed) && isNum(d.total)) {
+      return d.killed + "/" + d.total + " mutants killed" + (isNum(d.kill_rate) ? ", " + Math.round(d.kill_rate * 100) + "%" : "");
+    }
     try { return JSON.stringify(d); } catch (_) { return ""; }
   }
+
   function clock(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString(undefined, { hour12: false }); }
   function drawSteps() {
     clear(stepperEl);

@@ -80,6 +80,14 @@
     const head = el("div", "tl-head");
     head.append(el("h3", "tl-title", title), el("span", "tl-time", clock(ev.ts)));
     c.appendChild(head);
+    // The harness verdict, when the loop recorded one on this event. Only VALIDATED reads as a pass.
+    const code = [ev.verdict_code, ev.verdict].find((x) => typeof x === "string" && window.LatchVerdict && window.LatchVerdict.VERDICTS[x]);
+    if (code) {
+      const v = window.LatchVerdict.VERDICTS[code];
+      const line = el("p", "tl-verdict");
+      line.append(el("span", "pill " + (v.pass ? "pass" : "fail"), v.label, { "data-verdict": code }), el("span", "tl-text", v.meaning));
+      c.appendChild(line);
+    }
     if (build) build(c);
     if (ev.truncated) c.appendChild(el("p", "tl-meta", "Long text was clipped to 20 KB (head and tail kept)."));
     li.appendChild(c);
