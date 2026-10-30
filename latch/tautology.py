@@ -304,8 +304,10 @@ def _is_pytest_call(node, names):
 
 
 class _TestAnalysis:
-    def __init__(self, function, targets):
+    def __init__(self, function, targets, repo_modules=()):
         self.function, self.targets = function, set(targets)
+        self.repo_modules = set(repo_modules)  # top-level packages/modules of the repo (repo mode only)
+        self.local_targets = set()  # local names bound by importing from the repo (repo mode only)
         self.alias = {}  # local name -> imported original name
         self.vars = {}  # local variable -> changed symbols it depends on
         self.asserted = set()
@@ -319,7 +321,7 @@ class _TestAnalysis:
         for n in ast.walk(node):
             if isinstance(n, ast.Name):
                 original = self.alias.get(n.id, n.id)
-                if original in self.targets:
+                if original in self.targets or n.id in self.local_targets:
                     found.add(original)
                 found |= self.vars.get(n.id, set())
             elif isinstance(n, ast.Attribute):
@@ -354,13 +356,18 @@ class _TestAnalysis:
     def prepare(self, tree):
         for n in ast.walk(tree):
             if isinstance(n, ast.ImportFrom):
+                from_repo = n.level == 0 and (n.module or "").split(".")[0] in self.repo_modules
                 for a in n.names:
                     if a.asname:
                         self.alias[a.asname] = a.name
+                    if from_repo:
+                        self.local_targets.add(a.asname or a.name)
             elif isinstance(n, ast.Import):
                 for a in n.names:
                     if a.asname:  # `import pkg.mod as m`: m is the module; attributes are matched by name
                         self.alias[a.asname] = a.name.split(".")[-1]
+                    if a.name.split(".")[0] in self.repo_modules:
+                        self.local_targets.add(a.asname or a.name.split(".")[0])
         for _ in range(6):
             changed = False
             for n in ast.walk(self.function):
@@ -469,8 +476,33 @@ def _result(checked, changed, asserted, ok, reason, affected=()):
             "ok": ok, "reason": reason, "affected_symbols": sorted(affected)}
 
 
-def check_tautology(test_source, changed):
-    """Apply the check to a proof test. `changed` is the dict from changed_symbols() (or None when unknown)."""
+def repo_modules(root):
+    """Top-level importable module/package names of a checkout (root and root/src), without tests and docs."""
+    names = set()
+    for base in (Path(root), Path(root) / "src"):
+        try:
+            entries = sorted(base.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.startswith((".", "_")) and entry.name != "__init__.py":
+                continue
+            if entry.is_dir() and entry.name not in _SKIP_DIRS | {"tests", "test", "docs", "doc", "examples", "scripts"} \
+                    and ((entry / "__init__.py").exists() or any(entry.glob("*.py"))):
+                names.add(entry.name)
+            elif entry.is_file() and entry.suffix == ".py" and not entry.name.startswith(("test_", "setup", "conftest")):
+                names.add(entry.stem)
+    return names
+
+
+def check_tautology(test_source, changed, repo_modules=None):
+    """Apply the check to a proof test. `changed` is the dict from changed_symbols() (or None when unknown).
+
+    repo_modules=None is the strict mode used for proving a fix: an assertion must depend on a changed symbol (or a
+    caller of one). Passing the checkout's module names selects the lenient "repo" mode used by the fix loop, whose
+    diff is a candidate patch that may miss the buggy code: an assertion may depend on anything imported from the
+    repository, so only tautologies, constants and values the test built itself are rejected.
+    """
     if not changed or not changed.get("determined"):
         reason = (changed or {}).get("reason") or "the changed symbols could not be determined"
         return _result(False, (), (), True, f"not checked: {reason}")
@@ -482,26 +514,37 @@ def check_tautology(test_source, changed):
     function = _first_test_function(tree)
     if function is None:
         return _result(False, symbols, (), True, "not checked: no top-level test_ function", affected)
-    analysis = _TestAnalysis(function, symbols | affected)
+    analysis = _TestAnalysis(function, symbols | affected, repo_modules or ())
     analysis.prepare(tree)
     analysis.scan(function.body, set())
+    mode = "repo" if repo_modules is not None else "changed"
     if analysis.asserted:
-        return _result(True, symbols, analysis.asserted, True, None, affected)
+        return {**_result(True, symbols, analysis.asserted, True, None, affected), "mode": mode}
     shown = ", ".join(f"`{s}`" for s in sorted(symbols)[:8]) + (" ..." if len(symbols) > 8 else "")
-    reason = (f"the test never asserts on code this change touched ({shown}): no assert, pytest.raises or "
-              "pytest.fail depends on a call to or attribute of those symbols")
+    if mode == "repo":
+        reason = ("the test never asserts on code from the repository: no assert, pytest.raises or pytest.fail "
+                  "depends on anything imported from it")
+    else:
+        reason = (f"the test never asserts on code this change touched ({shown}): no assert, pytest.raises or "
+                  "pytest.fail depends on a call to or attribute of those symbols")
     if analysis.tautologies:
         reason += "; tautological checks found: " + "; ".join(analysis.tautologies[:3])
-    return _result(True, symbols, (), False, reason, affected)
+    return {**_result(True, symbols, (), False, reason, affected), "mode": mode}
 
 
-def check_proof_test(test_source, repo, base, head, head_root=None):
-    """changed_symbols + check_tautology, never raising: any failure to analyze gives checked=False."""
+def safe_changed_symbols(repo, base, head, head_root=None):
+    """changed_symbols that never raises: an analysis bug must never block a proof (it becomes undetermined)."""
     try:
-        changed = changed_symbols(repo, base, head, head_root)
-    except Exception as error:  # an analysis bug must never block a proof
-        changed = _undetermined(f"{type(error).__name__}: {error}")
-    return check_tautology(test_source, changed)
+        return changed_symbols(repo, base, head, head_root)
+    except Exception as error:
+        return _undetermined(f"{type(error).__name__}: {error}")
+
+
+def check_proof_test(test_source, repo, base, head, head_root=None, mode="changed"):
+    """changed_symbols + check_tautology, never raising. mode "changed" (prove) or "repo" (loop, needs head_root)."""
+    changed = safe_changed_symbols(repo, base, head, head_root)
+    modules = repo_modules(head_root) if mode == "repo" and head_root is not None else None
+    return check_tautology(test_source, changed, modules)
 
 
 def rejection_reason(result):

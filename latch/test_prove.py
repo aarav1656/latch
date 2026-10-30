@@ -256,6 +256,76 @@ class GenerationRetryTests(unittest.TestCase):
         self.assertIsNone(saved["base_result"])
 
 
+class TautologyWiringTests(unittest.TestCase):
+    """The deterministic check runs before any test: a test that never asserts on the changed code is retried once
+    with the reason, then fails closed as INVALID_TEST."""
+    TAUTOLOGY = "def test_double():\n    from app import double\n    assert double(2) == double(2)\n"
+    CONSTANT = "def test_double():\n    from app import double\n    assert 1 + 1 == 2\n"
+    GOOD = "def test_double():\n    from app import double\n    assert double(2) == 4\n"
+
+    def run_prove(self, replies, runner=None):
+        replies = iter(replies)
+        prompts = []
+
+        def scripted(key, user, model=None, system=None, **kw):
+            if "map a Python repository" in (system or ""):
+                return 503, None, None
+            prompts.append(user)
+            return 200, next(replies, "REPRODUCES: yes"), f"c{len(prompts)}"
+
+        with tempfile.TemporaryDirectory() as temp:
+            repo = ProveRunnerTests().make_repo(temp)
+            receipt = Path(temp) / "r.json"
+            fail = {"returncode": 1, "stdout": "________ test_double ________\nE       AssertionError\nFAILED latch_issue_test.py::test_double - AssertionError\n", "stderr": ""}
+            ok = {"returncode": 0, "stdout": "1 passed", "stderr": ""}
+
+            def default_runner(snapshot, command):
+                return fail if snapshot.name in ("base", "revert-fix") else ok
+
+            default_runner.description = "stub"
+            with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
+                "latch.prove.call_model", side_effect=scripted
+            ):
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt,
+                               runner=runner or default_runner)
+            saved = json.loads(receipt.read_text())
+        return result, saved, prompts
+
+    def test_tautology_is_retried_once_with_the_reason_then_passes(self):
+        result, saved, prompts = self.run_prove([self.TAUTOLOGY, self.GOOD])
+        self.assertIn("REJECTED", prompts[1])
+        self.assertIn("double", prompts[1])
+        self.assertNotIn("REJECTED", prompts[0])
+        self.assertEqual([a["valid"] for a in saved["test_attempts"]], [False, True])
+        self.assertTrue(saved["tautology"]["checked"])
+        self.assertTrue(saved["tautology"]["ok"])
+        self.assertEqual(saved["tautology"]["asserted_symbols"], ["double"])
+        self.assertEqual(saved["tautology"]["changed_symbols"], ["double"])
+        self.assertTrue(result["proven"])
+
+    def test_two_tautologies_fail_closed_as_invalid_test_without_running_tests(self):
+        def never(*a, **k):
+            raise AssertionError("nothing may run")
+
+        result, saved, prompts = self.run_prove([self.TAUTOLOGY, self.CONSTANT], runner=never)
+        self.assertFalse(saved["proven"])
+        self.assertEqual(saved["verdict"], "INVALID_TEST")
+        self.assertIn("rejected as vacuous twice", saved["why_not_proven"])
+        self.assertFalse(saved["tautology"]["ok"])
+        self.assertTrue(saved["tautology"]["checked"])
+        self.assertIn("double", saved["tautology"]["reason"])
+        self.assertIsNone(saved["base_result"])
+
+    def test_undetermined_changes_do_not_block(self):
+        unchecked = {"determined": False, "symbols": [], "affected": [], "files": [], "reason": "no diff"}
+        with mock.patch("latch.tautology.safe_changed_symbols", return_value=unchecked):
+            result, saved, prompts = self.run_prove([self.CONSTANT])
+        self.assertFalse(any("REJECTED" in p for p in prompts))
+        self.assertFalse(saved["tautology"]["checked"])
+        self.assertTrue(saved["tautology"]["ok"])
+        self.assertTrue(result["proven"])
+
+
 class CallModelRetryTests(unittest.TestCase):
     def reply(self, text="hi"):
         body = json.dumps({"id": "cmpl-ok", "choices": [{"message": {"content": text}}]}).encode()

@@ -106,22 +106,42 @@ class ModelRequestError(RuntimeError):
         self.status, self.attempts = status, attempts
 
 
+def _unchecked_tautology():
+    return {"checked": False, "changed_symbols": [], "asserted_symbols": [], "ok": True,
+            "reason": "not checked: no proof test reached the tautology check"}
+
+
+def tautology_check_for(changed, repo_modules=None):
+    """extra_check for generate_proof_test: the AST tautology check against the symbols the diff changed."""
+    from .tautology import check_tautology, rejection_reason
+
+    def extra_check(function):
+        result = check_tautology(function, changed, repo_modules)
+        return rejection_reason(result), result
+
+    return extra_check
+
+
 def _stricter(prompt, reason, previous):
     return (
         f"{prompt}\n\nYOUR PREVIOUS ANSWER WAS REJECTED BEFORE IT WAS RUN: {reason}.\n"
         f"Previous answer:\n{previous[:3000]}\n\n"
         "Write a different test now. Its body must perform the issue's operation and contain at least one real "
         "`assert` on the observable result (never `assert True`, `...` or `pass`), or `with pytest.raises(...)`, "
-        "or a `pytest.fail(...)` call in the branch that catches the operation's exception. No placeholders, no prose."
+        "or a `pytest.fail(...)` call in the branch that catches the operation's exception. No placeholders, no prose. "
+        "At least one assertion must depend on the value or behavior of the code the diff changed, reached through the "
+        "API the issue names; never compare a value with itself or assert only on constants or on values the test built."
     )
 
 
-def generate_proof_test(ask, key, prompt, system, model, max_tokens, what="Nebius test-generation"):
+def generate_proof_test(ask, key, prompt, system, model, max_tokens, what="Nebius test-generation", extra_check=None):
     """Ask the model for a proof test; reject vacuous ones; retry once with a stricter prompt.
 
     `ask` has the latch.run.call_model signature. Returns (function_source_or_None, attempts). Every attempt is
     recorded as {attempt, completion_id, valid, rejection, source}; the function is None when both attempts were
     rejected (the caller fails closed). Raises ModelRequestError when the model call itself fails.
+    `extra_check(function_source) -> (rejection_or_None, info)` runs after validate_proof_test (the deterministic
+    tautology check); `info` is stored on the attempt as `tautology`, and a rejection triggers the same retry.
     """
     attempts = []
     user = prompt
@@ -134,8 +154,12 @@ def generate_proof_test(ask, key, prompt, system, model, max_tokens, what="Nebiu
             reason = validate_proof_test(function)
         except ValueError:
             function, reason = None, "the reply contained no test_ function"
+        tautology = None
+        if reason is None and extra_check is not None:
+            reason, tautology = extra_check(function)
         attempts.append({"attempt": number, "completion_id": completion_id, "valid": reason is None,
-                         "rejection": reason, "source": (function or content)[:4000]})
+                         "rejection": reason, "source": (function or content)[:4000],
+                         **({"tautology": tautology} if tautology is not None else {})})
         if reason is None:
             return function, attempts
         user = _stricter(prompt, reason, function or content)
@@ -289,6 +313,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     from .repomap import build_repo_map
     from .revert import changed_files, is_test_path, revert_check
     from .steps import StepLog
+    from .tautology import safe_changed_symbols
 
     def step(name):
         if on_step:
@@ -354,6 +379,9 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         head_dir.mkdir()
         archive(repo, base_commit, base_dir)
         archive(repo, head_commit, head_dir)
+        # Which symbols the diff changed (and their callers): the proof test must assert on them. Never raises;
+        # when it cannot tell, the check is skipped (checked=False) rather than guessed.
+        changed_syms = safe_changed_symbols(repo, base_commit, head_commit, head_dir)
 
         map_result = {"status": "skipped"}
         if repo_map:
@@ -391,7 +419,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             "on the bug and pass on the fix. Put imports inside it. Output no prose."
         )
         try:
-            function, test_attempts = generate_proof_test(calls.ask("test_writer"), key, prompt, system, MODEL, 2048)
+            function, test_attempts = generate_proof_test(
+                calls.ask("test_writer"), key, prompt, system, MODEL, 2048, extra_check=tautology_check_for(changed_syms))
         except ModelRequestError as error:
             steps.failed("test_writer", f"HTTP {error.status}")
             raise RuntimeError(f"Nebius model request failed: HTTP {error.status}") from None
@@ -401,11 +430,15 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             # Fail closed: both generations were vacuous, so nothing was run and nothing is proven.
             steps.failed("test_writer", test_attempts[-1]["rejection"])
             reason = "the generated test was rejected as vacuous twice: " + test_attempts[-1]["rejection"]
-            decided = verdict_fields({"rejected": test_attempts[-1]["rejection"]}, base_commit, head_commit)
+            tautology = test_attempts[-1].get("tautology")
+            rejected_by_tautology = bool(tautology and tautology.get("checked") and tautology.get("ok") is False)
+            decided = verdict_fields({"tautology": tautology} if rejected_by_tautology
+                                     else {"rejected": test_attempts[-1]["rejection"]}, base_commit, head_commit)
             steps.done("verdict", step_detail(decided))
             return write_receipt({
                 **decided,
                 **base_info,
+                "tautology": tautology or _unchecked_tautology(),
                 "completion_id": test_attempts[-1]["completion_id"], "test": None,
                 "base_result": None, "head_result": None, "test_name": None,
                 "base_failure_type": None, "base_failure_is_expected": False, "proven": False,
@@ -464,7 +497,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
             revert_result = {"ran": False, "skipped": "revert check disabled"}
 
     decided = verdict_fields(
-        {"base": base_result, "head": head_result, "test_name": test_name, "revert": revert_result},
+        {"base": base_result, "head": head_result, "test_name": test_name, "revert": revert_result,
+         "tautology": test_attempts[-1].get("tautology") or _unchecked_tautology()},
         base_commit, head_commit)
     is_proven = decided["proven"]  # derived: proven == (verdict == VALIDATED)
     why_not = None if is_proven else decided["verdict_reason"]
@@ -479,6 +513,7 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
         "test_name": test_name,
         "base_failure_type": base_kind,
         "base_failure_is_expected": base_kind is not None,
+        "tautology": test_attempts[-1].get("tautology") or _unchecked_tautology(),
         "proven": is_proven,
         "revert_check": revert_result,
         "triage": triage_record,
