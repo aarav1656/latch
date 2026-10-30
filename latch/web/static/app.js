@@ -159,21 +159,27 @@
   }
   // A mutant is killed, survived, timed out (counted as killed by the harness) or errored (never counted as killed).
   function mutantState(mu) {
+    if (mu.not_run === true) return "not run (budget)";  // never reached: neither killed nor survived
     if (mu.timed_out === true) return "timed out";
     if (mu.killed !== true && typeof mu.error === "string" && mu.error.trim()) return "error";
     return mu.killed === true ? "killed" : "survived";
   }
+  const CAUTION = "Mutation check incomplete: this verdict is not mutation-backed.";
+  const isIncomplete = (r) => !!(r && r.mutation && typeof r.mutation === "object" && r.mutation.incomplete === true);
+  function neutralPill(text) { return el("span", "pill neutral", text); }
   function mutantItem(mu) {
-    const killed = mu.killed === true;
     const state = mutantState(mu);
-    const li = el("li", "mutant " + (killed ? "is-killed" : "is-survived"), null, { "data-killed": String(killed), "data-state": state.replace(" ", "-") });
+    const notRun = state === "not run (budget)";
+    const killed = mu.killed === true && !notRun;
+    const li = el("li", "mutant " + (notRun ? "is-notrun" : killed ? "is-killed" : "is-survived"), null, { "data-killed": String(killed), "data-state": state.replace(" ", "-") });
     const head = el("div", "mutant-head");
     head.append(
       el("span", "mutant-op", mu.operator || NR),
       el("span", "mutant-where", mutantFile(mu)),
-      pill(killed, state),
+      notRun ? neutralPill(state) : pill(killed, state),
     );
     li.appendChild(head);
+    if (notRun) li.appendChild(el("p", "mutant-what", "Not run: the time budget ran out before this mutant was reached. It says nothing about the test."));
     if (state === "error") li.appendChild(el("p", "mutant-what", "error: " + String(mu.error).trim()));
     if (mu.what) li.appendChild(el("p", "mutant-what", String(mu.what)));
     if (mu.diff && !killed) li.appendChild(diffPre(mu.diff));  // survivors show the change; killed mutants fold it away
@@ -202,15 +208,20 @@
     // verdict_logs.survivors carries the survivors even when the full mutant list was not kept.
     const logged = r.verdict_logs && Array.isArray(r.verdict_logs.survivors) ? r.verdict_logs.survivors.filter((x) => x && typeof x === "object") : [];
     if (!list.length && logged.length) list = logged.map((x) => Object.assign({}, x, { killed: false }));
-    const killed = isNum(mu.killed) ? mu.killed : list.filter((x) => x.killed === true).length;
-    const total = isNum(mu.total) ? mu.total : list.length;
-    const survived = list.filter((x) => x.killed !== true);
+    const unreached = list.filter((x) => x.not_run === true);
+    const reached = list.filter((x) => x.not_run !== true);
+    const killed = isNum(mu.killed) ? mu.killed : reached.filter((x) => x.killed === true).length;
+    const total = isNum(mu.total) ? mu.total : reached.length;  // total counts the mutants that ran
+    const notRunN = isNum(mu.not_run) ? mu.not_run : unreached.length;
+    const incomplete = mu.incomplete === true;
+    const survived = reached.filter((x) => x.killed !== true);
     const errored = survived.filter((x) => mutantState(x) === "error");
     const notRun = mu.ran === false;  // the harness could not run the check: fail closed, never a pass
     const failed = survived.length > 0 || mu.ok === false || notRun;
-    sec.setAttribute("data-mutation", notRun ? "not-run" : total === 0 && !failed ? "empty" : failed ? "survived" : "killed");
+    sec.setAttribute("data-mutation", notRun ? "not-run" : incomplete ? "incomplete" : total === 0 && !failed ? "empty" : failed ? "survived" : "killed");
     const score = el("p", "mutation-score");
-    score.append(el("span", "mutation-frac num", killed + "/" + total), el("span", null, " mutants killed"));
+    score.append(el("span", "mutation-frac num", killed + "/" + total), el("span", null, notRunN ? " killed of the mutants that ran," : " mutants killed"));
+    if (notRunN) score.appendChild(el("span", "mutation-notrun num", notRunN + " not run"));
     if (isNum(mu.kill_rate)) score.appendChild(el("span", "mutation-rate num", Math.round(mu.kill_rate * 100) + "%"));
     sec.appendChild(score);
     const facts = el("dl", "rows mutation-facts");
@@ -218,18 +229,21 @@
     facts.appendChild(row("Threshold", isNum(mu.threshold) ? Math.round(mu.threshold * 100) + "%" : NR, true));
     facts.appendChild(row("Result", mu.ok === true ? "met the threshold" : mu.ok === false ? "below the threshold or could not complete" : NR));
     sec.appendChild(facts);
+    if (incomplete) sec.appendChild(el("p", "caution mutation-caution", CAUTION));
     if (typeof mu.note === "string" && mu.note.trim()) sec.appendChild(el("p", "hint mutation-note", mu.note.trim()));
     const passedMutants = survived.length - errored.length;
     sec.appendChild(el("p", "hint", notRun
       ? "The mutation check did not run, so how hard the test is to fool is " + NR + ". This is not a pass."
+      : incomplete
+      ? "The budget ran out before enough mutants were run, so the check is incomplete and does not block. " + notRunN + " mutant" + (notRunN === 1 ? " was" : "s were") + " not run."
       : total === 0 && !list.length
-      ? "No mutants were generated, so this check says nothing about the test."
+      ? "No mutable lines: no mutants were generated, so this check says nothing about the test."
       : survived.length
         ? (passedMutants ? passedMutants + " changed version" + (passedMutants === 1 ? "" : "s") + " of the fix still passed the test. " : "")
           + (errored.length ? errored.length + " mutant" + (errored.length === 1 ? "" : "s") + " could not be run and " + (errored.length === 1 ? "is" : "are") + " not counted as killed. " : "") + "These are listed first."
         : mu.ok === false ? "The check did not reach its threshold." : "Every changed version of the fix was caught by the test."));
     if (list.length && !notRun) {  // a check that did not run has no mutants worth listing
-      const ordered = survived.concat(list.filter((x) => x.killed === true));
+      const ordered = survived.concat(reached.filter((x) => x.killed === true), unreached);
       const ul = el("ol", "mutants");
       ordered.forEach((x) => ul.appendChild(mutantItem(x)));
       sec.appendChild(ul);
@@ -341,6 +355,7 @@
     if (vi.code) verdict.appendChild(el("p", "verdict-code", vi.code));
     verdict.appendChild(el("p", "verdict-why", vi.meaning));
     if (vi.reason) verdict.appendChild(el("p", "verdict-reason", vi.reason));
+    if (isIncomplete(r)) verdict.appendChild(el("p", "caution verdict-caution", CAUTION));  // beside the verdict, never hidden
     verdict.appendChild(provenance(m, opts.cached));
     const idLine = el("p", "verdict-meta");
     idLine.append(el("span", null, "completion"), el("span", "id", r.completion_id || NR));
@@ -557,7 +572,21 @@
     if (source) { source.close(); source = null; }
     if (poll) { clearInterval(poll); poll = null; }
   }
+  // The step event for a mutation check that ran nothing reads {0, 0, null} whether there were no mutable lines or the
+  // budget ran out, so the saved receipt decides which one the ledger row says.
+  function mutationStepNote(r) {
+    const mu = r && r.mutation;
+    if (!mu || typeof mu !== "object" || mu.ran === false) return null;
+    if (mu.incomplete === true) {
+      const n = isNum(mu.not_run) ? mu.not_run : (Array.isArray(mu.mutants) ? mu.mutants.filter((x) => x && x.not_run === true).length : 0);
+      return "incomplete: " + (isNum(mu.killed) && isNum(mu.total) ? mu.killed + "/" + mu.total + " ran and killed, " : "") + n + " not run (budget). Not mutation-backed.";
+    }
+    if (mu.total === 0 && !(Array.isArray(mu.mutants) && mu.mutants.length)) return "no mutable lines, so no mutants were generated";
+    return null;
+  }
   function onResult(data) {
+    const note = mutationStepNote(data.receipt);
+    if (note && steps.mutation_check) steps.mutation_check.detail = note;
     finishSteps();
     progress.hidden = true;
     showError(null); showNotice(null);

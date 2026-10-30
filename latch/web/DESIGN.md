@@ -102,6 +102,18 @@ Receipts without `verdict` render as before (Proven / Not proven), with the reru
   and `error` (the mutant could not be run: never counted as killed, listed first with its error line, and the
   hint says so). `mutation.ran` false means the check did not run: the section reads "This is not a pass.",
   lists no mutants, and a null `kill_rate` is "not recorded".
+- Budget-limited mutation check: `mutation.not_run` (int) and `mutation.incomplete` (bool) are always present when
+  `ran`. Mutants the budget never reached stay in `mutants[]` with `not_run: true`, `killed: false` and no `error`.
+  They are their own state, `not run (budget)`: dashed neutral pill (`.pill.neutral`), muted left edge
+  (`.mutant.is-notrun`), listed last, never counted as killed or survived. `total` and `kill_rate` count only the
+  mutants that ran, so the score reads "K/T killed of the mutants that ran, N not run". `incomplete` is `ok: true`
+  and does not block, so the VALIDATED hero stays `is-pass`, but it carries the line "Mutation check incomplete:
+  this verdict is not mutation-backed." inside the hero (`.verdict-caution`) and again in the mutation section
+  (`.mutation-caution`, `data-mutation="incomplete"`, amber rule). The caution follows `mutation.incomplete`, not the
+  verdict code.
+- The `mutation_check` step event is `{0, 0, null}` for both "no mutable lines" and an incomplete run, so the ledger
+  row is set from the saved receipt when it arrives (`mutationStepNote`): "incomplete: K/T ran and killed, N not run
+  (budget). Not mutation-backed." or "no mutable lines, so no mutants were generated" (total 0, not incomplete).
 - Ledger steps, in order: fetch, repo_map, test_writer, base_run, head_run, triage, fix, flake_check, revert_check,
   mutation_check, verdict. `flake_check` detail is `{runs, flaky, flake_rate, base_fail_rate, head_pass_rate}`;
   `mutation_check` detail is `{killed, total, kill_rate}` and its status is `failed` when the gate shuts; the
