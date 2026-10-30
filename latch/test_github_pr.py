@@ -1,5 +1,8 @@
+import tempfile
 import unittest
+from unittest import mock
 
+from latch import github_pr
 from latch.github_pr import linked_issue, parse_pull_request_url
 
 
@@ -29,6 +32,33 @@ class PullRequestInputTests(unittest.TestCase):
         ):
             with self.subTest(body=body), self.assertRaises(ValueError):
                 linked_issue(body, "pallets/click")
+
+
+class StepEventForwardingTests(unittest.TestCase):
+    SHA = "a" * 40
+
+    def run_with(self, **kwargs):
+        pull = {"base": {"repo": {"full_name": "o/r"}, "sha": self.SHA, "ref": "main"},
+                "head": {"repo": {"full_name": "o/r"}, "sha": "b" * 40, "ref": "fix"},
+                "body": "Fixes #1", "title": "t"}
+        issue = {"title": "bug", "body": "text", "html_url": "https://github.com/o/r/issues/1"}
+        with tempfile.TemporaryDirectory() as temp, \
+                mock.patch.object(github_pr, "github_get", side_effect=[pull, issue]), \
+                mock.patch.object(github_pr, "git"), \
+                mock.patch.object(github_pr.subprocess, "run"), \
+                mock.patch.object(github_pr, "prove", return_value={"proven": True}) as fake:
+            github_pr.run_pull_request("https://github.com/o/r/pull/2", f"{temp}/receipt.json", "pytest", **kwargs)
+        return fake.call_args.kwargs
+
+    def test_on_step_event_is_forwarded_to_prove(self):
+        sink = lambda event: None
+        self.assertIs(self.run_with(on_step_event=sink)["on_step_event"], sink)
+
+    def test_default_keeps_the_old_behaviour(self):
+        kwargs = self.run_with()
+        self.assertIsNone(kwargs["on_step_event"])
+        self.assertIsNone(kwargs["runner"])
+        self.assertTrue(kwargs["isolate_tests"])
 
 
 if __name__ == "__main__":

@@ -93,7 +93,7 @@ def git(repo, *args):
     )
 
 
-def run_pull_request(url, receipt, test_command, on_step=None, runner=None):
+def run_pull_request(url, receipt, test_command, on_step=None, runner=None, on_step_event=None):
     owner, name, number = parse_pull_request_url(url)
     if on_step:
         on_step("fetching")
@@ -143,6 +143,7 @@ def run_pull_request(url, receipt, test_command, on_step=None, runner=None):
             on_step=proof_step,
             isolate_tests=True,
             runner=runner,
+            on_step_event=on_step_event,
         )
 
     result.update(
