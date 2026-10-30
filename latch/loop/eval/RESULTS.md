@@ -25,7 +25,7 @@ FIX_FAILS_TEST after 3 iterations, with a valid proof test (the real fix was VAL
 
 Baselines for context only, on different benchmarks and a weaker pass condition: Otter 31.4%, AssertFlip 43.6% fail-to-pass.
 The dominant failure mode is the model's proof test, not the fixer: most INVALID_TEST runs are a test that never reached an assertion.
-A single repair retry for that (feed the error back to the test writer) is not in this run.
+The one-round test repair (below) was added after this run and is **not** in these numbers; the numbers above are the first run, kept as committed.
 
 The one measured thing so far is the **oracle baseline (no model)**: the human-written upstream tests, run for real with git and
 pytest, $0, no Token Factory call. Over the 21 kept cases the upstream tests fail on base for 21/21, pass on the real fix for
@@ -157,6 +157,48 @@ New top-level keys:
 }
 ```
 
+## Test repair (added after the first run; not in the numbers above)
+
+When a model-written proof test is rejected because it **errored** (a `NameError`/`ImportError`, or the bug's own exception propagating
+uncaught, on base or head) instead of failing an assertion, `latch.prove.prove` and `latch.loop.run_loop` give the test writer exactly
+one more call. The prompt is the original one, plus the previous test and only the test's own pytest output: its `E` lines and the
+frames inside the test file, capped at 1500 characters (library frames dropped). No case-specific hint, no fix diff, no answer key, no
+upstream tests and no head-versus-base diff beyond what the writer already received; no threshold changes. A repaired test goes through
+the same validators and the whole gate again. If the repair is rejected the original result stands. It is recorded as the receipt field
+`test_repair` (`attempted, side, error_before, ok, outcome adopted|kept_original, reason, completion_id, error_after`) and as a
+`test_repair` step. `--no-test-repair` (CLI, loop and `latch eval run`) turns it off.
+
+Test-writer calls per run are bounded at **5**: up to 2 to get a first valid test (the first answer plus the one stricter retry for an
+empty or tautological test, as before), at most 1 repair, and at most 2 survivor-driven strengthening calls, and those only while the
+mutation gate is open. A supplied proof test makes none of them. Typical runs make 1.
+
+### Running it twice, side by side
+
+`latch eval run --tag repair` writes a second run next to the first and never touches it: `latch/runs/eval-DATE-repair.json`,
+`eval-summary-repair.json`, `eval-report-repair.md`, `eval-repair/<case>-<variant>.json` (and raw receipts under
+`$LATCH_EVAL_ROOT/receipts/DATE-repair`). An untagged run refuses to replace an existing `eval-DATE.json` without `--overwrite`.
+`latch eval diff latch/runs/eval-summary.json latch/runs/eval-summary-repair.json --out latch/runs/eval-diff-repair.json` writes the
+per-case before and after table (verdict changes, validated counts, cost). Summaries gain `run {tag, test_repair_enabled}` and a
+`test_repair` aggregate (`attempted, adopted, kept_original, repaired_to_validated`).
+
+## packaging-810: the one false accept
+
+The wrong patch keeps the buggy `_base_version(prospective) == _base_version(spec)` guard and only skips it when both versions carry
+different dev segments, so it fixes the issue's example and nothing else. Nemotron's proof test asserts the issue's four `dev` cases
+(plus two more dev-only ones). It fails on base, passes on head and on the wrong patch, and 5/5 mutants of the changed lines died. That
+is a **valid test that does not reach the wrong patch's flaw**: upstream's rejecting cases use pre or post segments (`1.0a2+local` vs
+`>1.0a1`, `1.0.post2+local` vs `>1.0.post1`) or a dev on one side only (`1.0+local` vs `>1.0.dev1`), and the test has none. Mutation
+testing measures how well the test pins the lines that changed, not whether the changed lines are complete, so a patch that is
+too narrow can pass. This is a limit of the method, not a gate bug, and it is reported as an accepted wrong patch.
+
+Diagnosis found one separate harness defect. On the exFAT eval disk macOS wrote an AppleDouble sidecar (`._specifiers.py`) next to the
+edited file, `git add -A` committed it, and the tautology check read it as a changed Python file and reported `not checked: cannot parse
+the changed file ... null bytes`. That failed open, so the tautology check was skipped in five of the nine wrong-patch runs
+(cachetools-423, click-3360, more-itertools-409, packaging-810, toolz-602; click-3019 had no proof test to check). Re-running the check by
+hand on packaging-810 with the sidecar removed gives `checked: true, ok: true` (the test asserts on `Specifier`), so the verdict does
+not change there; for the others it is unknown. Fixed: the eval harness deletes `._*` files after applying the wrong patch, and
+`changed_symbols` ignores `._*` files (test `test_appledouble_sidecars_are_not_source`). The first run is reported as it ran.
+
 ### Slopgate comparison
 
 Slopgate (https://github.com/agno-nymous/slopgate; results https://github.com/agno-nymous/slopgate/blob/main/bench/results/swebench/swebench.md,
@@ -174,6 +216,8 @@ latch eval manifest --write | --check    # pin models, prompt hashes, dataset re
 latch eval report [--summary F] [--out F]
 # LIVE (spends Token Factory credit; do not run without it):
 LATCH_EVAL_ROOT=/Volumes/PortableSSD/nvdia/loop latch eval run --jobs 3 --max-iterations 3
+# the repair run, written beside the first run (see "Running it twice, side by side"):
+LATCH_EVAL_ROOT=/Volumes/PortableSSD/nvdia/loop latch eval run --jobs 3 --max-iterations 3 --tag repair
 ```
 
 A live run writes `latch/runs/eval-DATE.json`, `latch/runs/eval/<case>-<variant>.json`, `latch/runs/eval-summary.json` and
