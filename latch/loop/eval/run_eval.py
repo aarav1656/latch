@@ -312,6 +312,8 @@ def run_one(case, variant, max_iterations, out_dir):
     row["provider"] = receipt.get("provider") or providers.current()
     initial = receipt.get("initial") or {}
     its = receipt.get("iterations") or []
+    # receipt["triage"] is the model id (a str) until triage actually ran, and None when it was switched off
+    triage_record = receipt.get("triage") if isinstance(receipt.get("triage"), dict) else {}
     row.update(
         base_red=initial.get("base_red"),
         head_suite_green=initial.get("head_suite_green"),
@@ -320,10 +322,10 @@ def run_one(case, variant, max_iterations, out_dir):
         inspection=receipt.get("inspection"),
         completion_ids={
             "proof_test": (receipt.get("proof_test") or {}).get("completion_id"),
-            "triage": (receipt.get("triage") or {}).get("completion_id"),
+            "triage": triage_record.get("completion_id"),
             "fix": [i.get("completion_id") for i in its],
         },
-        triage_verdict=(receipt.get("triage") or {}).get("verdict"),
+        triage_verdict=triage_record.get("verdict"),
         model_cost_usd=receipt.get("model_cost_usd"),
         model_calls=len(receipt.get("model_calls") or []),
         proof_test_rejections=sum(1 for a in receipt.get("proof_test_attempts") or [] if not a.get("valid")),

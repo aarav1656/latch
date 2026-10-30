@@ -285,6 +285,7 @@ def run_loop(
     receipt = {
         "run_id": run_id,
         "provider": providers.current(),
+        **({"dev_only": True, "note": providers.DEV_NOTE} if providers.is_dev() else {}),
         "repo": str(source_label or Path(repo).name),
         "base": base,
         "head": head,

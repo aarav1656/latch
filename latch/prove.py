@@ -372,6 +372,8 @@ def prove(repo, base, head, issue, test_command, receipt, on_step=None, isolate_
     steps.done("fetch", {"base": base_commit[:12], "head": head_commit[:12], "changed_python_files": paths[:20]})
 
     def write_receipt(result):
+        if providers.is_dev():
+            result.update(dev_only=True, note=providers.DEV_NOTE)
         result.update(provider=providers.current(), model_calls=list(calls.calls), model_cost_usd=total_cost(calls.calls),
                       model_prices_source=PRICES_SOURCE_URL, steps=steps.events)
         output = Path(receipt)
