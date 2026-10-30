@@ -141,7 +141,7 @@ class ProveRunnerTests(unittest.TestCase):
             with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
                 "latch.prove.call_model", return_value=(200, generated, "cmpl-1")
             ), mock.patch("latch.prove.run_test", side_effect=AssertionError("default runner used")):
-                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, on_step=steps.append, runner=runner)
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, on_step=steps.append, runner=runner, flake_runs=1)
             saved = json.loads(receipt.read_text())
         self.assertEqual([c[0] for c in calls], ["base", "head", "revert-fix"])
         self.assertTrue(all(c[1] == ["python3", "-m", "pytest", "-q"] and c[2] for c in calls))
@@ -159,7 +159,7 @@ class ProveRunnerTests(unittest.TestCase):
             with mock.patch("latch.prove.load_key", return_value="key"), mock.patch(
                 "latch.prove.call_model", return_value=(200, generated, "cmpl-1")
             ), mock.patch("latch.prove.run_test", return_value=outcome) as default_run:
-                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt)
+                result = prove(repo, "HEAD~1", "HEAD", "double(2) returns 5", "python3 -m pytest -q", receipt, flake_runs=1)
         self.assertNotIn("test_runner", result)
         self.assertEqual(default_run.call_count, 2)
         self.assertTrue(all(call.kwargs == {"isolate": False} for call in default_run.call_args_list))

@@ -33,6 +33,8 @@ def _common(p):
     p.add_argument("--pace", type=float, default=0.0,
                    help="film mode: seconds of pause scale between timeline lines (0 = none, 1 = readable)")
     p.add_argument("--pr-comment", metavar="PATH", help="also write the receipt as a Markdown PR comment ('-' = stdout)")
+    p.add_argument("--flake-runs", type=int, default=5, metavar="N",
+                   help="rerun the proof test N times on base and head to catch flakiness (default 5, max 10; 1 = off)")
     p.add_argument("--no-revert", action="store_true", help="skip the revert/mutation check (not recommended)")
 
 
@@ -118,6 +120,7 @@ def main(argv=None):
         triage=not args.no_triage,
         run_id=args.run_id,
         revert=not args.no_revert,
+        flake_runs=args.flake_runs,
     )
     started = time.monotonic()
     try:

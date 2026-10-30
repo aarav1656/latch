@@ -118,12 +118,12 @@ class Timeline:
         name, status, detail = e["step"], e["status"], e.get("detail")
         label = {"fetch": "fetch revisions", "repo_map": "Lightning repo map", "test_writer": "Ultra writes the proof test",
                  "base_run": "run proof test on base", "head_run": "run proof test + suite on submitted change",
-                 "triage": "Lightning triage", "fix": "fix", "revert_check": "revert check (mutation)",
+                 "triage": "Lightning triage", "fix": "fix", "revert_check": "revert check (mutation)", "flake_check": "flake check",
                  "verdict": "verdict"}.get(name, name)
         if name in ("triage", "fix", "verdict"):
             return  # these have richer events of their own
         if status == "started":
-            if name in ("repo_map", "test_writer", "revert_check"):
+            if name in ("repo_map", "test_writer", "revert_check", "flake_check"):
                 self.line(self.c("bold", label) + self.c("dim", " ..."))
             return
         if name == "repo_map":
@@ -138,6 +138,11 @@ class Timeline:
             ok = (detail or {}).get("gate_open")
             self.line("head:  " + (self.c("green", "proof test passes, suite green") if ok
                                    else self.c("red", "proof test fails on the submitted change")), 0.6)
+        elif name == "flake_check":
+            d = detail or {}
+            self.line((self.c("green", "ok  ") + f"stable over {d.get('runs')} runs on base and head" if status == "done"
+                       else self.c("red", "FLAKY  ") + f"inconsistent results over {d.get('runs')} runs (flake rate {d.get('flake_rate', 0):.0%})"),
+                      0.5, indent=2)
         elif name == "revert_check":
             summary = detail if isinstance(detail, str) else ""
             self.line((self.c("green", "ok  ") if status == "done" else self.c("red", "FAILED  ")) + summary, 0.8, indent=2)

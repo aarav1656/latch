@@ -2,7 +2,7 @@
 
 import datetime
 
-STEPS = ("fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "revert_check", "verdict")
+STEPS = ("fetch", "repo_map", "test_writer", "base_run", "head_run", "triage", "fix", "flake_check", "revert_check", "mutation_check", "verdict")
 
 
 def _ts():
