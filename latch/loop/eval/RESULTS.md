@@ -1,16 +1,38 @@
 # Latch evaluation
 
-**Status: results pending.** No model credit was available when this was written (Token Factory returned HTTP 402
-`credit_balance_exhausted`), so no eval has run and there are no numbers here. `latch/runs/eval-summary.json` does not
-exist yet and will only be written by a real run. This file currently documents the method and the output schema;
-the results section is added after the run.
+**Status: live Nebius Token Factory run complete (2026-10-30, Latch 74c9f41, 3 iterations max, 3 jobs).** Numbers below come from
+`latch/runs/eval-2026-10-30.json` / `latch/runs/eval-summary.json` / `latch/runs/eval-report.md`. One run per case, no cherry-picking, no reruns of the eval.
+
+## Results (live, Nemotron-3-Ultra-550b-a55b writes tests and fixes)
+
+| Measure | Result |
+|---|---|
+| Real fixes VALIDATED (red on base, green on head, suite green, stable, revert and mutation checks) | **7/21 (33%)**: upstream 3/9, SWE-bench Lite sympy 4/12 (small sample, wide uncertainty) |
+| Real fixes that ended INVALID_TEST | 12/21: 3 NameError (test forgot an import), 6 the bug's own exception propagated uncaught instead of an assertion (cachetools-423, toolz-602, sympy-22005, 22714, 24066, 24213), 1 IndexError in the test, 1 missing optional package (antlr4), 1 triage unclear. The other 2 real runs: NO_REGRESSION_FOUND 1, FIX_FAILS_TEST 1 |
+| Wrong patches, gate shut for any reason | 8/9 (6/7 without the two contested cases) |
+| **Wrong patches failed by a valid proof test (FIX_FAILS_TEST)** | **3/9 (2/7 without the contested cases)**. The other 5 "shut" runs had an INVALID_TEST proof test, so the gate stayed shut for the wrong reason; do not read 8/9 as a rejection rate |
+| Wrong patches that got through | 1/9: packaging-810 passed the gate (VALIDATED, 5/5 mutants killed) but the upstream tests reject it |
+| No-fix (Nemotron writes the patch) runs where the gate opened | 0/12 |
+| Verdict counts (42 runs) | INVALID_TEST 23, FIX_FAILS_TEST 10, VALIDATED 8, NO_REGRESSION_FOUND 1, FLAKY 0, MUTATION_SURVIVED 0 |
+| Flaky check | 9 runs checked, 0 flaky |
+| Mutation kill rate (pooled, VALIDATED runs) | 23/23 |
+| Cost (from receipt model_calls; an upper bound at list prices) | $1.38 over 42 runs, median $0.009 per run |
+| Wall time | 21.6 min elapsed with 3 jobs (2803 s summed over runs), median 56 s per run |
+
+Contested cases (a second reviewer judged the constructed wrong patch equivalent to the real fix; I judge them wrong), both ways:
+cachetools-423 wrong: gate shut, but on an INVALID_TEST proof test (`TypeError`), so neither a rejection nor an acceptance by merit; click-3360 wrong:
+FIX_FAILS_TEST after 3 iterations, with a valid proof test (the real fix was VALIDATED). With them: 8/9 shut, 3/9 on a valid test; without: 6/7 and 2/7.
+
+Baselines for context only, on different benchmarks and a weaker pass condition: Otter 31.4%, AssertFlip 43.6% fail-to-pass.
+The dominant failure mode is the model's proof test, not the fixer: most INVALID_TEST runs are a test that never reached an assertion.
+A single repair retry for that (feed the error back to the test writer) is not in this run.
 
 The one measured thing so far is the **oracle baseline (no model)**: the human-written upstream tests, run for real with git and
 pytest, $0, no Token Factory call. Over the 21 kept cases the upstream tests fail on base for 21/21, pass on the real fix for
 21/21, and reject the constructed wrong patch for 9/9 upstream cases (total 185 s wall with 3 jobs; `latch/runs/eval-oracle-baseline.json`,
 `.md`). That is the answer key the gate is judged against, not a Latch result: the cases were selected for this property (3 were
 dropped before any run: cachetools-221, boltons-4457decc, boltons-8177b933), so the oracle separates real from wrong by construction.
-Nemotron numbers stay "not run" until credit returns. Run `latch eval run --dry-run` to exercise the whole pipeline on stubbed
+Run `latch eval run --dry-run` to exercise the whole pipeline on stubbed
 output (clearly labelled, never written to `latch/runs/eval-summary.json`).
 
 ## What is measured

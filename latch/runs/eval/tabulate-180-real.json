@@ -1,0 +1,243 @@
+{
+  "run_id": "tabulate180.real",
+  "provider": "nebius",
+  "repo": "astanin/python-tabulate@20c6370d5d",
+  "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+  "head": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+  "issue": "Exception when tabulating empty data and using maxcolwidths\n\n```\r\nFile \"/usr/local/lib/python3.9/site-packages/tabulate.py\", line 1585, in tabulate\r\n   num_cols = len(list_of_lists[0])\r\n   IndexError: list index out of range\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:18:20.050Z",
+  "proof_test": {
+    "name": "test_exception_on_empty_data_with_maxcolwidths",
+    "source": "import pytest\n\ndef test_exception_on_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    # Regression: exception on empty data when using maxcolwidths (github issue #180)\n    result = tabulate([], maxcolwidths=5)\n    assert result == \"\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-9dcb1b90dc95af19"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.20s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.34s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................sssssssss..............................s..s.............s..................s......s......s......s......s......s......s.......s..s..s..s..s..s..s............................... [ 67%]\n....................................ssss.........................s..ss.s..............sss.....                                                                                                   [100%]\n249 passed, 37 skipped in 1.42s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-21c9160e",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 2,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-9dcb1b90dc95af19",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_exception_on_empty_data_with_maxcolwidths():\n    from tabulate import tabulate\n    # Regression: exception on empty data when using maxcolwidths (github issue #180)\n    result = tabulate([], maxcolwidths=5)\n    assert result == \"\"",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_wrap_text_to_colwidths",
+          "tabulate"
+        ],
+        "asserted_symbols": [
+          "tabulate"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_main",
+          "_pprint_file",
+          "benchmark"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "_wrap_text_to_colwidths",
+      "tabulate"
+    ],
+    "asserted_symbols": [
+      "tabulate"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_main",
+      "_pprint_file",
+      "benchmark"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:18:43.700Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)",
+  "proven": false,
+  "base_sha": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+  "head_sha": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c",
+  "verdict_logs": {
+    "base": "===================================\n____________________________________________________________________________ test_exception_on_empty_data_with_maxcolwidths ____________________________________________________________________________\nlatch_issue_test.py:6: in test_exception_on_empty_data_with_maxcolwidths\n    result = tabulate([], maxcolwidths=5)\ntabulate/__init__.py:2065: in tabulate\n    num_cols = len(list_of_lists[0])\nE   IndexError: list index out of range\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_exception_on_empty_data_with_maxcolwidths - IndexError: list index out of range\n1 failed in 0.20s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.34s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 433,
+      "completion_tokens": 1024,
+      "latency_ms": 18090,
+      "completion_id": "chatcmpl-21c9160e",
+      "cost_usd": 0.000272,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2094,
+      "completion_tokens": 364,
+      "latency_ms": 2060,
+      "completion_id": "chatcmpl-9dcb1b90dc95af19",
+      "cost_usd": 0.003186,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.003458,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:18:20.050Z",
+      "detail": {
+        "base": "90fbd7e5b127bafd0aecfe118798743589b1a60b",
+        "head": "20c6370d5da2dae89b305bfb6c7f12a0f8b7236c"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:18:20.233Z",
+      "detail": {
+        "base": "90fbd7e5b127",
+        "head": "20c6370d5da2",
+        "changed_files": [
+          "tabulate/__init__.py",
+          "test/test_regression.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:18:20.378Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:18:38.477Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:18:38.478Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:18:40.538Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-9dcb1b90dc95af19"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:40.539Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:41.281Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:41.281Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:43.700Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:18:43.700Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (IndexError: list index out of range)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

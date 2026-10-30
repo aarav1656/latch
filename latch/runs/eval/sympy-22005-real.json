@@ -1,0 +1,252 @@
+{
+  "run_id": "sympy22005.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-22005",
+  "base": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "head": "777e5e4b800e884bfcdc64c78138d176aa4b9000",
+  "issue": "detection of infinite solution request\n```python\r\n>>> solve_poly_system((x - 1,), x, y)\r\nTraceback (most recent call last):\r\n...\r\nNotImplementedError:\r\nonly zero-dimensional systems supported (finite number of solutions)\r\n>>> solve_poly_system((y - 1,), x, y)  <--- this is not handled correctly\r\n[(1,)]\r\n```\r\n```diff\r\ndiff --git a/sympy/solvers/polysys.py b/sympy/solvers/polysys.py\r\nindex b9809fd4e9..674322d4eb 100644\r\n--- a/sympy/solvers/polysys.py\r\n+++ b/sympy/solvers/polysys.py\r\n@@ -240,7 +240,7 @@ def _solve_reduced_system(system, gens, entry=False):\r\n \r\n         univariate = list(filter(_is_univariate, basis))\r\n \r\n-        if len(univariate) == 1:\r\n+        if len(univariate) == 1 and len(gens) == 1:\r\n             f = univariate.pop()\r\n         else:\r\n             raise NotImplementedError(filldedent('''\r\ndiff --git a/sympy/solvers/tests/test_polysys.py b/sympy/solvers/tests/test_polysys.py\r\nindex 58419f8762..9e674a6fe6 100644\r\n--- a/sympy/solvers/tests/test_polysys.py\r\n+++ b/sympy/solvers/tests/test_polysys.py\r\n@@ -48,6 +48,10 @@ def test_solve_poly_system():\r\n     raises(NotImplementedError, lambda: solve_poly_system(\r\n         [z, -2*x*y**2 + x + y**2*z, y**2*(-z - 4) + 2]))\r\n     raises(PolynomialError, lambda: solve_poly_system([1/x], x))\r\n+    raises(NotImplementedError, lambda: solve_poly_system(\r\n+        Poly(x - 1, x, y), (x, y)))\r\n+    raises(NotImplementedError, lambda: solve_poly_system(\r\n+        Poly(y - 1, x, y), (x, y)))\r\n \r\n \r\n def test_solve_biquadratic():\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/solvers/tests/test_polysys.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:25:01.102Z",
+  "proof_test": {
+    "name": "test_solve_poly_system_infinite_solutions",
+    "source": "import pytest\n\ndef test_solve_poly_system_infinite_solutions():\n    from sympy import symbols, Poly\n    from sympy.solvers.polysys import solve_poly_system\n    import pytest\n\n    x, y = symbols('x y')\n\n    # Case from issue: x - 1 = 0 (should raise)\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((x - 1,), x, y)\n\n    # Case from issue: y - 1 = 0 (was incorrectly returning [(1,)])\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((y - 1,), x, y)\n\n    # Additional cases from the submitted test diff (Poly form)\n    with pytest.raises(NotImplementedError):\n        solve_poly_system(Poly(x - 1, x, y), (x, y))\n    with pytest.raises(NotImplementedError):\n        solve_poly_system(Poly(y - 1, x, y), (x, y))\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-a208af6de3210448"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "....F                                                                                                                                                                                            [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________ test_solve_poly_system_infinite_solutions _______________________________________________________________________________\nlatch_issue_test.py:15: in test_solve_poly_system_infinite_solutions\n    with pytest.raises(NotImplementedError):\nE   Failed: DID NOT RAISE <class 'NotImplementedError'>\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-qe2lievc/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_solve_poly_system_infinite_solutions - Failed: DID NOT RAISE <class 'NotImplementedError'>\n1 failed, 4 passed, 1 warning in 1.97s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "....F                                                                                                                                                                                            [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________ test_solve_poly_system_infinite_solutions _______________________________________________________________________________\nlatch_issue_test.py:20: in test_solve_poly_system_infinite_solutions\n    solve_poly_system(Poly(x - 1, x, y), (x, y))\nsympy/solvers/polysys.py:50: in solve_poly_system\n    polys, opt = parallel_poly_from_expr(seq, *gens, **args)\nsympy/polys/polytools.py:4340: in parallel_poly_from_expr\n    return _parallel_poly_from_expr(exprs, opt)\nsympy/polys/polytools.py:4347: in _parallel_poly_from_expr\n    if len(exprs) == 2:\nE   TypeError: object of type 'Poly' has no len()\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-qe2lievc/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_solve_poly_system_infinite_solutions - TypeError: object of type 'Poly' has no len()\n1 failed, 4 passed, 1 warning in 1.89s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....                                                                                                                                                                                             [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-qe2lievc/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n4 passed, 1 warning in 1.59s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": null
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test fails on the submitted code with something other than an assertion (import/collection/environment error); not patching",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-724adb55",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 678,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-a208af6de3210448",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_solve_poly_system_infinite_solutions():\n    from sympy import symbols, Poly\n    from sympy.solvers.polysys import solve_poly_system\n    import pytest\n\n    x, y = symbols('x y')\n\n    # Case from issue: x - 1 = 0 (should raise)\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((x - 1,), x, y)\n\n    # Case from issue: y - 1 = 0 (was incorrectly returning [(1,)])\n    with pytest.raises(NotImplementedError):\n        solve_poly_system((y - 1,), x, y)\n\n    # Additional cases from the submitted test diff (Poly form)\n    with pytest.raises(NotImplementedError):\n        solve_poly_system(Poly(x - 1, x, y), (x, y))\n    with pytest.raises(NotImplementedError):\n        solve_poly_system(Poly(y - 1, x, y), (x, y))",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "_solve_reduced_system",
+          "solve_generic"
+        ],
+        "asserted_symbols": [
+          "Poly",
+          "solve_poly_system",
+          "symbols"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "_handle_zero_dimensional",
+          "_solve_system",
+          "nonlinsolve",
+          "solve",
+          "solve_poly_system"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "_solve_reduced_system",
+      "solve_generic"
+    ],
+    "asserted_symbols": [
+      "Poly",
+      "solve_poly_system",
+      "symbols"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "_handle_zero_dimensional",
+      "_solve_system",
+      "nonlinsolve",
+      "solve",
+      "solve_poly_system"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:25:55.677Z",
+  "verdict_reason": "the proof test errored on head (collection, import or runtime error) instead of failing an assertion (TypeError: object of type 'Poly' has no len())",
+  "proven": false,
+  "base_sha": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "head_sha": "777e5e4b800e884bfcdc64c78138d176aa4b9000",
+  "verdict_logs": {
+    "base": "ge is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_solve_poly_system_infinite_solutions - Failed: DID NOT RAISE <class 'NotImplementedError'>\n1 failed, 4 passed, 1 warning in 1.97s\n",
+    "head": " package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_solve_poly_system_infinite_solutions - TypeError: object of type 'Poly' has no len()\n1 failed, 4 passed, 1 warning in 1.89s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 3219,
+      "completion_tokens": 1024,
+      "latency_ms": 14323,
+      "completion_id": "chatcmpl-724adb55",
+      "cost_usd": 0.000439,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1298,
+      "completion_tokens": 1107,
+      "latency_ms": 7119,
+      "completion_id": "chatcmpl-a208af6de3210448",
+      "cost_usd": 0.004619,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.005058,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:25:01.102Z",
+      "detail": {
+        "base": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+        "head": "777e5e4b800e884bfcdc64c78138d176aa4b9000"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:25:07.693Z",
+      "detail": {
+        "base": "2c83657ff1c6",
+        "head": "777e5e4b800e",
+        "changed_files": [
+          "sympy/solvers/polysys.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:25:19.433Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:25:37.478Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:25:37.479Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:25:44.600Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-a208af6de3210448"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:25:44.601Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:25:48.502Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:25:48.502Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:25:55.676Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:25:55.677Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on head (collection, import or runtime error) instead of failing an assertion (TypeError: object of type 'Poly' has no len())"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

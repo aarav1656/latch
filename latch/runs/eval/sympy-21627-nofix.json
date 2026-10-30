@@ -1,0 +1,239 @@
+{
+  "run_id": "sympy21627.nofix",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-21627 (no fix)",
+  "base": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "head": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "issue": "Bug: maximum recusion depth error when checking is_zero of cosh expression\nThe following code causes a `RecursionError: maximum recursion depth exceeded while calling a Python object` error when checked if it is zero:\r\n```\r\nexpr =sympify(\"cosh(acos(-i + acosh(-g + i)))\")\r\nexpr.is_zero\r\n```",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/functions/elementary/tests/test_complexes.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:24:08.241Z",
+  "proof_test": {
+    "name": "test_cosh_acos_acosh_is_zero_recursion",
+    "source": "import pytest\n\ndef test_cosh_acos_acosh_is_zero_recursion():\n    import pytest\n    from sympy import cosh, acos, acosh, symbols\n    i, g = symbols('i g')\n    expr = cosh(acos(-i + acosh(-g + i)))\n    try:\n        result = expr.is_zero\n    except RecursionError:\n        pytest.fail(\"RecursionError raised when accessing is_zero\")\n    assert result in (True, False, None)\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-8120e2ef33753ac1"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "....x...................x.x....F                                                                                                                                                                 [100%]\n=============================================================================================== FAILURES ===============================================================================================\n________________________________________________________________________________ test_cosh_acos_acosh_is_zero_recursion ________________________________________________________________________________\nsympy/core/assumptions.py:462: in getit\n    return self._assumptions[fact]\nE   KeyError: 'zero'\n\nDuring handling of the above exception, another exception occurred:\nsympy/core/assumptions.py:462: in getit\n    return self._assumptions[fact]\nE   KeyError: 'finite'\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:9: in test_cosh_acos_acosh_is_zero_recursion\n    result = expr.is_zero\nsympy/core/assumptions.py:466: in getit\n    return _ask(fact, self)\nsympy/core/assumptions.py:521: in _ask\n    _ask(pk, obj)\nsympy/core/assumptions.py:521: in _ask\n    _ask(pk, obj)\nsympy/core/assumptions.py:509: in _ask\n    a = evaluate(obj)\nsympy/core/expr.py:856: in _eval_is_negative\n    finite = self.is_finite\nsympy/core/assumptions.py:466: in getit\n    return _ask(fact, self)\nsympy/core/assumptions.py:521: in _ask\n    _ask(pk, obj)\nsympy/core/assumptions.py:509: in _ask\n    a = evaluate(obj)\nsympy/functions/elementary/hyperbolic.py:449: in _eval_is_positive\n    ymod = y % (2*pi)\nsympy/core/decorators.py:266: in _func\n    return func(self, other)\nsympy/core/decorators.py:136: in binary_op_wrapper\n    return func(self, other)\nsympy/core/expr.py:280: in __mod__\n    return Mod(self, other)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:473: in __new__\n    result = super().__new__(cls, *args, **options)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:285: in __new__\n    evaluated = cls.eval(*args)\nsympy/core/mod.py:105: in eval\n    rv = doit(p, q)\nsympy/core/mod.py:89: in doit\n    d = abs(p)\nsympy/core/expr.py:200: in __abs__\n    return Abs(self)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:473: in __new__\n    result = super().__new__(cls, *args, **options)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:285: in __new__\n    evaluated = cls.eval(*args)\nsympy/functions/elementary/complexes.py:621: in eval\n    return sqrt(expand_mul(arg*conj))\nsympy/functions/elementary/miscellaneous.py:152: in sqrt\n    return Pow(arg, S.Half, evaluate=evaluate)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/power.py:336: in __new__\n    obj = b._eval_power(e)\nsympy/core/power.py:418: in _eval_power\n    b = abs(b)\nsympy/core/expr.py:200: in __abs__\n    return Abs(self)\nE   RecursionError: maximum recursion depth exceeded while calling a Python object\n!!! Recursion detected (same locals & position)\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:11: in test_cosh_acos_acosh_is_zero_recursion\n    pytest.fail(\"RecursionError raised when accessing is_zero\")\nE   Failed: RecursionError raised when accessing is_zero\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-wa6eien2/base/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_cosh_acos_acosh_is_zero_recursion - Failed: RecursionError raised when accessing is_zero\n1 failed, 28 passed, 3 xfailed, 2 warnings in 2.39s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "....x...................x.x....F                                                                                                                                                                 [100%]\n=============================================================================================== FAILURES ===============================================================================================\n________________________________________________________________________________ test_cosh_acos_acosh_is_zero_recursion ________________________________________________________________________________\nsympy/core/assumptions.py:462: in getit\n    return self._assumptions[fact]\nE   KeyError: 'zero'\n\nDuring handling of the above exception, another exception occurred:\nsympy/core/assumptions.py:462: in getit\n    return self._assumptions[fact]\nE   KeyError: 'extended_negative'\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:9: in test_cosh_acos_acosh_is_zero_recursion\n    result = expr.is_zero\nsympy/core/assumptions.py:466: in getit\n    return _ask(fact, self)\nsympy/core/assumptions.py:521: in _ask\n    _ask(pk, obj)\nsympy/core/assumptions.py:521: in _ask\n    _ask(pk, obj)\nsympy/core/assumptions.py:509: in _ask\n    a = evaluate(obj)\nsympy/core/expr.py:859: in _eval_is_negative\n    extended_negative = self.is_extended_negative\nsympy/core/assumptions.py:466: in getit\n    return _ask(fact, self)\nsympy/core/assumptions.py:521: in _ask\n    _ask(pk, obj)\nsympy/core/assumptions.py:509: in _ask\n    a = evaluate(obj)\nsympy/functions/elementary/hyperbolic.py:476: in _eval_is_nonnegative\n    ymod = y % (2*pi)\nsympy/core/decorators.py:266: in _func\n    return func(self, other)\nsympy/core/decorators.py:136: in binary_op_wrapper\n    return func(self, other)\nsympy/core/expr.py:280: in __mod__\n    return Mod(self, other)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:473: in __new__\n    result = super().__new__(cls, *args, **options)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:285: in __new__\n    evaluated = cls.eval(*args)\nsympy/core/mod.py:105: in eval\n    rv = doit(p, q)\nsympy/core/mod.py:89: in doit\n    d = abs(p)\nsympy/core/expr.py:200: in __abs__\n    return Abs(self)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:473: in __new__\n    result = super().__new__(cls, *args, **options)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/function.py:285: in __new__\n    evaluated = cls.eval(*args)\nsympy/functions/elementary/complexes.py:621: in eval\n    return sqrt(expand_mul(arg*conj))\nsympy/functions/elementary/miscellaneous.py:152: in sqrt\n    return Pow(arg, S.Half, evaluate=evaluate)\nsympy/core/cache.py:72: in wrapper\n    retval = cfunc(*args, **kwargs)\nsympy/core/power.py:336: in __new__\n    obj = b._eval_power(e)\nsympy/core/power.py:418: in _eval_power\n    b = abs(b)\nsympy/core/expr.py:200: in __abs__\n    return Abs(self)\nE   RecursionError: maximum recursion depth exceeded while calling a Python object\n!!! Recursion detected (same locals & position)\n\nDuring handling of the above exception, another exception occurred:\nlatch_issue_test.py:11: in test_cosh_acos_acosh_is_zero_recursion\n    pytest.fail(\"RecursionError raised when accessing is_zero\")\nE   Failed: RecursionError raised when accessing is_zero\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-wa6eien2/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_cosh_acos_acosh_is_zero_recursion - Failed: RecursionError raised when accessing is_zero\n1 failed, 28 passed, 3 xfailed, 2 warnings in 3.82s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "....x...................x.x....                                                                                                                                                                  [100%]\n=========================================================================================== warnings summary ===========================================================================================\nsympy/external/importtools.py:4\n  /private/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-wa6eien2/work/sympy/external/importtools.py:4: DeprecationWarning: The distutils package is deprecated and slated for removal in Python 3.12. Use setuptools or check PEP 632 for potential alternatives\n    from distutils.version import LooseVersion\n\n../../../../../../../../Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441\n  /Users/kamal/.cache/latch-eval/venv/lib/python3.10/site-packages/_pytest/config/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n28 passed, 3 xfailed, 2 warnings in 2.60s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-d778c1ae",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 667,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-93453e0c78a4b63a",
+      "valid": false,
+      "rejection": "the test has no real check: it needs an `assert` on the observable result (not `assert True`), a `pytest.raises` block, or a `pytest.fail` call, so it cannot fail on the bug",
+      "source": "def test_cosh_acos_acosh_is_zero_recursion():\n    from sympy import cosh, acos, acosh, symbols, I\n    i, g = symbols('i g')\n    expr = cosh(acos(-i + acosh(-g + i)))\n    # Accessing is_zero should not raise RecursionError\n    _ = expr.is_zero"
+    },
+    {
+      "attempt": 2,
+      "completion_id": "chatcmpl-8120e2ef33753ac1",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_cosh_acos_acosh_is_zero_recursion():\n    import pytest\n    from sympy import cosh, acos, acosh, symbols\n    i, g = symbols('i g')\n    expr = cosh(acos(-i + acosh(-g + i)))\n    try:\n        result = expr.is_zero\n    except RecursionError:\n        pytest.fail(\"RecursionError raised when accessing is_zero\")\n    assert result in (True, False, None)",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the diff changes no non-test Python files, so there are no changed symbols to assert on",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the diff changes no non-test Python files, so there are no changed symbols to assert on",
+    "affected_symbols": []
+  },
+  "finished_at": "2026-10-30T08:24:56.555Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (KeyError: 'zero')",
+  "proven": false,
+  "base_sha": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "head_sha": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "verdict_logs": {
+    "base": "onfig/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_cosh_acos_acosh_is_zero_recursion - Failed: RecursionError raised when accessing is_zero\n1 failed, 28 passed, 3 xfailed, 2 warnings in 2.39s\n",
+    "head": "onfig/__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_cosh_acos_acosh_is_zero_recursion - Failed: RecursionError raised when accessing is_zero\n1 failed, 28 passed, 3 xfailed, 2 warnings in 3.82s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2561,
+      "completion_tokens": 1024,
+      "latency_ms": 4884,
+      "completion_id": "chatcmpl-d778c1ae",
+      "cost_usd": 0.000399,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 233,
+      "completion_tokens": 2080,
+      "latency_ms": 6246,
+      "completion_id": "chatcmpl-93453e0c78a4b63a",
+      "cost_usd": 0.006473,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 500,
+      "completion_tokens": 2096,
+      "latency_ms": 6189,
+      "completion_id": "chatcmpl-8120e2ef33753ac1",
+      "cost_usd": 0.006788,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.01366,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:24:08.241Z",
+      "detail": {
+        "base": "126f80578140e752ad5135aac77b8ff887eede3e",
+        "head": "126f80578140e752ad5135aac77b8ff887eede3e"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:24:11.475Z",
+      "detail": {
+        "base": "126f80578140",
+        "head": "126f80578140",
+        "changed_files": []
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:24:11.498Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:24:21.478Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:24:21.478Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:24:33.915Z",
+      "detail": {
+        "attempts": 2,
+        "completion_id": "chatcmpl-8120e2ef33753ac1"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:24:33.916Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:24:38.330Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:24:38.330Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:24:56.555Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:24:56.555Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (KeyError: 'zero')"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

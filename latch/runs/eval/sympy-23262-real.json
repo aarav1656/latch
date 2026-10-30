@@ -1,0 +1,257 @@
+{
+  "run_id": "sympy23262.real",
+  "provider": "nebius",
+  "repo": "sympy/sympy@sympy__sympy-23262",
+  "base": "fdc707f73a65a429935c01532cd3970d3355eab6",
+  "head": "5208f58fac237806f105445f0c6a9e2aa8d24faf",
+  "issue": "Python code printer not respecting tuple with one element\nHi,\r\n\r\nThanks for the recent updates in SymPy! I'm trying to update my code to use SymPy 1.10 but ran into an issue with the Python code printer. MWE:\r\n\r\n\r\n```python\r\nimport inspect\r\nfrom sympy import lambdify\r\n\r\ninspect.getsource(lambdify([], tuple([1])))\r\n```\r\nSymPy 1.9 and under outputs:\r\n```\r\n'def _lambdifygenerated():\\n    return (1,)\\n'\r\n```\r\n\r\nBut SymPy 1.10 gives\r\n\r\n```\r\n'def _lambdifygenerated():\\n    return (1)\\n'\r\n```\r\nNote the missing comma after `1` that causes an integer to be returned instead of a tuple. \r\n\r\nFor tuples with two or more elements, the generated code is correct:\r\n```python\r\ninspect.getsource(lambdify([], tuple([1, 2])))\r\n```\r\nIn SymPy  1.10 and under, outputs:\r\n\r\n```\r\n'def _lambdifygenerated():\\n    return (1, 2)\\n'\r\n```\r\nThis result is expected.\r\n\r\nNot sure if this is a regression. As this breaks my program which assumes the return type to always be a tuple, could you suggest a workaround from the code generation side? Thank you.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "sympy/utilities/tests/test_lambdify.py"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-f0553ecb",
+    "verdict": "unclear",
+    "text": ""
+  },
+  "started_at": "2026-10-30T08:31:03.624Z",
+  "proof_test": {
+    "name": "test_lambdify_tuple_representation",
+    "source": "import pytest\n\ndef test_lambdify_tuple_representation():\n    import inspect\n    from sympy.utilities.lambdify import lambdify\n\n    # Test single-element tuple\n    func1 = lambdify([], tuple([1]))\n    source1 = inspect.getsource(func1)\n    assert \"return (1,)\" in source1, f\"Expected '(1,)' in source, got: {source1}\"\n\n    # Test two-element tuple\n    func2 = lambdify([], tuple([1, 2]))\n    source2 = inspect.getsource(func2)\n    assert \"return (1, 2)\" in source2, f\"Expected '(1, 2)' in source, got: {source2}\"\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-817ac43152b3bda5"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": ".................ssssss..............sssssss.ssssssssssssssss...................s.s...sss....ssssss.sssssss.sssssss..F                                                                           [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_lambdify_tuple_representation __________________________________________________________________________________\nlatch_issue_test.py:10: in test_lambdify_tuple_representation\n    assert \"return (1,)\" in source1, f\"Expected '(1,)' in source, got: {source1}\"\nE   AssertionError: Expected '(1,)' in source, got: def _lambdifygenerated():\nE         return (1)\nE     \nE   assert 'return (1,)' in 'def _lambdifygenerated():\\n    return (1)\\n'\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_lambdify_tuple_representation - AssertionError: Expected '(1,)' in source, got: def _lambdifygenerated():\n1 failed, 63 passed, 54 skipped in 1.25s\n",
+      "failure_type": "assertion"
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": ".................ssssss..............sssssss.ssssssssssssssss...................s.s...sss....ssssss.sssssss.sssssss..F                                                                           [100%]\n=============================================================================================== FAILURES ===============================================================================================\n__________________________________________________________________________________ test_lambdify_tuple_representation __________________________________________________________________________________\nlatch_issue_test.py:15: in test_lambdify_tuple_representation\n    assert \"return (1, 2)\" in source2, f\"Expected '(1, 2)' in source, got: {source2}\"\nE   AssertionError: Expected '(1, 2)' in source, got: def _lambdifygenerated():\nE         return (1, 2,)\nE     \nE   assert 'return (1, 2)' in 'def _lambdifygenerated():\\n    return (1, 2,)\\n'\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_lambdify_tuple_representation - AssertionError: Expected '(1, 2)' in source, got: def _lambdifygenerated():\n1 failed, 63 passed, 54 skipped in 1.22s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": ".................ssssss..............sssssss.ssssssssssssssss...................s.s...sss....ssssss.sssssss.sssssss..                                                                            [100%]\n63 passed, 54 skipped in 1.05s\n"
+    },
+    "base_red": true,
+    "head_suite_green": true,
+    "gate_open": false,
+    "head_failure_type": "assertion"
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "Lightning triage did not confirm the failure reproduces the issue (unclear): ; not patching",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-e692b429",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 686,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-817ac43152b3bda5",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_lambdify_tuple_representation():\n    import inspect\n    from sympy.utilities.lambdify import lambdify\n\n    # Test single-element tuple\n    func1 = lambdify([], tuple([1]))\n    source1 = inspect.getsource(func1)\n    assert \"return (1,)\" in source1, f\"Expected '(1,)' in source, got: {source1}\"\n\n    # Test two-element tuple\n    func2 = lambdify([], tuple([1, 2]))\n    source2 = inspect.getsource(func2)\n    assert \"return (1, 2)\" in source2, f\"Expected '(1, 2)' in source, got: {source2}\"",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: the changed code is referenced from too much of the repository to name what a test must reach",
+    "affected_symbols": []
+  },
+  "finished_at": "2026-10-30T08:32:00.260Z",
+  "verdict_reason": "Lightning triage did not confirm the failure reproduces the issue (unclear)",
+  "proven": false,
+  "base_sha": "fdc707f73a65a429935c01532cd3970d3355eab6",
+  "head_sha": "5208f58fac237806f105445f0c6a9e2aa8d24faf",
+  "verdict_logs": {
+    "base": "ted '(1,)' in source, got: {source1}\"\nE   AssertionError: Expected '(1,)' in source, got: def _lambdifygenerated():\nE         return (1)\nE     \nE   assert 'return (1,)' in 'def _lambdifygenerated():\\n    return (1)\\n'\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_lambdify_tuple_representation - AssertionError: Expected '(1,)' in source, got: def _lambdifygenerated():\n1 failed, 63 passed, 54 skipped in 1.25s\n",
+    "head": "source, got: {source2}\"\nE   AssertionError: Expected '(1, 2)' in source, got: def _lambdifygenerated():\nE         return (1, 2,)\nE     \nE   assert 'return (1, 2)' in 'def _lambdifygenerated():\\n    return (1, 2,)\\n'\n                                                                                            DO *NOT* COMMIT!                                                                                            \n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_lambdify_tuple_representation - AssertionError: Expected '(1, 2)' in source, got: def _lambdifygenerated():\n1 failed, 63 passed, 54 skipped in 1.22s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 2808,
+      "completion_tokens": 1024,
+      "latency_ms": 8923,
+      "completion_id": "chatcmpl-e692b429",
+      "cost_usd": 0.000414,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1209,
+      "completion_tokens": 1755,
+      "latency_ms": 5827,
+      "completion_id": "chatcmpl-817ac43152b3bda5",
+      "cost_usd": 0.006474,
+      "status": 200
+    },
+    {
+      "role": "triage",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 932,
+      "completion_tokens": 2048,
+      "latency_ms": 10116,
+      "completion_id": "chatcmpl-f0553ecb",
+      "cost_usd": 0.000547,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.007435,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:31:03.624Z",
+      "detail": {
+        "base": "fdc707f73a65a429935c01532cd3970d3355eab6",
+        "head": "5208f58fac237806f105445f0c6a9e2aa8d24faf"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:31:09.416Z",
+      "detail": {
+        "base": "fdc707f73a65",
+        "head": "5208f58fac23",
+        "changed_files": [
+          "sympy/utilities/lambdify.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:31:21.918Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:31:35.678Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:31:35.678Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:31:41.507Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-817ac43152b3bda5"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:31:41.507Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:31:44.599Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": "assertion",
+        "red": true
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:31:44.599Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:31:50.142Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "triage",
+      "status": "started",
+      "ts": "2026-10-30T08:31:50.143Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "triage",
+      "status": "done",
+      "ts": "2026-10-30T08:32:00.260Z",
+      "detail": {
+        "verdict": "unclear",
+        "completion_id": "chatcmpl-f0553ecb"
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:32:00.260Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "Lightning triage did not confirm the failure reproduces the issue (unclear)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

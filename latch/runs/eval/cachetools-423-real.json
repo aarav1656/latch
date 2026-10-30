@@ -1,0 +1,341 @@
+{
+  "run_id": "cachetools423.real",
+  "provider": "nebius",
+  "repo": "tkem/cachetools@bcf9e8176e",
+  "base": "eadb91cc9d54a57d6738386bc5c575ff3c7d22ec",
+  "head": "bcf9e8176ebe16da58751fce971c98ffe045ede1",
+  "issue": "RRCache.popitem() on an empty cache raises the choice function's exception instead of KeyError\n\nTested with `cachetools` 7.2.0 (current release).\n\n**Describe the bug**\n\n`RRCache.popitem()` on an empty cache only raises `KeyError` when the `choice`\nfunction happens to raise `IndexError`, which is what the default\n`random.choice` does. With any other valid choice function, the caller gets\nwhatever exception that function raises for an empty sequence.\n\nThis is the documented contract for `choice` (docs/index.rst):\n\n> The optional argument `choice` may specify an alternative function that\n> returns an arbitrary element from a non-empty sequence.\n\nSo a choice function only has to handle non-empty sequences, but `popitem()`\ncalls it with an empty list and relies on the exception type it produces.\n\nThe other cache classes each detect emptiness on their own structure before\npicking a victim: `FIFOCache`, `LRUCache`, `TTLCache` and `TLRUCache` use\n`next(iter(...))` with `except StopIteration`, and `LFUCache` checks\n`if curr is root` explicitly.\n\n**Expected result**\n\n`popitem()` on an empty `RRCache` raises `KeyError(\"RRCache is empty\")`,\nlike every other cache class, whatever `choice` is.\n\n**Actual result**\n\n```\nFIFOCache                    -> KeyError: 'FIFOCache is empty'\nLRUCache                     -> KeyError: 'LRUCache is empty'\nLFUCache                     -> KeyError: 'LFUCache is empty'\nTTLCache                     -> KeyError: 'TTLCache is empty'\nRRCache(random.choice)       -> KeyError: 'RRCache is empty'\nRRCache(choice=min)          -> ValueError: min() iterable argument is empty\nRRCache(choice=max)          -> ValueError: max() iterable argument is empty\nRRCache(next(iter))          -> StopIteration:\n```\n\n`choice=min` is not a contrived example: it is the alternative choice function\nused by `tests/test_rr.py` itself, in `test_rr_getsizeof`, `test_rr_setitem`\nand others.\n\nThe `StopIteration` variant is the most unpleasant one, because inside a\ngenerator PEP 479 turns it into a `RuntimeError` far from its origin.\n\n**Reproduction steps**\n\n```python\nimport cachetools\n\ncache = cachetools.RRCache(maxsize=2, choice=min)\ncache.popitem()\n# ValueError: min() iterable argument is empty\n# expected: KeyError: 'RRCache is empty'\n```\n\nThe generic drain idiom is the realistic way to hit it:\n\n```python\nimport cachetools\n\ncache = cachetools.RRCache(maxsize=4, choice=min)\ncache[1] = 1\ncache[2] = 2\n\nwhile True:\n    try:\n        key, value = cache.popitem()\n    except KeyError:\n        break\n    print(\"popped\", key, value)\n# popped (1, 1)\n# popped (2, 2)\n# ValueError: min() iterable argument is empty\n```\n\n**Note**\n\n`popitem()` already contains the intended behaviour:\n`raise KeyError(\"%s is empty\" % type(self).__name__) from None`. That branch is\njust unreachable unless `choice` raises `IndexError`. I have a fix and a\nregression test ready and will open a pull request against `develop` linking\nthis issue.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:17:38.726Z",
+  "proof_test": {
+    "name": "test_rr_popitem_empty_raises_keyerror",
+    "source": "import pytest\n\ndef test_rr_popitem_empty_raises_keyerror():\n    import cachetools\n\n    # Test with various choice functions that raise different exceptions on empty sequences\n    choice_functions = [\n        min,\n        max,\n        lambda seq: next(iter(seq)),  # raises StopIteration\n    ]\n\n    for choice in choice_functions:\n        cache = cachetools.RRCache(maxsize=2, choice=choice)\n\n        # popitem on empty cache must raise KeyError with the cache type name\n        with pytest.raises(KeyError, match=r\"RRCache is empty\"):\n            cache.popitem()\n\n        # After adding an item, popitem should work\n        cache[1] = 1\n        assert cache.popitem() == (1, 1)\n\n        # After removing the only item, popitem must again raise KeyError\n        with pytest.raises(KeyError, match=r\"RRCache is empty\"):\n            cache.popitem()\n\n    # Also verify the default choice (random.choice) still raises KeyError\n    cache_default = cachetools.RRCache(maxsize=2)\n    with pytest.raises(KeyError, match=r\"RRCache is empty\"):\n        cache_default.popitem()\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-8df3cce388cd04d1"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n________________________________________________________________________________ test_rr_popitem_empty_raises_keyerror _________________________________________________________________________________\nlatch_issue_test.py:18: in test_rr_popitem_empty_raises_keyerror\n    cache.popitem()\n/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-bh2fmstn/base/src/cachetools/__init__.py:361: in popitem\n    key = self.__choice(self.__keys)\nE   ValueError: min() arg is an empty sequence\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rr_popitem_empty_raises_keyerror - ValueError: min() arg is an empty sequence\n1 failed in 0.16s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 0,
+      "output": ".                                                                                                                                                                                                [100%]\n1 passed in 0.13s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "................................................................................................................................................................................................ [ 56%]\n..................................................................................................................................................                                               [100%]\n338 passed in 4.53s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-87d83603",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 5,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-8df3cce388cd04d1",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_rr_popitem_empty_raises_keyerror():\n    import cachetools\n\n    # Test with various choice functions that raise different exceptions on empty sequences\n    choice_functions = [\n        min,\n        max,\n        lambda seq: next(iter(seq)),  # raises StopIteration\n    ]\n\n    for choice in choice_functions:\n        cache = cachetools.RRCache(maxsize=2, choice=choice)\n\n        # popitem on empty cache must raise KeyError with the cache type name\n        with pytest.raises(KeyError, match=r\"RRCache is empty\"):\n            cache.popitem()\n\n        # After adding an item, popitem should work\n        cache[1] = 1\n        assert cache.popitem() == (1, 1)\n\n        # After removing the only item, popitem must again raise KeyError\n        with pytest.raises(KeyError, match=r\"RRCache is empty\"):\n            cache.popitem()\n\n    # Also verify the default choice (random.choice) still raises KeyError\n    cache_default = cachetools.RRCache(maxsize=2)\n    with pytest.raises(KeyError, match=r\"RRCache is empty\"):\n        cache_default.popitem()",
+      "tautology": {
+        "checked": true,
+        "changed_symbols": [
+          "RRCache",
+          "popitem"
+        ],
+        "asserted_symbols": [
+          "RRCache",
+          "cachetools",
+          "popitem"
+        ],
+        "ok": true,
+        "reason": null,
+        "affected_symbols": [
+          "Cache",
+          "Descriptor",
+          "FIFOCache",
+          "LFUCache",
+          "LRUCache",
+          "TLRUCache",
+          "TTLCache",
+          "Wrapper",
+          "_DescriptorBase",
+          "_Link",
+          "_TimedCache",
+          "_Timer",
+          "_UnboundTTLCache",
+          "__call__",
+          "__delitem",
+          "__delitem__",
+          "__get__",
+          "__getitem__",
+          "__init__",
+          "__len__",
+          "__reduce__",
+          "__repr__",
+          "__setitem__",
+          "__setstate__",
+          "__touch",
+          "_cache",
+          "_condition",
+          "_condition_info",
+          "_locked",
+          "_locked_info",
+          "_unlocked",
+          "_unlocked_info",
+          "cache_clear",
+          "cached",
+          "cachedmethod",
+          "classmethod_wrapper",
+          "clear",
+          "currsize",
+          "decorator",
+          "expire",
+          "fifo_cache",
+          "get",
+          "lfu_cache",
+          "lru_cache",
+          "make_info",
+          "pop",
+          "rr_cache",
+          "setdefault",
+          "ttl_cache",
+          "wrapper"
+        ],
+        "mode": "repo"
+      }
+    }
+  ],
+  "tautology": {
+    "checked": true,
+    "changed_symbols": [
+      "RRCache",
+      "popitem"
+    ],
+    "asserted_symbols": [
+      "RRCache",
+      "cachetools",
+      "popitem"
+    ],
+    "ok": true,
+    "reason": null,
+    "affected_symbols": [
+      "Cache",
+      "Descriptor",
+      "FIFOCache",
+      "LFUCache",
+      "LRUCache",
+      "TLRUCache",
+      "TTLCache",
+      "Wrapper",
+      "_DescriptorBase",
+      "_Link",
+      "_TimedCache",
+      "_Timer",
+      "_UnboundTTLCache",
+      "__call__",
+      "__delitem",
+      "__delitem__",
+      "__get__",
+      "__getitem__",
+      "__init__",
+      "__len__",
+      "__reduce__",
+      "__repr__",
+      "__setitem__",
+      "__setstate__",
+      "__touch",
+      "_cache",
+      "_condition",
+      "_condition_info",
+      "_locked",
+      "_locked_info",
+      "_unlocked",
+      "_unlocked_info",
+      "cache_clear",
+      "cached",
+      "cachedmethod",
+      "classmethod_wrapper",
+      "clear",
+      "currsize",
+      "decorator",
+      "expire",
+      "fifo_cache",
+      "get",
+      "lfu_cache",
+      "lru_cache",
+      "make_info",
+      "pop",
+      "rr_cache",
+      "setdefault",
+      "ttl_cache",
+      "wrapper"
+    ],
+    "mode": "repo"
+  },
+  "finished_at": "2026-10-30T08:18:19.998Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ValueError: min() arg is an empty sequence)",
+  "proven": false,
+  "base_sha": "eadb91cc9d54a57d6738386bc5c575ff3c7d22ec",
+  "head_sha": "bcf9e8176ebe16da58751fce971c98ffe045ede1",
+  "verdict_logs": {
+    "base": "_______________________________________________________________ test_rr_popitem_empty_raises_keyerror _________________________________________________________________________________\nlatch_issue_test.py:18: in test_rr_popitem_empty_raises_keyerror\n    cache.popitem()\n/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-bh2fmstn/base/src/cachetools/__init__.py:361: in popitem\n    key = self.__choice(self.__keys)\nE   ValueError: min() arg is an empty sequence\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rr_popitem_empty_raises_keyerror - ValueError: min() arg is an empty sequence\n1 failed in 0.16s\n",
+    "head": ".                                                                                                                                                                                                [100%]\n1 passed in 0.13s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1395,
+      "completion_tokens": 1024,
+      "latency_ms": 30124,
+      "completion_id": "chatcmpl-87d83603",
+      "cost_usd": 0.000329,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 2016,
+      "completion_tokens": 686,
+      "latency_ms": 5006,
+      "completion_id": "chatcmpl-8df3cce388cd04d1",
+      "cost_usd": 0.004074,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.004403,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:17:38.727Z",
+      "detail": {
+        "base": "eadb91cc9d54a57d6738386bc5c575ff3c7d22ec",
+        "head": "bcf9e8176ebe16da58751fce971c98ffe045ede1"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:17:39.251Z",
+      "detail": {
+        "base": "eadb91cc9d54",
+        "head": "bcf9e8176ebe",
+        "changed_files": [
+          "src/cachetools/__init__.py",
+          "tests/test_rr.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:17:39.406Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:18:09.556Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:18:09.556Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:18:14.564Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-8df3cce388cd04d1"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:14.569Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:14.929Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:14.929Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:19.998Z",
+      "detail": {
+        "proof_returncode": 0,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:18:19.998Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (ValueError: min() arg is an empty sequence)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}

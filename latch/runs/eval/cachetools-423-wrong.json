@@ -1,0 +1,223 @@
+{
+  "run_id": "cachetools423.wrong",
+  "provider": "nebius",
+  "repo": "tkem/cachetools@bcf9e8176e + constructed wrong patch",
+  "base": "f781cdb272c18faf17080b2267d2996c365d71a9",
+  "head": "bf58a2f3baaecc06c5821e2c2ae56e3bcf78fdb0",
+  "issue": "RRCache.popitem() on an empty cache raises the choice function's exception instead of KeyError\n\nTested with `cachetools` 7.2.0 (current release).\n\n**Describe the bug**\n\n`RRCache.popitem()` on an empty cache only raises `KeyError` when the `choice`\nfunction happens to raise `IndexError`, which is what the default\n`random.choice` does. With any other valid choice function, the caller gets\nwhatever exception that function raises for an empty sequence.\n\nThis is the documented contract for `choice` (docs/index.rst):\n\n> The optional argument `choice` may specify an alternative function that\n> returns an arbitrary element from a non-empty sequence.\n\nSo a choice function only has to handle non-empty sequences, but `popitem()`\ncalls it with an empty list and relies on the exception type it produces.\n\nThe other cache classes each detect emptiness on their own structure before\npicking a victim: `FIFOCache`, `LRUCache`, `TTLCache` and `TLRUCache` use\n`next(iter(...))` with `except StopIteration`, and `LFUCache` checks\n`if curr is root` explicitly.\n\n**Expected result**\n\n`popitem()` on an empty `RRCache` raises `KeyError(\"RRCache is empty\")`,\nlike every other cache class, whatever `choice` is.\n\n**Actual result**\n\n```\nFIFOCache                    -> KeyError: 'FIFOCache is empty'\nLRUCache                     -> KeyError: 'LRUCache is empty'\nLFUCache                     -> KeyError: 'LFUCache is empty'\nTTLCache                     -> KeyError: 'TTLCache is empty'\nRRCache(random.choice)       -> KeyError: 'RRCache is empty'\nRRCache(choice=min)          -> ValueError: min() iterable argument is empty\nRRCache(choice=max)          -> ValueError: max() iterable argument is empty\nRRCache(next(iter))          -> StopIteration:\n```\n\n`choice=min` is not a contrived example: it is the alternative choice function\nused by `tests/test_rr.py` itself, in `test_rr_getsizeof`, `test_rr_setitem`\nand others.\n\nThe `StopIteration` variant is the most unpleasant one, because inside a\ngenerator PEP 479 turns it into a `RuntimeError` far from its origin.\n\n**Reproduction steps**\n\n```python\nimport cachetools\n\ncache = cachetools.RRCache(maxsize=2, choice=min)\ncache.popitem()\n# ValueError: min() iterable argument is empty\n# expected: KeyError: 'RRCache is empty'\n```\n\nThe generic drain idiom is the realistic way to hit it:\n\n```python\nimport cachetools\n\ncache = cachetools.RRCache(maxsize=4, choice=min)\ncache[1] = 1\ncache[2] = 2\n\nwhile True:\n    try:\n        key, value = cache.popitem()\n    except KeyError:\n        break\n    print(\"popped\", key, value)\n# popped (1, 1)\n# popped (2, 2)\n# ValueError: min() iterable argument is empty\n```\n\n**Note**\n\n`popitem()` already contains the intended behaviour:\n`raise KeyError(\"%s is empty\" % type(self).__name__) from None`. That branch is\njust unreachable unless `choice` raises `IndexError`. I have a fix and a\nregression test ready and will open a pull request against `develop` linking\nthis issue.",
+  "test_command": [
+    "/Users/kamal/.cache/latch-eval/venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "test_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "max_iterations": 3,
+  "triage": "nvidia/Nemotron-3_5-Lightning",
+  "started_at": "2026-10-30T08:17:40.347Z",
+  "proof_test": {
+    "name": "test_rrcache_popitem_empty_raises_keyerror",
+    "source": "import pytest\n\ndef test_rrcache_popitem_empty_raises_keyerror():\n    import cachetools\n\n    # Test empty cache with various choice functions\n    for choice in (None, min, max, lambda seq: next(iter(seq))):\n        cache = cachetools.RRCache(maxsize=2, choice=choice)\n        with pytest.raises(KeyError, match=r\"^RRCache is empty$\"):\n            cache.popitem()\n\n    # Test drain idiom with choice=min (as in the issue)\n    cache = cachetools.RRCache(maxsize=4, choice=min)\n    cache[1] = 1\n    cache[2] = 2\n    popped = []\n    while True:\n        try:\n            key, value = cache.popitem()\n        except KeyError:\n            break\n        popped.append((key, value))\n    assert popped == [(1, 1), (2, 2)]\n    # After draining, one more popitem should raise KeyError\n    with pytest.raises(KeyError, match=r\"^RRCache is empty$\"):\n        cache.popitem()\n",
+    "generated_by": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "completion_id": "chatcmpl-b71b70454132ea96"
+  },
+  "initial": {
+    "base_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:10: in test_rrcache_popitem_empty_raises_keyerror\n    cache.popitem()\n/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-08hk6onl/base/src/cachetools/__init__.py:361: in popitem\n    key = self.__choice(self.__keys)\nE   TypeError: 'NoneType' object is not callable\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - TypeError: 'NoneType' object is not callable\n1 failed in 0.18s\n",
+      "failure_type": null
+    },
+    "head_proof": {
+      "returncode": 1,
+      "output": "F                                                                                                                                                                                                [100%]\n=============================================================================================== FAILURES ===============================================================================================\n______________________________________________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:10: in test_rrcache_popitem_empty_raises_keyerror\n    cache.popitem()\n/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-08hk6onl/work/src/cachetools/__init__.py:361: in popitem\n    key = self.__choice(self.__keys)\nE   TypeError: 'NoneType' object is not callable\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - TypeError: 'NoneType' object is not callable\n1 failed in 0.16s\n"
+    },
+    "head_suite": {
+      "returncode": 0,
+      "output": "................................................................................................................................................................................................ [ 56%]\n.................................................................................................................................................                                                [100%]\n337 passed in 4.52s\n"
+    },
+    "base_red": false,
+    "head_suite_green": true,
+    "gate_open": false
+  },
+  "iterations": [],
+  "gate": "gave_up",
+  "verdict": "INVALID_TEST",
+  "reason": "proof test does not reproduce the issue on the base revision (no assertion failure), so it cannot judge the fix",
+  "repo_map": {
+    "status": "unavailable",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "completion_id": "chatcmpl-45e2dcee",
+    "files": [],
+    "dropped": [],
+    "text": "",
+    "files_indexed": 5,
+    "detail": "HTTP 200"
+  },
+  "proof_test_attempts": [
+    {
+      "attempt": 1,
+      "completion_id": "chatcmpl-b71b70454132ea96",
+      "valid": true,
+      "rejection": null,
+      "source": "def test_rrcache_popitem_empty_raises_keyerror():\n    import cachetools\n\n    # Test empty cache with various choice functions\n    for choice in (None, min, max, lambda seq: next(iter(seq))):\n        cache = cachetools.RRCache(maxsize=2, choice=choice)\n        with pytest.raises(KeyError, match=r\"^RRCache is empty$\"):\n            cache.popitem()\n\n    # Test drain idiom with choice=min (as in the issue)\n    cache = cachetools.RRCache(maxsize=4, choice=min)\n    cache[1] = 1\n    cache[2] = 2\n    popped = []\n    while True:\n        try:\n            key, value = cache.popitem()\n        except KeyError:\n            break\n        popped.append((key, value))\n    assert popped == [(1, 1), (2, 2)]\n    # After draining, one more popitem should raise KeyError\n    with pytest.raises(KeyError, match=r\"^RRCache is empty$\"):\n        cache.popitem()",
+      "tautology": {
+        "checked": false,
+        "changed_symbols": [],
+        "asserted_symbols": [],
+        "ok": true,
+        "reason": "not checked: src/cachetools/.___init__.py: cannot parse the changed file: source code string cannot contain null bytes",
+        "affected_symbols": []
+      }
+    }
+  ],
+  "tautology": {
+    "checked": false,
+    "changed_symbols": [],
+    "asserted_symbols": [],
+    "ok": true,
+    "reason": "not checked: src/cachetools/.___init__.py: cannot parse the changed file: source code string cannot contain null bytes",
+    "affected_symbols": []
+  },
+  "finished_at": "2026-10-30T08:18:09.564Z",
+  "verdict_reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (TypeError: 'NoneType' object is not callable)",
+  "proven": false,
+  "base_sha": "f781cdb272c18faf17080b2267d2996c365d71a9",
+  "head_sha": "bf58a2f3baaecc06c5821e2c2ae56e3bcf78fdb0",
+  "verdict_logs": {
+    "base": "_______________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:10: in test_rrcache_popitem_empty_raises_keyerror\n    cache.popitem()\n/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-08hk6onl/base/src/cachetools/__init__.py:361: in popitem\n    key = self.__choice(self.__keys)\nE   TypeError: 'NoneType' object is not callable\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - TypeError: 'NoneType' object is not callable\n1 failed in 0.18s\n",
+    "head": "_______________________________________________ test_rrcache_popitem_empty_raises_keyerror ______________________________________________________________________________\nlatch_issue_test.py:10: in test_rrcache_popitem_empty_raises_keyerror\n    cache.popitem()\n/var/folders/3q/_mxxn9_d72j97qgtpv9dh4sc0000gn/T/latch-loop-08hk6onl/work/src/cachetools/__init__.py:361: in popitem\n    key = self.__choice(self.__keys)\nE   TypeError: 'NoneType' object is not callable\n======================================================================================= short test summary info ========================================================================================\nFAILED latch_issue_test.py::test_rrcache_popitem_empty_raises_keyerror - TypeError: 'NoneType' object is not callable\n1 failed in 0.16s\n",
+    "survivors": []
+  },
+  "flaky": null,
+  "mutation": null,
+  "model_calls": [
+    {
+      "role": "repo_map",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "prompt_tokens": 1399,
+      "completion_tokens": 1024,
+      "latency_ms": 20354,
+      "completion_id": "chatcmpl-45e2dcee",
+      "cost_usd": 0.00033,
+      "status": 200
+    },
+    {
+      "role": "test_writer",
+      "provider": "nebius",
+      "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "prompt_tokens": 1538,
+      "completion_tokens": 830,
+      "latency_ms": 2866,
+      "completion_id": "chatcmpl-b71b70454132ea96",
+      "cost_usd": 0.004028,
+      "status": 200
+    }
+  ],
+  "model_cost_usd": 0.004358,
+  "model_prices_source": "https://tokenfactory.nebius.com/model-catalog.md",
+  "steps": [
+    {
+      "step": "fetch",
+      "status": "started",
+      "ts": "2026-10-30T08:17:40.347Z",
+      "detail": {
+        "base": "f781cdb272c18faf17080b2267d2996c365d71a9",
+        "head": "bf58a2f3baaecc06c5821e2c2ae56e3bcf78fdb0"
+      }
+    },
+    {
+      "step": "fetch",
+      "status": "done",
+      "ts": "2026-10-30T08:17:40.731Z",
+      "detail": {
+        "base": "f781cdb272c1",
+        "head": "bf58a2f3baae",
+        "changed_files": [
+          "src/cachetools/.___init__.py",
+          "src/cachetools/__init__.py"
+        ]
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "started",
+      "ts": "2026-10-30T08:17:40.782Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3_5-Lightning"
+      }
+    },
+    {
+      "step": "repo_map",
+      "status": "failed",
+      "ts": "2026-10-30T08:18:01.150Z",
+      "detail": {
+        "files": [],
+        "dropped": [],
+        "detail": "HTTP 200"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "started",
+      "ts": "2026-10-30T08:18:01.150Z",
+      "detail": {
+        "model": "nvidia/Nemotron-3-Ultra-550b-a55b"
+      }
+    },
+    {
+      "step": "test_writer",
+      "status": "done",
+      "ts": "2026-10-30T08:18:04.018Z",
+      "detail": {
+        "attempts": 1,
+        "completion_id": "chatcmpl-b71b70454132ea96"
+      }
+    },
+    {
+      "step": "base_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:04.018Z",
+      "detail": null
+    },
+    {
+      "step": "base_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:04.482Z",
+      "detail": {
+        "returncode": 1,
+        "failure_type": null,
+        "red": false
+      }
+    },
+    {
+      "step": "head_run",
+      "status": "started",
+      "ts": "2026-10-30T08:18:04.482Z",
+      "detail": null
+    },
+    {
+      "step": "head_run",
+      "status": "done",
+      "ts": "2026-10-30T08:18:09.564Z",
+      "detail": {
+        "proof_returncode": 1,
+        "suite_returncode": 0,
+        "gate_open": false
+      }
+    },
+    {
+      "step": "verdict",
+      "status": "done",
+      "ts": "2026-10-30T08:18:09.564Z",
+      "detail": {
+        "verdict": "INVALID_TEST",
+        "reason": "the proof test errored on base (collection, import or runtime error) instead of failing an assertion (TypeError: 'NoneType' object is not callable)"
+      }
+    }
+  ],
+  "final_iteration": 0
+}
