@@ -1,98 +1,118 @@
 # Latch
 
-A green test suite is not proof that an agent's pull request is correct. Latch is the gate that checks.
+**Your coding agent's tests are green. Latch checks whether they could ever have been red.**
 
-Track: Coding and Agentic Engineering.
+Latch is a merge gate for pull requests written by AI coding agents. It reads the issue the PR claims to fix, has NVIDIA Nemotron write one test for that issue, and opens only when the harness watches that test fail on the bug, pass on the fix, and fail again when the fix is undone. A model never decides the verdict. The harness does.
 
-Coding agents now write the code and the tests in the same pull request. The tests pass, the reviewer sees green, and the change merges. The failure is quiet: a test that calls the changed function but cannot fail. Latch finds that test, has NVIDIA Nemotron write one that can fail, and opens only when the harness, not a model, watches the new test go red on the bug and green on the fix.
+[**Try the hosted demo**](https://latch-mauve.vercel.app) · [Evidence page](https://latch-mauve.vercel.app/eval) · [Real PR comments](https://github.com/aarav1656/latch-demo/pulls) · [GitHub Action](https://latch-mauve.vercel.app/ship) · [Click #3299 receipt](https://latch-mauve.vercel.app/r/pallets/click/3299)
 
-Live: [latch-mauve.vercel.app](https://latch-mauve.vercel.app) serves the recorded receipts, the [evidence page](https://latch-mauve.vercel.app/eval) and the [CI page](https://latch-mauve.vercel.app/ship). Real PR comments: [aarav1656/latch-demo](https://github.com/aarav1656/latch-demo/pulls), three python-tabulate pull requests (validated, wrong patch kept shut, mutants survived) whose base and head commits match their recorded receipts.
+<p align="center"><img src="docs/readme/hero.svg" width="100%" alt="Latch proving pallets/click #3299: the new test fails on the base commit, passes on the fix, fails again on revert, kills mutants, and the gate opens"></p>
 
-## Results: 42 live runs on Nebius Token Factory
+---
 
-`nvidia/Nemotron-3-Ultra-550b-a55b` writes every proof test and every fix; `nvidia/Nemotron-3_5-Lightning` maps the repository and triages the base failure. The harness decides. The set: 21 real bug fixes (9 upstream fixes from cachetools, boltons, tabulate, toolz, packaging, more-itertools and click, plus 12 SWE-bench Lite sympy instances), 9 hand-built plausible-but-wrong patches, and 12 runs where Nemotron writes the fix itself and the instance's hidden tests judge it.
+## The problem in one minute
+
+Coding agents now write the fix **and** the tests for it, in the same pull request. CI goes green, the reviewer sees green, the PR merges. Nobody checked whether those tests could fail.
+
+They often can't:
+
+- Given only the buggy code, Claude Sonnet 5 wrote a suite that **passed on the bug in 53 of 54 runs**. Adding a written spec to the prompt lifted detection to 96%. ([Dik Rana, 2026](https://dikrana.dev/blog/agent-tests-lock-in-bugs/))
+- 80.2% of 86,156 test-file patches in agent-authored PRs had a weak or missing oracle. ([arXiv 2606.18168](https://arxiv.org/abs/2606.18168))
+- "All 12 tests passed. An independent verifier reversed the condition. All 12 still passed." ([@NatureBlueee](https://x.com/NatureBlueee/status/2115186551407944177))
+- "Asked it to write tests. It handed me a PR full of green checkmarks that test absolutely nothing." ([Viljami Kuosmanen](https://www.linkedin.com/posts/anttiviljami_caught-claude-code-red-handed-again-asked-activity-7469105276210532352-mLSJ))
+
+The usual advice is "make the agent run the tests". **Running a test that cannot fail proves nothing.** Latch asks the opposite question: would this test have caught the bug, and would it catch the fix being undone?
+
+<p align="center"><img src="docs/readme/hole.svg" width="100%" alt="Bundled fixture: moving seats >= 10 to seats > 10 leaves the shipped suite green because one test asserts a value equals itself; Latch's new test fails on the moved line and passes on the original"></p>
+
+## Who it is for
+
+| You are | Your pain | What Latch gives you |
+|---|---|---|
+| **A maintainer** of a Python library getting agent-written PRs | You can read the diff, but you can't tell if the new test would ever have caught the bug | A comment on the PR with one verdict and a receipt you can rerun |
+| **A team** running Claude Code, Codex, Copilot agent or Devin on real repos | Agents ship tautological or bug-locking tests that pass review | A CI check that stays shut until a test is proven able to fail |
+| **A reviewer** with fifty agent PRs in the queue | Reading every test line by line doesn't scale | A sort order: `VALIDATED` first, `FIX_FAILS_TEST` gets your attention |
+
+## How it works
+
+<p align="center"><img src="docs/readme/pipeline.svg" width="100%" alt="Pipeline: issue and PR go in, Nemotron Lightning maps the repo and triages, Nemotron Ultra writes one pytest, the harness runs base, head, revert and mutants, the receipt carries one verdict"></p>
+
+**The linked issue is the oracle.** Agent tests fail because they are written from the code, so they copy its bugs. Latch writes its test from the issue, the one description of correct behaviour the agent didn't author. Then five checks, all executed, no model vote:
+
+| # | Check | What would make it fail |
+|---|---|---|
+| 1 | **Red on base.** The test fails on the commit before the fix, on an assertion | A test that passes on the bug shows nothing |
+| 2 | **Green on fix.** It passes on the PR, with the repo's own suite still green | The fix doesn't do what the issue asks |
+| 3 | **Stable.** Same answer over 5 reruns on each side | A flaky test is not evidence |
+| 4 | **Red on revert.** The harness undoes the fix and the test must fail again | The test isn't actually tied to the change |
+| 5 | **Kills mutants.** Small edits to the fixed lines (`>=` to `>`, `and` to `or`) must break the test, 60% or more | The test is too loose to pin the fix |
+
+Pass all five and the gate opens with `VALIDATED`. Anything else gets a named refusal, so you know whether the **test** or the **fix** is the problem:
+
+| Verdict | Means |
+|---|---|
+| `VALIDATED` | Red on base, green on head, stable, red on revert, mutants killed |
+| `FIX_FAILS_TEST` | The test is sound; the fix doesn't satisfy the issue. **Look at this PR.** |
+| `MUTATION_SURVIVED` | The test passes even with the fix mangled |
+| `NO_REGRESSION_FOUND` | The test passes on base, so it shows no bug |
+| `FLAKY` | Different results on repeated runs of the same code |
+| `INVALID_TEST` | Latch couldn't build a sound test; says nothing against the fix |
+
+Two models split the work on [Nebius Token Factory](https://tokenfactory.nebius.com): `nvidia/Nemotron-3_5-Lightning` maps the repo and confirms the base failure is the issue's own failure; `nvidia/Nemotron-3-Ultra-550b-a55b` reasons over the issue and the diff and writes the test.
+
+## Results: 42 live runs
+
+<p align="center"><img src="docs/readme/scoreboard.svg" width="100%" alt="Results: 0 of 9 wrong patches accepted, 10 of 21 real fixes proven, 28 of 31 mutants killed, 2.22 dollars for 42 runs"></p>
+
+21 real bug fixes (9 upstream fixes from cachetools, boltons, tabulate, toolz, packaging, more-itertools and click, plus 12 SWE-bench Lite sympy instances), 9 hand-built plausible-but-wrong patches, and 12 runs where Nemotron writes the fix itself and the instance's hidden tests judge it.
 
 | Measure | Result |
 |---|---|
-| Real fixes proven: red on base, green on the fix, suite green, stable over 5 reruns, revert and mutation checks | **10 of 21 (48%)**: upstream 5 of 9, sympy 5 of 12 |
-| Wrong patches accepted | **0 of 9** |
-| Wrong patches failed by a valid proof test | 6 of 9 (the other 3 kept the gate shut by default) |
-| Runs where Nemotron wrote the fix and the gate opened on a fix the hidden tests reject | 0 of 12 |
-| Mutants of the proven fixes' changed lines killed by the proof test | 28 of 31 (90%) |
+| **Wrong patches accepted** | **0 of 9** (6 of 9 failed by a valid proof test, the rest kept the gate shut) |
+| Real fixes proven through all five checks | 10 of 21 (upstream 5 of 9, sympy 5 of 12) |
+| Gate opened on a Nemotron fix the hidden tests reject | 0 of 12 |
+| Mutants killed, across the 11 fixes that reached the mutation check | 28 of 31 (90%) |
 | Flaky proof tests | 0 of 12 rerun |
-| Cost, from the receipts' token counts at list prices | $2.22 for all 42 runs, median $0.018 per run, 21 minutes with 3 jobs |
+| Cost | **$2.22 for all 42 runs**, median $0.018 per run, $0.22 per proven fix |
 
-**Test repair.** When a proof test errors instead of asserting (a missing import, or the bug's own exception escaping the test), Ultra gets that test's own error output once and rewrites it; the rewritten test goes through every check again. The same 42 runs before it shipped: 7 of 21 proven, 3 of 9 wrong patches failed by a valid test, 1 accepted (packaging-810, now failed by its proof test). Both runs are committed side by side: `latch/runs/eval-summary.json`, `latch/runs/eval-summary-repair.json` and the per-case table `latch/runs/eval-diff-repair.md`. Full method in `latch/loop/eval/RESULTS.md`.
+Every number is read from `latch/runs/eval-summary-repair.json`, and every graphic on this page is drawn from the committed receipts by `python3 docs/readme/build.py`. Method: `latch/loop/eval/RESULTS.md`.
 
-**Why Ultra writes the tests.** A live A/B on 5 cases (real fix and wrong patch each) put `nvidia/Nemotron-3.5-Super-VL` in the test writer's seat: it proved the same 5 real fixes at $0.0059 per proof against Ultra's $0.0087, and accepted 1 of 5 wrong patches (packaging-810) that Ultra's test caught. The gate exists to refuse wrong fixes, so Ultra stays the default and `latch eval run --test-model` swaps the writer for anyone who wants the trade. Data: `latch/runs/eval-ab-super.json`.
+The number a merge gate lives on is how often it opens for a wrong patch. For context, test generators measured on fail-to-pass alone report 31.4% (Otter, [arXiv 2502.05368](https://arxiv.org/abs/2502.05368)) and 43.6% (AssertFlip, [arXiv 2507.17542](https://arxiv.org/abs/2507.17542)) on a different benchmark with a looser pass condition.
 
-For context on a different benchmark with a looser pass condition (fail-to-pass only): Otter 31.4% ([arXiv 2502.05368](https://arxiv.org/abs/2502.05368)), AssertFlip 43.6% ([arXiv 2507.17542](https://arxiv.org/abs/2507.17542)).
+## Try it
 
-## How Latch compares
+**In the browser.** Open [latch-mauve.vercel.app](https://latch-mauve.vercel.app) and browse recorded proofs, or run it locally and paste any public GitHub PR that closes an issue:
 
-**0 of 9 wrong patches accepted.** Latch is the entry that measures the number a merge gate lives on: how often it opens for a patch that is wrong. Otter and AssertFlip report only fail-to-pass, whether a test fails before the gold fix and passes after. Latch also reports the other side, nine plausible-but-wrong patches, none of which opened the gate, 6 of 9 failed by a valid proof test.
-
-| | **Latch** | CodeRabbit | qodo-cover / Qodo Merge | AegisPR | Slopgate | Otter / AssertFlip |
-|---|---|---|---|---|---|---|
-| What it proves | A pull request's fix changes the behaviour its issue describes, by execution | Not stated (AI review comments; the Team plan generates unit tests) | Generated tests pass and raise coverage | The outcome of one proposed test on the base and PR commits | A slop rewrite keeps behaviour, via characterization tests | A generated test fails before the gold fix and passes after |
-| Test anchored to the issue | Yes, the linked issue is the oracle | Not stated | Not stated (coverage-driven) | Not stated (risk hypotheses from the code change) | No (characterizes the original code) | Yes (Otter: tests from issues; AssertFlip: bug reproduction) |
-| Red on base and green on fix, executed | Yes | Not stated | Not stated (new tests must pass; coverage must rise) | Yes, in Docker sandboxes; evidence from one seeded PR | Tests pass on original and rewrite, in Token Factory Sandboxes | Yes, fail-to-pass |
-| Revert check | Yes | Not stated | Not stated | Not stated | Not stated | Not stated |
-| Mutation check | Yes, 28 of 31 mutants killed | Not stated | Not stated | Not stated in the evidence run | Yes, up to 8 boundary mutants per function | Not stated |
-| Wrong-patch acceptance measured | **0 of 9** | Not stated | Not stated | Not stated | Not stated (0 of 14 proven rewrites broke a hidden test) | Not stated (fail-to-pass only) |
-| Cost per run | Median $0.018; **$0.22 per proven fix** | Not stated | Not stated (credits at $0.012 each) | $0.00145 for one run (app estimate) | $1.16 for 15 instances; $0.08 per proven rewrite | Not stated |
-| Price | Your own model credit, no seat fee | $24 per user a month annual (Essentials); Team $48 annual | $30 a month Pro Team plan (qodo-cover is AGPL-3.0) | MIT, free | Not stated | Papers |
-
-Latch's cells come from `latch/runs/eval-summary-repair.json` and the Results table above. Cost per proven fix is `benchmark.cost_usd / real_validated.k`, which is $2.2239 / 10 = $0.22, so the figure carries the spend on wrong patches and unproven runs too. Slopgate's per proven rewrite is its published $1.16 / 14 = $0.08.
-
-The Otter (31.4%) and AssertFlip (43.6%) numbers are on a different benchmark, with a looser pass condition and different instances, so they are context and not a head-to-head score. Competitor cells are read from their own pages ([CodeRabbit pricing](https://www.coderabbit.ai/pricing), [qodo-cover](https://github.com/qodo-ai/qodo-cover) and [Qodo pricing](https://www.qodo.ai/pricing/), [AegisPR](https://github.com/Hari-Aditya-003/AegisPR), [Slopgate](https://github.com/agno-nymous/slopgate), [Otter](https://arxiv.org/abs/2502.05368), [AssertFlip](https://arxiv.org/abs/2507.17542)); "Not stated" means that page does not say.
-
-## The problem, in the words of people hitting it
-
-- "All 12 tests passed. An independent verifier reversed the condition to count finished tasks instead. All 12 still passed." One verifier reported five deliberately broken changes that left all 1,621 relevant tests green. [@NatureBlueee](https://x.com/NatureBlueee/status/2115186551407944177)
-- "Use a precommit hook to require an agent to run tests before committing." [@wmertens](https://x.com/wmertens/status/2115473040624554360)
-- "No merge of agent patches until upstream is green AND patch tests pass on the rebased tip." [@DYoung_AI](https://x.com/DYoung_AI/status/2115470900808102089)
-- Claude Code can commit without running tests: [anthropics/claude-code#35042](https://github.com/anthropics/claude-code/issues/35042).
-
-Running the tests is not enough. The tests have to be able to fail.
-
-## Fixture run
-
-The pull request in `latch/fixture/` changes an annual plan discount. `billing.py` grants it at 10 seats or more. The shipped suite checks a monthly plan, 12 annual seats, and 3 annual seats, and it has a test for exactly 10 seats that asserts the result equals itself.
-
-```mermaid
-flowchart LR
-  A[Run shipped suite on the original line] -->|green| B[Move the boundary: seats >= 10 becomes seats > 10]
-  B --> C[Run shipped suite again]
-  C -->|still green| D[Lightning names the test that cannot fail]
-  D --> E[Ultra writes a test on the inputs the two lines disagree on]
-  E --> F[Harness runs it on the changed line]
-  F -->|AssertionError| G[Harness restores the line and runs it again]
-  G -->|pass| H[Padlock opens]
+```sh
+export NEBIUS_API_KEY=...        # Token Factory key
+python3 latch/serve.py           # http://127.0.0.1:4173, paste a PR, press "Prove this fix"
 ```
 
-1. The harness runs the suite on the original source. It must pass.
-2. The harness moves the boundary from `>=` to `>`. The suite must still pass. That is the hole.
-3. `nvidia/Nemotron-3_5-Lightning` reads the change and the tests and names the test that still passes when the line is wrong.
-4. `nvidia/Nemotron-3-Ultra-550b-a55b` reads both versions of the source and the suite and writes one test function.
-5. The harness writes that function to `test_kill.py` and runs it on the changed line. It must fail with an `AssertionError`.
-6. The harness restores the line and runs it again. It must pass.
-7. Only then does the padlock read Open.
+**From the command line.** Python 3.10+, no dependencies.
 
-## Prove a real issue fix
+```sh
+pip install -e .
+latch prove --repo . --base <sha> --head <sha> --issue-file issue.md --receipt receipt.json
+latch loop  --repo . --base <sha> --head <sha> --issue-file issue.md   # shut gate? Nemotron repairs the fix, harness re-judges
+latch comment receipt.json                                               # render the PR comment
+latch demo --human                                                       # the bundled case, as a timeline
+```
 
-For a real Python pull request, Latch takes the issue report as the expected behavior, asks Nemotron Ultra for one focused pytest, archives the selected commits into temporary directories, then runs the same test against both snapshots. The receipt keeps the generated test, commit hashes, model completion id, and both test outputs. Latch accepts only when the named test fails on base with an assertion or an explicit unexpected-operation failure and passes on head. It does not check out or edit the supplied repository.
+Exit status: `0` proven, `1` not proven, `2` error.
 
-Example with Click issue [#3298](https://github.com/pallets/click/issues/3298) and its fix [#3299](https://github.com/pallets/click/pull/3299):
+**On every pull request.** Copy [`latch/loop/github/latch.yml`](latch/loop/github/latch.yml) to `.github/workflows/`, add a `NEBIUS_API_KEY` secret, and Latch keeps one comment up to date on each PR. Fork PRs get no secrets, so the action fails closed. See it on three real python-tabulate PRs: [aarav1656/latch-demo](https://github.com/aarav1656/latch-demo/pulls) (validated, wrong patch kept shut, mutants survived).
+
+<details>
+<summary><b>Walkthrough: proving Click #3299 end to end</b></summary>
+
+Click issue [#3298](https://github.com/pallets/click/issues/3298): help text crashes with `ValueError` when an option's default is a `semver.Version` and `show_default=True`. Fix: [#3299](https://github.com/pallets/click/pull/3299).
 
 ```sh
 git clone https://github.com/pallets/click.git ~/click
 git -C ~/click fetch origin pull/3299/head:latch-pr-3299
-python3 -m venv ~/click-venv
-. ~/click-venv/bin/activate
+python3 -m venv ~/click-venv && . ~/click-venv/bin/activate
 python3 -m pip install pytest semver==3.0.4
-LATCH_REPO=/path/to/nvdia
-PYTHONPATH="$LATCH_REPO" python3 -m latch.prove \
+PYTHONPATH=/path/to/this/checkout python3 -m latch.prove \
   --repo ~/click \
   --base 04ef3a6f473deb2499721a8d11f92a7d2c0912f2 \
   --head d340b0c1202284a1b9d0ca892549208527d586ce \
@@ -101,137 +121,103 @@ PYTHONPATH="$LATCH_REPO" python3 -m latch.prove \
   --receipt click-3298.json
 ```
 
-Set `/path/to/nvdia` to this checkout. The command uses the active Python environment for project dependencies and writes a JSON receipt. Exit status 0 means the issue regression was reproduced on base and the test passed on head; status 1 means the test did not prove that transition.
+Ultra wrote `test_semver_version_default_show_default`. It failed 5 of 5 on base, passed 5 of 5 on the fix, failed again on revert and killed 2 of 3 mutants. The whole receipt cost $0.0066. Latch archives the commits into temporary directories and never checks out or edits your repository. The receipt holds captured pytest output, so inspect it before sharing if your tests print private values.
 
-The receipt contains captured pytest output. Inspect it before sharing if the project prints private values during tests.
+</details>
 
-## Scope: why two models
+<details>
+<summary><b>What is in a receipt</b></summary>
 
-Lightning is the fast read: one sentence, naming the weak test, so the engineer knows what the agent got wrong. Ultra does the hard step: reasoning over two near-identical sources to find the inputs where they disagree, then writing an executable test on exactly those inputs. Both calls go to Nebius Token Factory at `https://api.tokenfactory.nebius.com/v1/chat/completions`.
+Every run writes one JSON receipt: both commit hashes, the generated test, base and head outputs, the verdict and its reason, every mutant with operator, line, diff and output, and `model_calls[]` with role (`repo_map`, `triage`, `test_writer`, `fixer`), model, tokens, latency, completion id and cost. Cost is an upper bound from Token Factory's published per-token prices. `steps[]` and the JSONL event stream carry `{step, status, ts, detail}` for `fetch`, `repo_map`, `base_run`, `head_run`, `revert_check` and the verdict.
 
-The real issue path uses Ultra to write the test against the issue report and patch diff. The issue supplies the expected behavior, so the fast diagnosis step is not needed there.
+</details>
 
-## What it refuses to guess
+<details>
+<summary><b>Verdict rules, flake check and mutation check in full</b></summary>
 
-A model response alone never opens the gate. Latch does not treat an arbitrary test failure as proof: the named generated test must fail on the base revision with an assertion or an explicit unexpected-operation failure, then pass on the patch. A timeout, import error, missing test, or patch failure leaves the receipt unproven.
+The harness decides with fixed rules in `latch/verdict.py`; the first rule that matches wins: `INVALID_TEST` (vacuous, or errored at import, collection or runtime instead of asserting, or triage said the failure is not the reported one), `FLAKY`, `NO_REGRESSION_FOUND`, `FIX_FAILS_TEST` (still fails on head, or the repo suite goes red), `MUTATION_SURVIVED`, then `VALIDATED`.
 
-## When the padlock stays shut
+**Test repair.** When a proof test errors instead of asserting (a missing import, or the bug's own exception escaping the test), Ultra gets that test's error output once and rewrites it; the rewritten test goes through every check again. The same 42 runs before repair shipped: 7 of 21 proven. Both runs are committed side by side: `latch/runs/eval-summary.json`, `latch/runs/eval-summary-repair.json`, `latch/runs/eval-diff-repair.md`.
 
-The padlock is Shut when the run starts and stays Shut unless every check below holds. Each refusal is a code path in `latch/run.py`, and the screen shows the reason.
+**Flake check.** Before the revert check, Latch reruns the proof test on base and head (`--flake-runs N`, default 5, at most 10). No model runs. If either side disagrees with itself the verdict is `FLAKY`, and the receipt records `base_fail_rate`, `head_pass_rate` and `flake_rate`.
 
-| Refusal | Why |
-| --- | --- |
-| The suite fails on the original source | The pull request is broken for a plainer reason |
-| The changed line is not actually changed, or the suite already fails on it | There is no hole to close |
-| The model id is not in the live Token Factory catalog | A removed model cannot be the proof |
-| The system prompt contains the answer | Ultra must find the inputs itself |
-| Ultra returns no function, or one that never calls `discount_applies(10, ...)` | Prose and off-target tests are rejected by the parser |
-| The new test fails with anything other than `AssertionError` on the change | An import error or crash is not a caught bug |
-| The new test fails after the line is restored | A test that fails everywhere proves nothing |
-| Timeout or HTTP error | The screen shows the status code |
+**Mutation check.** Latch mutates only the lines the fix changed (up to 5 mutants: flipped comparison boundaries, negated conditions, `and`/`or` swaps, off-by-one on integer constants, a `None` return) in temporary copies and runs the frozen test against each. The gate needs a kill rate of at least 60% (`--no-mutation` turns it off). A timed-out mutant counts as killed, an unrunnable one as survived; mutants the time budget stopped (240 s, 600 s under a custom runner, `LATCH_MUTATION_BUDGET` overrides) are recorded as `not_run` and excluded from the rate. A change with no mutable lines records `total: 0`.
 
-## Proof run
+**Revert check.** After the gate opens, the harness reverts the fix and requires the proof test to fail again. `--no-revert` turns it off and says so in the receipt.
 
-`latch/runs/latest.json` is the last live run.
+</details>
 
-- Shipped suite on the original line: green. On `seats > 10`: still green.
-- Lightning, HTTP 200: "The test `test_ten_seats_ran` still passes despite the changed line being wrong, because it uses a tautological `assertIs(applied, applied)` that doesn't actually verify the discount logic."
-- Ultra, HTTP 200, completion `chatcmpl-87fee6d9c6662143`, wrote:
+<details>
+<summary><b>Why Ultra writes the tests (model A/B)</b></summary>
 
-```python
-def test_ten_seats_annual_discount(self):
-    self.assertTrue(discount_applies(10, True))
-    self.assertEqual(annual_price_cents(10), 10 * 800)
-```
+A live A/B on 5 cases (real fix and wrong patch each) put `nvidia/Nemotron-3.5-Super-VL` in the test writer's seat. It proved the same 5 real fixes at $0.0059 per proof against Ultra's $0.0087, and accepted 1 of 5 wrong patches (packaging-810) that Ultra's test caught. The gate exists to refuse wrong fixes, so Ultra stays the default; `latch eval run --test-model` swaps the writer for anyone who wants the trade. Data: `latch/runs/eval-ab-super.json`.
 
-- On `seats > 10` it failed with `AssertionError`. After restore it passed. Padlock: Open.
+</details>
 
-## The loop, the CLI and the PR comment
+<details>
+<summary><b>How Latch compares</b></summary>
 
-`latch/loop/` is the gate for an agent's patch: Lightning triages whether the failure reproduces the issue, Ultra rewrites existing source files up to N times, and the harness (never the model) decides open or shut. The proof test is frozen. It must fail on the base with an assertion, pass on the patch, keep the repo suite green, and fail again when the harness reverts the fix.
+| | **Latch** | CodeRabbit | qodo-cover / Qodo Merge | AegisPR | Slopgate | Otter / AssertFlip |
+|---|---|---|---|---|---|---|
+| What it proves | A PR's fix changes the behaviour its issue describes, by execution | Not stated (AI review comments) | Generated tests pass and raise coverage | One proposed test on base and PR commits | A rewrite keeps behaviour, via characterization tests | A generated test fails before the gold fix and passes after |
+| Test anchored to the issue | Yes | Not stated | Not stated (coverage-driven) | Not stated | No | Yes |
+| Red on base, green on fix, executed | Yes | Not stated | Not stated | Yes, in Docker | Tests pass on original and rewrite | Yes |
+| Revert check | Yes | Not stated | Not stated | Not stated | Not stated | Not stated |
+| Mutation check | Yes, 28 of 31 killed | Not stated | Not stated | Not stated | Yes, up to 8 per function | Not stated |
+| Wrong-patch acceptance measured | **0 of 9** | Not stated | Not stated | Not stated | Not stated | Not stated |
+| Cost | Median $0.018 per run, $0.22 per proven fix | Not stated | Credits at $0.012 each | $0.00145 for one run | $0.08 per proven rewrite | Papers |
+| Price | Your own model credit, no seat fee | $24 per user a month | $30 a month Pro Team | MIT, free | Not stated | Papers |
 
-```
-pip install -e .                     # adds the `latch` command
-latch prove --repo . --base <sha> --head <sha> --issue-file issue.md --receipt receipt.json
-latch loop  --repo . --base <sha> --head <sha> --issue-file issue.md      # shut -> triage -> patch -> open
-latch demo --human --pace            # the film-mode timeline of the bundled demo case
-latch comment receipt.json           # print the PR comment (dry run); --post needs --repo, --pr and GITHUB_TOKEN
-```
+Competitor cells are read from their own pages ([CodeRabbit](https://www.coderabbit.ai/pricing), [qodo-cover](https://github.com/qodo-ai/qodo-cover), [Qodo](https://www.qodo.ai/pricing/), [AegisPR](https://github.com/Hari-Aditya-003/AegisPR), [Slopgate](https://github.com/agno-nymous/slopgate), [Otter](https://arxiv.org/abs/2502.05368), [AssertFlip](https://arxiv.org/abs/2507.17542)); "Not stated" means that page does not say. Cost per proven fix is `benchmark.cost_usd / real_validated.k` = $2.2239 / 10, so it carries the spend on wrong patches and unproven runs too.
 
-- **Model use, recorded.** Every receipt has `model_calls[]` (role `repo_map`, `triage`, `test_writer` or `fixer`; model; tokens; latency; completion id; cost). Lightning also builds a repo map (relevant files and symbols, checked against an AST index of the base snapshot) that goes into Ultra's test prompt. Cost is an upper-bound estimate from Token Factory's published per-token prices (https://tokenfactory.nebius.com/model-catalog.md, read 2026-10-30; cached-input discounts are not applied). It is `null` when token counts are unknown.
-- **Steps.** `steps[]` and the JSONL event stream carry `{step, status, ts, detail}` for `fetch`, `repo_map`, `base_run`, `head_run`, `revert_check` and the verdict.
-- **Revert check.** After the gate opens, the harness reverts the fix (and, in the loop, restores the submitted patch) and requires the proof test to fail again. If it does not, or the check cannot run, the gate stays shut. `--no-revert` turns it off and says so in the receipt.
-- **Demo output.** On a terminal `python3 -m latch.loop demo` prints a coloured human timeline (`--pace` slows it for filming, about 90 s); piped output stays JSONL for the web (`--jsonl` forces it). The demo case is built to show the loop's whole arc: a fix that repairs the conflict check and misses the merge, the way agents often do, which the gate shuts and Nemotron then repairs.
-- **GitHub Action.** `.github/actions/latch` (composite) and the example workflow `latch/loop/github/latch.yml` run Latch on `pull_request` and keep one PR comment up to date. PR-controlled text goes through `env:`, never into a script, and fork PRs get no secrets, so the action fails closed. Posting is opt-in and nothing in this repo posts by default.
-- **Evaluation.** `latch eval run` runs the benchmark behind the Results section above and writes the summary, a Markdown report and every receipt; `--tag NAME` writes a second run beside the first and `latch eval diff` compares them case by case. `latch eval oracle` runs the upstream tests themselves on base, real fix and wrong patch as the answer key, with no model; `latch eval manifest --check` verifies the pinned models, prompts and dataset; `latch eval run --dry-run` exercises the whole pipeline offline. Method, baselines and the summary schema (version 2) are in `latch/loop/eval/RESULTS.md`, with a Slopgate-style comparison table quoted from Slopgate's own repo.
-- **Dev-only provider.** `LATCH_PROVIDER=openrouter` (or `--provider openrouter` on `prove`, `loop`, `demo`, `eval`) sends the same Ultra and Lightning calls to OpenRouter's free `nvidia/nemotron-3-ultra-550b-a55b:free` and `nvidia/nemotron-3.5-lightning:free` with `OPENROUTER_API_KEY` from the environment, for development while Token Factory credit is unavailable. The default stays `nebius`. Every receipt carries `provider` and each `model_calls[]` entry records the provider and resolved model id; costs are `null` off Token Factory. An openrouter run writes only under `latch/runs/dev/` (`latch eval run` writes `latch/runs/dev/eval-summary-openrouter.json` marked `dev_only: true`, never `latch/runs/eval-summary.json`), so it can never feed the site or the numbers above.
-- **Dev receipts.** `latch/runs/dev/` holds dev-only OpenRouter receipts (`provider: openrouter`, `dev_only: true`) that the site never serves and the Docker image excludes; they are not hackathon results.
+</details>
 
-## Verdicts
+<details>
+<summary><b>The bundled fixture, step by step</b></summary>
 
-Every `latch prove` and `latch loop` run ends with exactly one named verdict. The harness decides it with fixed rules in `latch/verdict.py`, never the model. The first rule that matches wins:
+`latch/fixture/` holds a PR that changes an annual plan discount. `billing.py` grants it at 10 seats or more. The shipped suite has a test for exactly 10 seats that asserts the result equals itself.
 
-| # | Verdict | When |
-|---|---------|------|
-| 1 | `INVALID_TEST` | the generated test was rejected as vacuous, or it errored (import, collection, runtime) instead of failing an assertion, or triage said the failure is not the reported one |
-| 2 | `FLAKY` | the proof test gave different results on repeated runs of the same code |
-| 3 | `NO_REGRESSION_FOUND` | the proof test passes on base, so it shows no bug |
-| 4 | `FIX_FAILS_TEST` | the proof test still fails on head, or the repo's own suite goes red |
-| 5 | `MUTATION_SURVIVED` | the proof test still passes with the fix reverted (or too many mutants of the fix survive) |
-| 6 | `VALIDATED` | red on base, green on head, and every gate above passed |
+1. The harness runs the suite on the original source. It must pass.
+2. It moves the boundary from `>=` to `>`. The suite must still pass. That is the hole.
+3. Lightning names the test that cannot fail: *"`test_ten_seats_ran` uses a tautological `assertIs(applied, applied)`."*
+4. Ultra reads both versions and writes one test on the inputs where they disagree.
+5. The harness runs it on the moved line: `AssertionError`. Restores the line: pass. Padlock opens.
 
-**Flake check.** Before the revert check, Latch reruns the proof test on base and on head (`--flake-runs N`, default 5, at most 10, 1 turns it off; the first run counts). It runs no model. If either side is not the same on every run the verdict is `FLAKY`, and the receipt's `flaky` block records `runs`, `base_fail_rate`, `head_pass_rate` and `flake_rate` (the share of runs that disagree with their side's majority). A flaky test that sometimes passes on base is reported as `FLAKY`, not as "no regression found".
+The padlock stays shut on every refusal in `latch/run.py`: suite red on the original, no real change, model id missing from the live Token Factory catalog, answer leaked in the prompt, off-target or prose output, a non-assertion failure, a test that fails everywhere, timeout or HTTP error. The last live run is `latch/runs/latest.json` (Ultra completion `chatcmpl-87fee6d9c6662143`).
 
-**Mutation check.** After the revert check passes, Latch mutates only the lines the fix changed (up to 5 mutants: flipped comparison boundaries, negated conditions, `and`/`or` swaps, off-by-one on integer constants, a `None` return) and runs the frozen proof test against each mutant of head. A mutant the test fails on is killed. The gate needs a kill rate of at least 60% (`--no-mutation` turns the check off); otherwise the verdict is `MUTATION_SURVIVED`. Mutants run in temporary copies, never in your repo. A mutant that times out counts as killed, a mutant that cannot be run counts as survived, and mutants the time budget stopped before they ran (240 s, or 600 s under a custom runner such as the hosted sandbox; `LATCH_MUTATION_BUDGET` overrides both) are recorded as `not_run` and left out of `killed`/`total`, so the kill rate is over the mutants that ran. If the budget lets fewer than 2 mutants run, the check is `incomplete`: it does not block, and the receipt note and verdict reason say `mutation check incomplete: budget`. A change with no mutable lines records `total: 0` and does not block. The receipt's `mutation` block lists every mutant with its operator, file, line, diff and output excerpt.
+</details>
 
-`proven` stays in the receipt as `verdict == "VALIDATED"`. Each receipt also carries `verdict_reason`, `base_sha`, `head_sha` and `verdict_logs` (log excerpts from base, head and any surviving mutants). A loop receipt keeps the old gate state (`gate_open`, `gave_up`, `error`) in `gate`; `verdict` is `null` only when the run died on an infrastructure error. `FIX_FAILS_TEST` is separate from the other four failure verdicts on purpose: a test that is right but a fix that is wrong should not read as a bad test.
+<details>
+<summary><b>Evaluation harness and dev provider</b></summary>
 
-## Prior art
+`latch eval run` runs the benchmark and writes the summary, a Markdown report and every receipt; `--tag NAME` writes a second run beside the first and `latch eval diff` compares them case by case. `latch eval oracle` runs the upstream tests themselves on base, real fix and wrong patch as the answer key, with no model. `latch eval manifest --check` verifies the pinned models, prompts and dataset. `latch eval run --dry-run` exercises the pipeline offline.
 
-Mutation testing is old. [mutmut](https://github.com/boxed/mutmut) (BSD-3-Clause, 1,513 stars) flips operators and reports survivors. [Flawd](https://fixture.dev/flawd) mutation-tested 10 projects and found TypeORM's unit tests killed 72.6% of mutants. Its `flawd handoff` packages each survivor for a coding agent.
+`LATCH_PROVIDER=openrouter` (or `--provider openrouter`) sends the same calls to OpenRouter's free Nemotron endpoints with `OPENROUTER_API_KEY`, for development. Those runs write only under `latch/runs/dev/`, are marked `dev_only: true`, and never feed the site or the numbers above. `latch/runs/dev/` holds those dev-only OpenRouter receipts, which the site never serves and the Docker image excludes; they are not hackathon results.
 
-The fixture gate demonstrates the mutation loop. The real issue path uses a maintainer report as an independent behavior oracle, then checks whether the same generated regression test distinguishes the actual buggy and fixed commits.
+</details>
 
-## Outside evidence: mutation-guided test generation at Meta
+<details>
+<summary><b>Prior art: mutation-guided test generation at Meta</b></summary>
 
-Meta describes the same core idea running in production. In [Mutation-Guided LLM-based Test Generation at Meta](https://arxiv.org/abs/2501.12862) (Foster et al., 2025), the ACH system uses an LLM (Llama 3.1 70B) to propose a small number of simulated faults (mutants) that no existing test catches, then asks an LLM to write a test that kills each one. ACH was applied to 10,795 Android Kotlin classes across 7 Meta platforms and produced 571 tests. Engineers at two test-a-thons accepted 73% of the 191 tests they reviewed, and judged 36% relevant to the privacy concern ACH targeted. The paper also finds that about half of the tests that killed a new mutant added no line coverage, so judging tests on coverage alone would have discarded them.
+Meta's ACH ([Foster et al., 2025](https://arxiv.org/abs/2501.12862)) uses Llama 3.1 70B to propose faults no existing test catches, then writes tests that kill them: 571 tests across 10,795 Android Kotlin classes, 73% accepted by engineers. About half the tests that killed a new mutant added no line coverage, so coverage alone would have discarded them. A test earns its place by failing on a deliberate fault. Latch applies that rule at pull-request time, anchored to the issue, as an open CLI and GitHub Action for any Python repository. Classic mutation tools: [mutmut](https://github.com/boxed/mutmut), [Flawd](https://fixture.dev/flawd).
 
-That is evidence that a test earns its place by failing on a deliberate fault, which is Latch's rule. It is not evidence about Latch. ACH is Meta's internal tool for Kotlin, and it was not evaluated on pull requests or on patches from coding agents. Latch applies the principle at pull-request time for Python repositories: a generated test must fail on the bug and pass on the fix, the harness reverts the fix to confirm, and it ships as an open command and a GitHub Action that works on any repository.
-
-## Run it
-
-Python 3.10 or newer, no dependencies. Put `NEBIUS_API_KEY` in the environment, or as an `export` line in `~/.zshrc`.
-
-```
-python3 latch/serve.py
-```
-
-Open http://127.0.0.1:4173/, paste a public GitHub pull request that closes one issue in the same repository, and select **Prove this fix**. Latch shows the linked issue, exact base and head commits, generated test, both test outcomes, and the JSON proof receipt.
-
-Tests:
-
-```
-python3 -m unittest latch.test_prove latch.harness.test_parse latch.harness.test_kill_check latch.harness.test_prose latch.screen.test_render
-```
-
-## The hosted site
-
-`python3 -m latch.web.app` serves a paste-a-PR page, shareable receipts at `/r/owner/repo/pr`, an evidence page at `/eval` (the newest committed live run, with the earlier run and the per-case diff beside it) and a CLI and GitHub Action page at `/ship`. Every model call, token count and cost on a receipt is read from the receipt; anything missing shows as "not recorded". Run, API and deploy notes are in `latch/web/README.md`; the visual system is in `latch/web/DESIGN.md`.
+</details>
 
 ## Layout
 
-- `latch/run.py`: the gate. Runs the suite, moves the line, calls Lightning and Ultra, runs the new test both ways.
-- `latch/prove.py`: the issue-to-regression CLI for real Python repositories and commit pairs.
-- `latch/loop/`: the patch gate, its human timeline, and the eval harness (`latch/loop/eval/`).
-- `latch/cli.py`, `latch/pr_comment.py`, `.github/actions/latch/`: the `latch` command and the PR comment.
-- `latch/web/`: the hosted site (paste a PR, receipts, evidence, CI page).
-- `latch/serve.py`: local server for the screen and the run API.
-- `latch/screen/page.py`: the screen.
-- `latch/harness/`: parser and the AssertionError check, with tests.
-- `latch/fixture/`: the pull request under test and the line flipper.
-- `latch/runs/click-3298.json`: live issue proof receipt from the Click fix.
-- `docs/WIN-CONDITIONS.md`: the pre-code decision.
-- `research/`: everything read and tested along the way. Start at `research/README.md`.
+| Path | What |
+|---|---|
+| `latch/prove.py` | Issue-to-proof for real repos and commit pairs |
+| `latch/verdict.py` | The six verdict rules |
+| `latch/loop/` | The patch gate, human timeline, and eval harness (`latch/loop/eval/`) |
+| `latch/cli.py`, `latch/pr_comment.py`, `.github/actions/latch/` | The `latch` command, PR comment, GitHub Action |
+| `latch/web/` | Hosted site: paste a PR, receipts, `/eval`, `/ship` |
+| `latch/run.py`, `latch/fixture/` | The bundled fixture gate |
+| `latch/runs/` | Committed live receipts and eval summaries |
+| `docs/readme/build.py` | Draws this page's animated graphics from the receipts |
+| `research/` | Everything read and tested along the way |
+
+Tests: `python3 -m unittest latch.test_prove latch.test_verdict latch.test_mutate latch.harness.test_parse latch.harness.test_kill_check latch.screen.test_render`
 
 ## License
 
